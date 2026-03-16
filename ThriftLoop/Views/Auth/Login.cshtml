@@ -1,0 +1,131 @@
+﻿@model ThriftLoop.DTOs.Auth.LoginDTO
+@{
+    ViewData["Title"] = "Sign In";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="auth-shell">
+
+    <aside class="auth-panel auth-panel--brand">
+        <div class="brand-wordmark">ThriftLoop</div>
+        <p class="brand-tagline">Second-hand style.<br>First-class finds.</p>
+        <div class="brand-decoration" aria-hidden="true">
+            <span class="deco-ring deco-ring--lg"></span>
+            <span class="deco-ring deco-ring--md"></span>
+            <span class="deco-ring deco-ring--sm"></span>
+        </div>
+    </aside>
+
+    <main class="auth-panel auth-panel--form">
+        <div class="form-card">
+
+            <header class="form-card__header">
+                <h1 class="form-card__title">Welcome back</h1>
+                <p class="form-card__subtitle">Sign in to continue to ThriftLoop</p>
+            </header>
+
+            @if (TempData["ExternalAuthError"] is string extError)
+            {
+                <div class="alert alert--error" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                    <span>@extError</span>
+                </div>
+            }
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert--error" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                    <div asp-validation-summary="ModelOnly"></div>
+                </div>
+            }
+
+            <a asp-action="GoogleLogin" asp-controller="Auth"
+               asp-route-returnUrl="@returnUrl"
+               class="btn btn--google">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Continue with Google
+            </a>
+
+            <div class="auth-divider">
+                <span>or sign in with email</span>
+            </div>
+
+            <form asp-action="Login" asp-controller="Auth" asp-route-returnUrl="@returnUrl"
+                  method="post" novalidate class="auth-form">
+                @Html.AntiForgeryToken()
+
+                <div class="field">
+                    <label asp-for="Email" class="field__label"></label>
+                    <input asp-for="Email"
+                           class="field__input"
+                           type="email"
+                           autocomplete="email"
+                           placeholder="you@example.com"
+                           spellcheck="false" />
+                    <span asp-validation-for="Email" class="field__error"></span>
+                </div>
+
+                <div class="field">
+                    <div class="field__label-row">
+                        <label asp-for="Password" class="field__label"></label>
+                        <a href="#" class="field__link">Forgot password?</a>
+                    </div>
+                    <div class="field__input-wrapper">
+                        <input asp-for="Password"
+                               id="passwordInput"
+                               class="field__input"
+                               type="password"
+                               autocomplete="current-password"
+                               placeholder="••••••••" />
+                        <button type="button" class="toggle-password" aria-label="Toggle password visibility"
+                                onclick="togglePassword()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                        </button>
+                    </div>
+                    <span asp-validation-for="Password" class="field__error"></span>
+                </div>
+
+                <div class="field field--inline">
+                    <label class="checkbox-label">
+                        <input asp-for="RememberMe" type="checkbox" class="checkbox-input" />
+                        <span class="checkbox-custom"></span>
+                        <span class="checkbox-text">Keep me signed in</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn--primary">
+                    Sign In
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                </button>
+            </form>
+
+            <footer class="form-card__footer">
+                <p>
+                    Don't have an account?
+                    <a asp-action="Register" asp-controller="Auth" class="footer-link">Create one free</a>
+                </p>
+            </footer>
+
+        </div>
+    </main>
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        function togglePassword() {
+            const input = document.getElementById('passwordInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+    </script>
+}

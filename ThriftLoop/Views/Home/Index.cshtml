@@ -1,0 +1,122 @@
+﻿@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "shopper";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard – ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+    <style>
+        .dashboard {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--cream);
+        }
+        .dashboard-nav {
+            background: var(--forest);
+            padding: 1rem 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .dashboard-nav__logo {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.6rem;
+            color: var(--cream);
+            letter-spacing: -.02em;
+        }
+        .dashboard-nav__user {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+        .dashboard-nav__email {
+            font-size: .88rem;
+            color: rgba(245,240,232,.7);
+        }
+        .dashboard-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1.5rem;
+        }
+        .welcome-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            padding: 3rem 3.5rem;
+            text-align: center;
+            max-width: 480px;
+            width: 100%;
+        }
+        .welcome-card__badge {
+            display: inline-block;
+            background: rgba(45,84,64,.1);
+            color: var(--forest-lite);
+            font-size: .78rem;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: .35rem .9rem;
+            border-radius: 999px;
+            margin-bottom: 1.25rem;
+        }
+        .welcome-card__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            color: var(--forest);
+            margin-bottom: .75rem;
+        }
+        .welcome-card__body {
+            font-size: .95rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+
+        <nav class="dashboard-nav">
+            <span class="dashboard-nav__logo">ThriftLoop</span>
+            <div class="dashboard-nav__user">
+                <span class="dashboard-nav__email">@userEmail</span>
+                <form asp-action="Logout" asp-controller="Auth" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn--primary"
+                            style="padding:.5rem 1.1rem;font-size:.85rem;margin-top:0;">
+                        Sign out
+                    </button>
+                </form>
+            </div>
+        </nav>
+
+        <main class="dashboard-main">
+            <div class="welcome-card">
+                <span class="welcome-card__badge">✓ Authenticated</span>
+                <h1 class="welcome-card__title">You're in, @userEmail.Split('@')[0]!</h1>
+                <p class="welcome-card__body">
+                    Your ThriftLoop account is set up and ready.<br>
+                    Start browsing second-hand finds curated just for you.
+                </p>
+                <a href="#" class="btn btn--primary" style="display:inline-flex;width:auto;padding:.75rem 2rem;">
+                    Explore listings
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                </a>
+            </div>
+        </main>
+
+    </div>
+</body>
+</html>
