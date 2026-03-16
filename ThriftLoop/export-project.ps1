@@ -102,3 +102,6 @@ Write-Host "Export completed! $exportedCount files exported." -ForegroundColor G
 
 # 6. Open in Chrome
 Start-Process "chrome.exe" "file:///$($OutputFile.Replace('\','/'))"
+
+
+# Commands: .\export-project.ps1 -Excludes -Filter
