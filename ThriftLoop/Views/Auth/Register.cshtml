@@ -1,6 +1,7 @@
 ﻿@model ThriftLoop.DTOs.Auth.RegisterDTO
 @{
     ViewData["Title"] = "Create Account";
+    ViewData["HideNavbar"] = true;
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
@@ -32,7 +33,7 @@
                 </div>
             }
 
-            {{!-- Google sign-up --}}
+            @* Google sign-up *@
             <a asp-action="GoogleLogin" asp-controller="Auth" class="btn btn--google">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -134,17 +135,17 @@
         }
 
         document.getElementById('passwordInput').addEventListener('input', function () {
-            const val = this.value;
+            const val  = this.value;
             const fill = document.getElementById('strengthFill');
             let strength = 0;
-            if (val.length >= 8) strength++;
-            if (/[A-Z]/.test(val)) strength++;
-            if (/[0-9]/.test(val)) strength++;
+            if (val.length >= 8)          strength++;
+            if (/[A-Z]/.test(val))        strength++;
+            if (/[0-9]/.test(val))        strength++;
             if (/[^A-Za-z0-9]/.test(val)) strength++;
 
             const pct = (strength / 4) * 100;
             fill.style.width = pct + '%';
-            fill.className = 'strength-bar__fill';
+            fill.className   = 'strength-bar__fill';
             if (strength <= 1)      fill.classList.add('strength-bar__fill--weak');
             else if (strength <= 2) fill.classList.add('strength-bar__fill--fair');
             else if (strength <= 3) fill.classList.add('strength-bar__fill--good');

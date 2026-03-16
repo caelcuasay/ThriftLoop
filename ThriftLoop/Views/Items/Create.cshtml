@@ -1,0 +1,460 @@
+﻿@model ThriftLoop.ViewModels.ItemCreateViewModel
+@{
+    ViewData["Title"] = "List an Item";
+}
+
+@* ─────────────────────────────────────────────────────────────────────────── *@
+@*  Views/Items/Create.cshtml                                                  *@
+@*  Strongly typed to ItemCreateViewModel.                                     *@
+@*  CSS lives in site.css under the  ── Create Page ──  section.              *@
+@* ─────────────────────────────────────────────────────────────────────────── *@
+
+<div class="create-page">
+
+    @* ── Page header ──────────────────────────────────────────────────────── *@
+    <div class="create-header">
+        <a asp-controller="Home" asp-action="Index" class="create-header__back">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back
+        </a>
+        <div>
+            <h1 class="create-header__title">List a new item</h1>
+            <p class="create-header__subtitle">Fill in the details and your item goes live instantly.</p>
+        </div>
+    </div>
+
+    @* ── Success banner (Post / Redirect / Get) ────────────────────────────── *@
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="create-toast" id="createToast" role="status">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+            </svg>
+            @successMsg
+        </div>
+    }
+
+    @* ── Model-level validation summary ────────────────────────────────────── *@
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="create-error-banner" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+            <span>Please fix the errors below before posting.</span>
+        </div>
+    }
+
+    @* ── Two-column form card ───────────────────────────────────────────────── *@
+    <form asp-action="Create" asp-controller="Items" method="post"
+          enctype="multipart/form-data" id="createForm" novalidate>
+        @Html.AntiForgeryToken()
+
+        <div class="create-grid">
+
+            @* ═══════════════════════════════════════════════════════════════ *@
+            @*  LEFT  — Photo upload                                           *@
+            @* ═══════════════════════════════════════════════════════════════ *@
+            <aside class="create-photo-col">
+
+                <p class="create-section-label">Photo</p>
+
+                <div class="photo-dropzone" id="photoDropzone" tabindex="0"
+                     role="button" aria-label="Upload a photo — click or drag and drop">
+
+                    @* Hidden real input *@
+                    <input asp-for="Image" type="file" id="photoInput"
+                           class="photo-dropzone__input"
+                           accept="image/jpeg,image/png,image/webp" />
+
+                    @* Empty state *@
+                    <div class="photo-dropzone__empty" id="dropzoneEmpty">
+                        <div class="photo-dropzone__icon">
+                            <svg viewBox="0 0 48 48" fill="none">
+                                <rect x="4" y="10" width="40" height="28" rx="4"
+                                      stroke="currentColor" stroke-width="2" />
+                                <circle cx="34" cy="18" r="3"
+                                        stroke="currentColor" stroke-width="2" />
+                                <path d="M4 32l10-10 8 8 6-6 8 8"
+                                      stroke="currentColor" stroke-width="2"
+                                      stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <p class="photo-dropzone__main">
+                            <span class="photo-dropzone__cta">Click to upload</span>
+                            or drag &amp; drop
+                        </p>
+                        <p class="photo-dropzone__hint">JPEG, PNG or WebP · max 5 MB</p>
+                    </div>
+
+                    @* Preview state (hidden until file chosen) *@
+                    <div class="photo-dropzone__preview" id="dropzonePreview" hidden>
+                        <img id="previewImg" src="" alt="Item preview" />
+                        <button type="button" class="photo-dropzone__remove" id="removePhoto"
+                                aria-label="Remove photo">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    @* Drag-over overlay *@
+                    <div class="photo-dropzone__overlay" id="dropzoneOverlay" hidden>
+                        <p>Drop to add photo</p>
+                    </div>
+                </div>
+
+                <span asp-validation-for="Image" class="create-field-error mt-1 d-block"></span>
+
+                @* ── Tips panel ────────────────────────────────────────── *@
+                <div class="create-tips">
+                    <p class="create-tips__heading">Tips for a great listing</p>
+                    <ul class="create-tips__list">
+                        <li>Use natural light for the clearest shot</li>
+                        <li>Include any visible wear or flaws honestly</li>
+                        <li>Square crops work best on the feed</li>
+                    </ul>
+                </div>
+
+            </aside>
+
+            @* ═══════════════════════════════════════════════════════════════ *@
+            @*  RIGHT  — Listing details                                       *@
+            @* ═══════════════════════════════════════════════════════════════ *@
+            <section class="create-form-col">
+
+                @* ── Title ──────────────────────────────────────────────── *@
+                <div class="create-field @(!ViewData.ModelState.IsValid && ViewData.ModelState["Title"]?.Errors.Count > 0 ? "create-field--error" : "")">
+                    <div class="create-field__top">
+                        <label asp-for="Title" class="create-field__label">Title</label>
+                        <span class="create-field__counter" id="titleCounter">0 / 100</span>
+                    </div>
+                    <input asp-for="Title" class="create-field__input" id="titleInput"
+                           placeholder="e.g. Vintage Levi's 501 Jeans"
+                           maxlength="100" autocomplete="off" />
+                    <span asp-validation-for="Title" class="create-field-error"></span>
+                </div>
+
+                @* ── Description ────────────────────────────────────────── *@
+                <div class="create-field @(!ViewData.ModelState.IsValid && ViewData.ModelState["Description"]?.Errors.Count > 0 ? "create-field--error" : "")">
+                    <div class="create-field__top">
+                        <label asp-for="Description" class="create-field__label">Description</label>
+                        <span class="create-field__counter" id="descCounter">0 / 1000</span>
+                    </div>
+                    <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
+                              id="descInput" rows="5" maxlength="1000"
+                              placeholder="Describe the item honestly — size, colour, any defects or wear…"></textarea>
+                    <span asp-validation-for="Description" class="create-field-error"></span>
+                </div>
+
+                @* ── Price ──────────────────────────────────────────────── *@
+                <div class="create-field @(!ViewData.ModelState.IsValid && ViewData.ModelState["Price"]?.Errors.Count > 0 ? "create-field--error" : "")">
+                    <label asp-for="Price" class="create-field__label">Price</label>
+                    <div class="create-price-wrap">
+                        <span class="create-price-wrap__symbol">₱</span>
+                        <input asp-for="Price" class="create-field__input create-price-wrap__input"
+                               type="number" step="0.01" min="0.01" max="99999.99"
+                               placeholder="0.00" />
+                    </div>
+                    <span asp-validation-for="Price" class="create-field-error"></span>
+                </div>
+
+                @* ── Category — clickable pill chips ────────────────────── *@
+                <div class="create-field @(!ViewData.ModelState.IsValid && ViewData.ModelState["Category"]?.Errors.Count > 0 ? "create-field--error" : "")">
+                    <label class="create-field__label">Category</label>
+
+                    @* Hidden select that actually submits *@
+                    <select asp-for="Category" class="create-hidden-select" id="categorySelect">
+                        <option value=""></option>
+                        @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+
+                    <div class="create-chips" id="categoryChips" role="group" aria-label="Category">
+                        @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                        {
+                            <button type="button"
+                                    class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
+                                    data-value="@cat"
+                                    data-target="categorySelect">
+                                @cat
+                            </button>
+                        }
+                    </div>
+                    <span asp-validation-for="Category" class="create-field-error"></span>
+                </div>
+
+                @* ── Condition — horizontal visual scale ─────────────────── *@
+                <div class="create-field @(!ViewData.ModelState.IsValid && ViewData.ModelState["Condition"]?.Errors.Count > 0 ? "create-field--error" : "")">
+                    <label class="create-field__label">Condition</label>
+
+                    @* Hidden select that actually submits *@
+                    <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
+                        <option value=""></option>
+                        @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                        {
+                            <option value="@cond">@cond</option>
+                        }
+                    </select>
+
+                    <div class="create-condition" id="conditionPills" role="group" aria-label="Condition">
+                        @{
+                            var condIcons = new[] { "✦", "★", "◆", "▲", "●" };
+                            var condIdx = 0;
+                        }
+                        @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                        {
+                            <button type="button"
+                                    class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
+                                    data-value="@cond"
+                                    data-target="conditionSelect">
+                                <span class="create-condition__icon">@condIcons[condIdx]</span>
+                                <span class="create-condition__label">@cond</span>
+                            </button>
+                            condIdx++;
+                        }
+                    </div>
+                    <span asp-validation-for="Condition" class="create-field-error"></span>
+                </div>
+
+                @* ── Actions ─────────────────────────────────────────────── *@
+                <div class="create-actions">
+                    <button type="submit" class="create-btn create-btn--primary" id="submitBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
+                        </svg>
+                        Post Listing
+                    </button>
+                    <a asp-action="Index" asp-controller="Home" class="create-btn create-btn--ghost">
+                        Cancel
+                    </a>
+                </div>
+
+            </section>
+        </div>
+    </form>
+</div>
+
+@* ─────────────────────────────────────────────────────────────────────────── *@
+@*  Inline Scripts                                                              *@
+@* ─────────────────────────────────────────────────────────────────────────── *@
+@section Scripts {
+    @* jQuery Unobtrusive Validation (required for asp-validation-for) *@
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        (function () {
+            'use strict';
+
+            // ── 1. Character counters ────────────────────────────────────────────
+            function bindCounter(inputId, counterId, max) {
+                var el = document.getElementById(inputId);
+                var counter = document.getElementById(counterId);
+                if (!el || !counter) return;
+
+                function update() {
+                    var len = el.value.length;
+                    counter.textContent = len + ' / ' + max;
+                    counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
+                }
+                el.addEventListener('input', update);
+                update(); // initialise on page load (handles server-side round-trip)
+            }
+
+            bindCounter('titleInput', 'titleCounter', 100);
+            bindCounter('descInput', 'descCounter', 1000);
+
+            // ── 2. Chip / pill selection ─────────────────────────────────────────
+            // Shared handler for both Category chips and Condition pills.
+            function bindChips(containerId) {
+                var container = document.getElementById(containerId);
+                if (!container) return;
+
+                container.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    var selectId = btn.dataset.target;
+                    var select = document.getElementById(selectId);
+                    if (!select) return;
+
+                    // Deactivate siblings
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active', 'create-condition__pill--active');
+                        b.removeAttribute('aria-pressed');
+                    });
+
+                    // Activate chosen
+                    btn.classList.add(
+                        containerId === 'categoryChips'
+                            ? 'create-chip--active'
+                            : 'create-condition__pill--active'
+                    );
+                    btn.setAttribute('aria-pressed', 'true');
+
+                    // Sync hidden select (drives model binding + server validation)
+                    select.value = btn.dataset.value;
+
+                    // Trigger jQuery Validate so the field clears immediately
+                    if (window.$ && $.validator) {
+                        $(select).valid();
+                    }
+                });
+
+                // Keyboard: Space / Enter on focused button
+                container.addEventListener('keydown', function (e) {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                        var btn = e.target.closest('[data-value]');
+                        if (btn) { e.preventDefault(); btn.click(); }
+                    }
+                });
+            }
+
+            bindChips('categoryChips');
+            bindChips('conditionPills');
+
+            // ── 3. Photo dropzone ────────────────────────────────────────────────
+            var dropzone  = document.getElementById('photoDropzone');
+            var input     = document.getElementById('photoInput');
+            var emptyEl   = document.getElementById('dropzoneEmpty');
+            var previewEl = document.getElementById('dropzonePreview');
+            var overlay   = document.getElementById('dropzoneOverlay');
+            var previewImg = document.getElementById('previewImg');
+            var removeBtn = document.getElementById('removePhoto');
+
+            if (dropzone && input) {
+                // Click on zone → trigger file picker
+                dropzone.addEventListener('click', function (e) {
+                    if (e.target === removeBtn || removeBtn.contains(e.target)) return;
+                    input.click();
+                });
+
+                // Keyboard accessibility on the zone itself
+                dropzone.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        input.click();
+                    }
+                });
+
+                // File chosen via picker
+                input.addEventListener('change', function () {
+                    if (input.files && input.files[0]) {
+                        showPreview(input.files[0]);
+                    }
+                });
+
+                // Remove photo
+                removeBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    clearPreview();
+                });
+
+                // Drag events
+                ['dragenter', 'dragover'].forEach(function (evt) {
+                    dropzone.addEventListener(evt, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        overlay.hidden = false;
+                        dropzone.classList.add('photo-dropzone--drag');
+                    });
+                });
+
+                ['dragleave', 'dragend'].forEach(function (evt) {
+                    dropzone.addEventListener(evt, function (e) {
+                        e.preventDefault();
+                        overlay.hidden = true;
+                        dropzone.classList.remove('photo-dropzone--drag');
+                    });
+                });
+
+                dropzone.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    overlay.hidden = true;
+                    dropzone.classList.remove('photo-dropzone--drag');
+
+                    var file = e.dataTransfer.files[0];
+                    if (!file) return;
+
+                    // Client-side type guard (server validates too)
+                    var allowed = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowed.includes(file.type)) {
+                        showDropzoneError('Only JPEG, PNG, or WebP images are accepted.');
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        showDropzoneError('Image must be smaller than 5 MB.');
+                        return;
+                    }
+
+                    // Assign to the real input (DataTransfer)
+                    var dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+
+                    showPreview(file);
+                });
+            }
+
+            function showPreview(file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                    emptyEl.hidden = true;
+                    previewEl.hidden = false;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function clearPreview() {
+                input.value = '';
+                previewImg.src = '';
+                previewEl.hidden = true;
+                emptyEl.hidden = false;
+            }
+
+            function showDropzoneError(msg) {
+                // Re-use the existing validation span next to the input
+                var span = input.closest('.create-photo-col').querySelector('.create-field-error');
+                if (span) {
+                    span.textContent = msg;
+                    setTimeout(function () { span.textContent = ''; }, 4000);
+                }
+            }
+
+            // ── 4. Submit guard — add loading state ──────────────────────────────
+            var form      = document.getElementById('createForm');
+            var submitBtn = document.getElementById('submitBtn');
+
+            if (form && submitBtn) {
+                form.addEventListener('submit', function () {
+                    // Only lock if form is valid (jQuery Validate will block invalid submits)
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('create-btn--loading');
+                    submitBtn.innerHTML =
+                        '<svg class="spin" viewBox="0 0 20 20" fill="currentColor">' +
+                        '<path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/>' +
+                        '</svg> Posting…';
+                });
+            }
+
+            // ── 5. Auto-dismiss success toast ────────────────────────────────────
+            var toast = document.getElementById('createToast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-12px)';
+                    setTimeout(function () { toast.remove(); }, 400);
+                }, 4000);
+            }
+
+        }());
+    </script>
+}
