@@ -1,6 +1,6 @@
-﻿Project Structure: C:\Users\juhnl\source\repos\ThriftLoop\ThriftLoop
+﻿Project Structure: C:\Users\LENOVO\source\repos\ThriftLoop\ThriftLoop
 Project Export
-Excludes: .css
+Filters: Home, Item
 
 =========================================
 
@@ -30,7 +30,8 @@ Excludes: .css
 |   +-- Interface
 |       +-- IAuthService.cs
 |-- ViewModels
-|   +-- ItemCreateViewModel.cs
+|   |-- ItemCreateViewModel.cs
+|   +-- ItemEditViewModel.cs
 |-- Views
 |   |-- Auth
 |   |   |-- Login.cshtml
@@ -42,10 +43,18 @@ Excludes: .css
 |   |   +-- Privacy.cshtml
 |   |-- Items
 |   |   |-- Create.cshtml
-|   |   +-- Create.cshtml.cs
+|   |   |-- Create.cshtml.cs
+|   |   |-- Delete.cshtml
+|   |   |-- Delete.cshtml.cs
+|   |   |-- Edit.cshtml
+|   |   |-- Edit.cshtml.cs
+|   |   |-- Index.cshtml
+|   |   +-- Index.cshtml.cs
 |   |-- Shared
 |   |   |-- _Layout.cshtml
 |   |   |-- _Layout.cshtml.css
+|   |   |-- _Navbar.cshtml
+|   |   |-- _Navbar.cshtml.cs
 |   |   |-- _ValidationScriptsPartial.cshtml
 |   |   +-- Error.cshtml
 |   |-- _ViewImports.cshtml
@@ -71,347 +80,22 @@ FILE CONTENTS
 
 
 
---- appsettings.Development.json ---
+--- Controllers/HomeController.cs ---
 
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  }
-}
-
-
-
---- appsettings.json ---
-
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=.;Database=ThriftLoopDB;User Id=sa;Password=3ed2ws1qa!!!;TrustServerCertificate=True;"
-  },
-  "Authentication": {
-    "Google": {
-      "ClientId": "",
-      "ClientSecret": ""
-    }
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*"
-}
-
-
---- Program.cs ---
-
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Repositories.Implementation;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.Services.Auth.Implementation;
-using ThriftLoop.Services.Auth.Interface;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// â”€â”€ MVC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-builder.Services.AddControllersWithViews();
-
-// â”€â”€ Database (EF Core + SQL Server) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorNumbersToAdd: null)));
-
-// â”€â”€ Authentication â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-
-    // Primary session cookie
-    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-    {
-        options.LoginPath = "/Auth/Login";
-        options.LogoutPath = "/Auth/Logout";
-        options.AccessDeniedPath = "/Auth/Login";
-        options.Cookie.Name = "ThriftLoop.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;   // Lax required for OAuth redirects
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(2);
-    })
-
-    // Short-lived cookie that bridges the Google OAuth callback to our handler
-    .AddCookie("ExternalCookie", options =>
-    {
-        options.Cookie.Name = "ThriftLoop.External";
-        options.Cookie.HttpOnly = true;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
-    })
-
-    // Google OAuth 2.0
-    .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
-    {
-        options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
-        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
-
-        // The middleware posts back to this path; register it in Google Console as:
-        // https://<your-domain>/signin-google
-        options.CallbackPath = "/signin-google";
-
-        // Store the Google identity in the short-lived external cookie
-        options.SignInScheme = "ExternalCookie";
-
-        options.Scope.Add("email");
-        options.Scope.Add("profile");
-
-        // Persist the access token in case it is needed later
-        options.SaveTokens = true;
-    });
-
-// â”€â”€ Dependency Injection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IItemRepository, ItemRepository>();
-
-var app = builder.Build();
-
-// â”€â”€ Middleware Pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-
-app.Run();
-
-
---- Controllers/AuthController.cs ---
-
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Services.Auth.Interface;
 
 namespace ThriftLoop.Controllers;
 
-public class AuthController : Controller
+[Authorize]
+public class HomeController : Controller
 {
-    private readonly IAuthService _authService;
-    private readonly ILogger<AuthController> _logger;
-
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
-    {
-        _authService = authService;
-        _logger = logger;
-    }
-
-    // ─────────────────────────────────────────
-    //  REGISTER
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult Register()
-    {
-        if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction("Index", "Home");
-
-        return View();
-    }
-
-    [HttpPost]
-    [AllowAnonymous]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(RegisterDTO dto)
-    {
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var user = await _authService.RegisterAsync(dto);
-
-        if (user is null)
-        {
-            ModelState.AddModelError(nameof(dto.Email), "An account with this email already exists.");
-            return View(dto);
-        }
-
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
-
-        _logger.LogInformation("User {UserId} registered and signed in.", user.Id);
-        return RedirectToAction("Index", "Home");
-    }
-
-    // ─────────────────────────────────────────
-    //  LOGIN
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null)
-    {
-        if (User.Identity?.IsAuthenticated == true)
-            return RedirectToLocal(returnUrl);
-
-        ViewData["ReturnUrl"] = returnUrl;
-        return View();
-    }
-
-    [HttpPost]
-    [AllowAnonymous]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginDTO dto, string? returnUrl = null)
-    {
-        ViewData["ReturnUrl"] = returnUrl;
-
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var user = await _authService.ValidateCredentialsAsync(dto);
-
-        if (user is null)
-        {
-            ModelState.AddModelError(string.Empty, "Invalid email or password.");
-            return View(dto);
-        }
-
-        await SignInUserAsync(user.Id, user.Email, dto.RememberMe);
-
-        _logger.LogInformation("User {UserId} logged in.", user.Id);
-        return RedirectToLocal(returnUrl);
-    }
-
-    // ─────────────────────────────────────────
-    //  GOOGLE OAUTH
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult GoogleLogin(string? returnUrl = null)
-    {
-        // After Google posts back to /signin-google the middleware will redirect
-        // to ExternalLoginCallback, carrying returnUrl through.
-        var redirectUrl = Url.Action(
-            nameof(ExternalLoginCallback), "Auth", new { returnUrl });
-
-        var properties = new AuthenticationProperties
-        {
-            RedirectUri = redirectUrl
-        };
-
-        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
-    }
-
-    [HttpGet]
-    [AllowAnonymous]
-    public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null)
-    {
-        // Read the identity the Google middleware stored in the external cookie.
-        var externalResult = await HttpContext.AuthenticateAsync("ExternalCookie");
-
-        if (!externalResult.Succeeded || externalResult.Principal is null)
-        {
-            _logger.LogWarning("External authentication failed or was cancelled.");
-            TempData["ExternalAuthError"] = "Google sign-in failed. Please try again.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        var email = externalResult.Principal.FindFirstValue(ClaimTypes.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            _logger.LogWarning("Google did not return an email address.");
-            TempData["ExternalAuthError"] = "Google did not provide an email address. Please try again.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        // Discard the short-lived external cookie — it is no longer needed.
-        await HttpContext.SignOutAsync("ExternalCookie");
-
-        // Find the existing user or auto-provision a new password-less account.
-        var user = await _authService.FindOrCreateGoogleUserAsync(email);
-
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
-
-        _logger.LogInformation("User {UserId} signed in via Google.", user.Id);
-        return RedirectToLocal(returnUrl);
-    }
-
-    // ─────────────────────────────────────────
-    //  LOGOUT
-    // ─────────────────────────────────────────
-
-    [HttpPost]
-    [Authorize]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Logout()
-    {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        _logger.LogInformation("User signed out.");
-        return RedirectToAction(nameof(Login));
-    }
-
-    // ─────────────────────────────────────────
-    //  HELPERS
-    // ─────────────────────────────────────────
-
-    private async Task SignInUserAsync(int userId, string email, bool rememberMe)
-    {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Email, email),
-            new(ClaimTypes.Name, email)
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        var authProperties = new AuthenticationProperties
-        {
-            IsPersistent = rememberMe,
-            ExpiresUtc = rememberMe
-                ? DateTimeOffset.UtcNow.AddDays(30)
-                : DateTimeOffset.UtcNow.AddHours(2)
-        };
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            authProperties);
-    }
-
-    private IActionResult RedirectToLocal(string? returnUrl)
-    {
-        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
-            return Redirect(returnUrl);
-
-        return RedirectToAction("Index", "Home");
-    }
+    public IActionResult Index() => View();
 }
+
+
+--- Controllers/ItemController.cs ---
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -438,6 +122,24 @@ public class ItemsController : Controller
         _logger = logger;
     }
 
+    // ── INDEX (My Listings) ────────────────────────────────────────────────
+
+    /// <summary>GET /Items — shows all listings posted by the current user.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Index()
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId))
+            return Unauthorized();
+
+        var items = await _itemRepository.GetItemsByUserIdAsync(userId);
+
+        _logger.LogInformation(
+            "User {UserId} viewed My Listings ({Count} items).", userId, items.Count);
+
+        return View(items);
+    }
+
     // ── CREATE ─────────────────────────────────────────────────────────────
 
     /// <summary>GET /Items/Create — renders the empty Create form.</summary>
@@ -459,42 +161,19 @@ public class ItemsController : Controller
         if (!int.TryParse(rawId, out int userId))
             return Unauthorized();
 
-        // ── Handle optional image upload ───────────────────────────────────
         string? imageUrl = null;
 
         if (viewModel.Image is not null && viewModel.Image.Length > 0)
         {
-            // Validate: images only, 5 MB max
-            var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
-            if (!allowed.Contains(viewModel.Image.ContentType))
+            var (saved, error) = await SaveImageAsync(viewModel.Image);
+            if (error is not null)
             {
-                ModelState.AddModelError(nameof(viewModel.Image),
-                    "Only JPEG, PNG, or WebP images are accepted.");
+                ModelState.AddModelError(nameof(viewModel.Image), error);
                 return View(viewModel);
             }
-
-            if (viewModel.Image.Length > 5 * 1024 * 1024)
-            {
-                ModelState.AddModelError(nameof(viewModel.Image),
-                    "Image must be smaller than 5 MB.");
-                return View(viewModel);
-            }
-
-            // Build a collision-proof filename: uploads/items/{guid}.ext
-            var ext = Path.GetExtension(viewModel.Image.FileName).ToLowerInvariant();
-            var fileName = $"{Guid.NewGuid()}{ext}";
-            var folder = Path.Combine(_env.WebRootPath, "uploads", "items");
-
-            Directory.CreateDirectory(folder); // safe no-op if already exists
-
-            var fullPath = Path.Combine(folder, fileName);
-            await using var stream = System.IO.File.Create(fullPath);
-            await viewModel.Image.CopyToAsync(stream);
-
-            imageUrl = $"/uploads/items/{fileName}";
+            imageUrl = saved;
         }
 
-        // ── Map ViewModel → Domain Model ──────────────────────────────────
         var item = new Item
         {
             Title = viewModel.Title,
@@ -502,7 +181,7 @@ public class ItemsController : Controller
             Price = viewModel.Price,
             Category = viewModel.Category,
             Condition = viewModel.Condition,
-            ImageUrl = imageUrl,           // null is fine — nullable column
+            ImageUrl = imageUrl,
             CreatedAt = DateTime.UtcNow,
             UserId = userId
         };
@@ -511,168 +190,180 @@ public class ItemsController : Controller
         _logger.LogInformation("User {UserId} created Item {ItemId}.", userId, item.Id);
 
         TempData["SuccessMessage"] = $"'{item.Title}' was listed successfully!";
-        return RedirectToAction(nameof(Create));
-    }
-}
-
-
---- Data/ApplicationDbContext.cs ---
-
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Data;
-
-public class ApplicationDbContext : DbContext
-{
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-        : base(options)
-    {
+        return RedirectToAction(nameof(Index));
     }
 
-    // ── DbSets ───────────────────────────────────────────────────────────────
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Item> Items => Set<Item>();   // ← ADD THIS LINE
+    // ── EDIT ───────────────────────────────────────────────────────────────
 
-    // ── Model Configuration ──────────────────────────────────────────────────
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    /// <summary>GET /Items/Edit/{id} — renders the pre-populated Edit form.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
     {
-        base.OnModelCreating(modelBuilder);
+        var (item, actionResult) = await GetOwnedItemAsync(id);
+        if (actionResult is not null) return actionResult;
 
-        // ── Users (unchanged) ────────────────────────────────────────────
-        modelBuilder.Entity<User>(entity =>
+        var viewModel = MapToEditViewModel(item!);
+        return View(viewModel);
+    }
+
+    /// <summary>POST /Items/Edit/{id} — validates and saves changes.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, ItemEditViewModel viewModel)
+    {
+        if (id != viewModel.Id)
+            return BadRequest();
+
+        if (!ModelState.IsValid)
+            return View(viewModel);
+
+        var (item, actionResult) = await GetOwnedItemAsync(id);
+        if (actionResult is not null) return actionResult;
+
+        // ── Resolve the final ImageUrl ──────────────────────────────────────
+
+        string? imageUrl = item!.ImageUrl;   // default: keep existing
+
+        if (viewModel.RemoveImage)
         {
-            entity.ToTable("Users");
-            entity.HasKey(u => u.Id);
-            entity.Property(u => u.Id).ValueGeneratedOnAdd();
-            entity.Property(u => u.Email)
-                  .IsRequired()
-                  .HasMaxLength(256)
-                  .IsUnicode(false);
-            entity.HasIndex(u => u.Email)
-                  .IsUnique()
-                  .HasDatabaseName("UQ_Users_Email");
-            entity.Property(u => u.PasswordHash)
-                  .IsRequired(false)
-                  .HasMaxLength(512)
-                  .IsUnicode(false);
-            entity.Property(u => u.CreatedAt)
-                  .IsRequired()
-                  .HasColumnType("datetime2")
-                  .HasDefaultValueSql("SYSUTCDATETIME()");
-        });
-
-        // ── Items (new) ──────────────────────────────────────────────────
-        modelBuilder.Entity<Item>(entity =>
+            // User explicitly ticked "Remove photo" — delete file and clear URL.
+            DeleteImageFile(imageUrl);
+            imageUrl = null;
+        }
+        else if (viewModel.Image is not null && viewModel.Image.Length > 0)
         {
-            entity.ToTable("Items");
+            // User uploaded a replacement — delete old file then save new one.
+            var (saved, error) = await SaveImageAsync(viewModel.Image);
+            if (error is not null)
+            {
+                ModelState.AddModelError(nameof(viewModel.Image), error);
+                return View(viewModel);
+            }
+            DeleteImageFile(imageUrl);
+            imageUrl = saved;
+        }
 
-            entity.HasKey(i => i.Id);
+        // ── Apply changes — preserve immutable fields ───────────────────────
+        item.Title = viewModel.Title;
+        item.Description = viewModel.Description;
+        item.Price = viewModel.Price;
+        item.Category = viewModel.Category;
+        item.Condition = viewModel.Condition;
+        item.ImageUrl = imageUrl;
+        // item.UserId and item.CreatedAt are intentionally not touched.
 
-            entity.Property(i => i.Id)
-                  .ValueGeneratedOnAdd();
+        await _itemRepository.UpdateAsync(item);
+        _logger.LogInformation("User {UserId} updated Item {ItemId}.", item.UserId, item.Id);
 
-            entity.Property(i => i.Title)
-                  .IsRequired()
-                  .HasMaxLength(100);
-
-            entity.Property(i => i.Description)
-                  .IsRequired()
-                  .HasMaxLength(1000);
-
-            entity.Property(i => i.Price)
-                  .IsRequired()
-                  .HasColumnType("decimal(10,2)");
-
-            entity.Property(i => i.Category)
-                  .IsRequired()
-                  .HasMaxLength(50);
-
-            entity.Property(i => i.Condition)
-                  .IsRequired()
-                  .HasMaxLength(50);
-
-            entity.Property(i => i.ImageUrl)
-                  .IsRequired(false)
-                  .HasMaxLength(500);
-
-            entity.Property(i => i.CreatedAt)
-                  .IsRequired()
-                  .HasColumnType("datetime2")
-                  .HasDefaultValueSql("SYSUTCDATETIME()");
-
-            // ── Relationship: Item → User (many-to-one) ──────────────────
-            entity.HasOne(i => i.User)
-                  .WithMany()                       // User has no Items collection yet
-                  .HasForeignKey(i => i.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
+        TempData["SuccessMessage"] = $"'{item.Title}' was updated successfully!";
+        return RedirectToAction(nameof(Index));
     }
-}
 
+    // ── DELETE ─────────────────────────────────────────────────────────────
 
---- DTOs/LoginDto.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.DTOs.Auth;
-
-public class LoginDTO
-{
-    [Required(ErrorMessage = "Email is required.")]
-    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
-    [Display(Name = "Email Address")]
-    public string Email { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Password is required.")]
-    [DataType(DataType.Password)]
-    [Display(Name = "Password")]
-    public string Password { get; set; } = string.Empty;
-
-    [Display(Name = "Remember me")]
-    public bool RememberMe { get; set; }
-}
-
-
---- DTOs/RegisterDto.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.DTOs.Auth;
-
-public class RegisterDTO
-{
-    [Required(ErrorMessage = "Email is required.")]
-    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
-    [Display(Name = "Email Address")]
-    public string Email { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Password is required.")]
-    [DataType(DataType.Password)]
-    [MinLength(8, ErrorMessage = "Password must be at least 8 characters long.")]
-    [Display(Name = "Password")]
-    public string Password { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Please confirm your password.")]
-    [DataType(DataType.Password)]
-    [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
-    [Display(Name = "Confirm Password")]
-    public string ConfirmPassword { get; set; } = string.Empty;
-}
-
-
---- Models/ErrorViewModel.cs ---
-
-namespace ThriftLoop.Models
-{
-    public class ErrorViewModel
+    /// <summary>GET /Items/Delete/{id} — renders the Delete confirmation page.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Delete(int id)
     {
-        public string? RequestId { get; set; }
+        var (item, actionResult) = await GetOwnedItemAsync(id);
+        if (actionResult is not null) return actionResult;
 
-        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+        return View(item);
     }
-}
 
+    /// <summary>POST /Items/Delete/{id} — performs the deletion after confirmation.</summary>
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var (item, actionResult) = await GetOwnedItemAsync(id);
+        if (actionResult is not null) return actionResult;
+
+        DeleteImageFile(item!.ImageUrl);
+        await _itemRepository.DeleteAsync(id);
+
+        _logger.LogInformation("User {UserId} deleted Item {ItemId}.", item.UserId, item.Id);
+
+        TempData["SuccessMessage"] = $"'{item.Title}' was deleted.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ── Private helpers ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fetches an item by id and verifies ownership against the current user.
+    /// Returns (item, null) on success or (null, actionResult) when the caller
+    /// should short-circuit and return the provided result.
+    /// </summary>
+    private async Task<(Item? item, IActionResult? actionResult)> GetOwnedItemAsync(int id)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId))
+            return (null, Unauthorized());
+
+        var item = await _itemRepository.GetByIdAsync(id);
+        if (item is null)
+            return (null, NotFound());
+
+        if (item.UserId != userId)
+            return (null, Forbid());
+
+        return (item, null);
+    }
+
+    /// <summary>
+    /// Validates and saves an uploaded image file to wwwroot/uploads/items/.
+    /// Returns the relative URL on success, or an error message string on failure.
+    /// </summary>
+    private async Task<(string? url, string? error)> SaveImageAsync(IFormFile file)
+    {
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowed.Contains(file.ContentType))
+            return (null, "Only JPEG, PNG, or WebP images are accepted.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            return (null, "Image must be smaller than 5 MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var folder = Path.Combine(_env.WebRootPath, "uploads", "items");
+
+        Directory.CreateDirectory(folder);
+
+        var fullPath = Path.Combine(folder, fileName);
+        await using var stream = System.IO.File.Create(fullPath);
+        await file.CopyToAsync(stream);
+
+        return ($"/uploads/items/{fileName}", null);
+    }
+
+    /// <summary>
+    /// Deletes an image file from disk given its relative URL.
+    /// Silently no-ops if the URL is null/empty or the file does not exist.
+    /// </summary>
+    private void DeleteImageFile(string? imageUrl)
+    {
+        if (string.IsNullOrEmpty(imageUrl)) return;
+
+        var fileName = Path.GetFileName(imageUrl);
+        var fullPath = Path.Combine(_env.WebRootPath, "uploads", "items", fileName);
+
+        if (System.IO.File.Exists(fullPath))
+            System.IO.File.Delete(fullPath);
+    }
+
+    /// <summary>Maps a domain Item to an ItemEditViewModel.</summary>
+    private static ItemEditViewModel MapToEditViewModel(Item item) => new()
+    {
+        Id = item.Id,
+        Title = item.Title,
+        Description = item.Description,
+        Price = item.Price,
+        Category = item.Category,
+        Condition = item.Condition,
+        ExistingImageUrl = item.ImageUrl
+    };
+}
 
 
 --- Models/Item.cs ---
@@ -713,26 +404,9 @@ public class Item
 }
 
 
---- Models/User.cs ---
-
-namespace ThriftLoop.Models;
-
-public class User
-{
-    public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Null for users who registered exclusively via an external provider (e.g. Google).
-    /// </summary>
-    public string? PasswordHash { get; set; }
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-
 --- Repositories/Implementation/ItemRepository .cs ---
 
+using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
@@ -756,47 +430,39 @@ public class ItemRepository : IItemRepository
         // After SaveChangesAsync, EF Core back-fills item.Id with the
         // database-generated identity value.
     }
-}
 
+    /// <inheritdoc />
+    public async Task<Item?> GetByIdAsync(int id)
+        => await _context.Items
+                         .AsNoTracking()
+                         .FirstOrDefaultAsync(i => i.Id == id);
 
---- Repositories/Implementation/UserRepository.cs ---
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId)
+        => await _context.Items
+                         .AsNoTracking()
+                         .Where(i => i.UserId == userId)
+                         .OrderByDescending(i => i.CreatedAt)
+                         .ToListAsync();
 
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-
-namespace ThriftLoop.Repositories.Implementation;
-
-public class UserRepository : IUserRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserRepository(ApplicationDbContext context)
+    /// <inheritdoc />
+    public async Task UpdateAsync(Item item)
     {
-        _context = context;
+        // Attach the detached entity and mark it as modified so EF issues
+        // a full UPDATE statement. Immutable fields (UserId, CreatedAt) are
+        // preserved by the caller before this method is invoked.
+        _context.Items.Update(item);
+        await _context.SaveChangesAsync();
     }
 
-    public async Task<User?> GetByEmailAsync(string email)
-        => await _context.Users
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(u => u.Email == email);
-
-    public async Task<User?> GetByIdAsync(int id)
-        => await _context.Users
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(u => u.Id == id);
-
-    public async Task<bool> EmailExistsAsync(string email)
-        => await _context.Users
-                         .AsNoTracking()
-                         .AnyAsync(u => u.Email == email);
-
-    public async Task<int> CreateAsync(User user)
+    /// <inheritdoc />
+    public async Task DeleteAsync(int id)
     {
-        _context.Users.Add(user);
+        var item = await _context.Items.FindAsync(id);
+        if (item is null) return;
+
+        _context.Items.Remove(item);
         await _context.SaveChangesAsync();
-        return user.Id;
     }
 }
 
@@ -811,171 +477,28 @@ public interface IItemRepository
 {
     /// <summary>Persists a new Item row and populates item.Id via EF Core.</summary>
     Task AddAsync(Item item);
-}
-
-
---- Repositories/Interface/IUserRepository.cs ---
-
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Repositories.Interface;
-
-public interface IUserRepository
-{
-    Task<User?> GetByEmailAsync(string email);
-    Task<User?> GetByIdAsync(int id);
-    Task<bool> EmailExistsAsync(string email);
-    Task<int> CreateAsync(User user);
-}
-
-
---- Services/Implementation/AuthService.cs ---
-
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.Services.Auth.Interface;
-
-namespace ThriftLoop.Services.Auth.Implementation;
-
-public class AuthService : IAuthService
-{
-    private readonly IUserRepository _userRepository;
-    private readonly ILogger<AuthService> _logger;
-
-    private const int BcryptWorkFactor = 12;
-
-    public AuthService(IUserRepository userRepository, ILogger<AuthService> logger)
-    {
-        _userRepository = userRepository;
-        _logger = logger;
-    }
-
-    // ── Password registration ─────────────────────────────────────────────────
-
-    public async Task<User?> RegisterAsync(RegisterDTO dto)
-    {
-        if (await _userRepository.EmailExistsAsync(dto.Email))
-        {
-            _logger.LogWarning("Registration failed: email '{Email}' is already in use.", dto.Email);
-            return null;
-        }
-
-        var user = new User
-        {
-            Email = dto.Email.Trim().ToLowerInvariant(),
-            PasswordHash = HashPassword(dto.Password),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.Id = await _userRepository.CreateAsync(user);
-
-        _logger.LogInformation("New user registered with ID {UserId}.", user.Id);
-        return user;
-    }
-
-    // ── Credential validation ─────────────────────────────────────────────────
-
-    public async Task<User?> ValidateCredentialsAsync(LoginDTO dto)
-    {
-        var user = await _userRepository.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant());
-
-        if (user is null)
-        {
-            // Constant-time dummy verify to prevent timing attacks.
-            BCrypt.Net.BCrypt.Verify(dto.Password, BCrypt.Net.BCrypt.HashPassword("dummy"));
-            return null;
-        }
-
-        // A Google-only account has no password — refuse credential login.
-        if (string.IsNullOrEmpty(user.PasswordHash))
-        {
-            _logger.LogWarning(
-                "Credential login attempted on Google-only account '{Email}'.", dto.Email);
-            return null;
-        }
-
-        if (!VerifyPassword(dto.Password, user.PasswordHash))
-        {
-            _logger.LogWarning("Failed login attempt for email '{Email}'.", dto.Email);
-            return null;
-        }
-
-        return user;
-    }
-
-    // ── Google OAuth ──────────────────────────────────────────────────────────
-
-    public async Task<User> FindOrCreateGoogleUserAsync(string email)
-    {
-        var normalised = email.Trim().ToLowerInvariant();
-
-        var existing = await _userRepository.GetByEmailAsync(normalised);
-        if (existing is not null)
-        {
-            _logger.LogInformation(
-                "Google sign-in: returning existing user {UserId}.", existing.Id);
-            return existing;
-        }
-
-        // First-time Google sign-in — provision a password-less account.
-        var newUser = new User
-        {
-            Email = normalised,
-            PasswordHash = null,          // no password for external users
-            CreatedAt = DateTime.UtcNow
-        };
-
-        newUser.Id = await _userRepository.CreateAsync(newUser);
-
-        _logger.LogInformation(
-            "Google sign-in: created new user {UserId} for '{Email}'.", newUser.Id, normalised);
-
-        return newUser;
-    }
-
-    // ── Hashing helpers ───────────────────────────────────────────────────────
-
-    public string HashPassword(string plainTextPassword)
-        => BCrypt.Net.BCrypt.HashPassword(plainTextPassword, BcryptWorkFactor);
-
-    public bool VerifyPassword(string plainTextPassword, string passwordHash)
-        => BCrypt.Net.BCrypt.Verify(plainTextPassword, passwordHash);
-}
-
-
---- Services/Interface/IAuthService.cs ---
-
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Services.Auth.Interface;
-
-public interface IAuthService
-{
-    /// <summary>
-    /// Registers a new user. Returns the created User on success,
-    /// or null if the email is already taken.
-    /// </summary>
-    Task<User?> RegisterAsync(RegisterDTO dto);
 
     /// <summary>
-    /// Validates credentials. Returns the matching User on success,
-    /// or null if invalid.
+    /// Returns a single item by primary key, or null if not found.
+    /// Result is not change-tracked.
     /// </summary>
-    Task<User?> ValidateCredentialsAsync(LoginDTO dto);
+    Task<Item?> GetByIdAsync(int id);
 
     /// <summary>
-    /// Looks up an existing user by email, or creates a new password-less
-    /// account for first-time Google sign-in.
+    /// Returns all items belonging to the specified user,
+    /// ordered by most-recently created first.
     /// </summary>
-    Task<User> FindOrCreateGoogleUserAsync(string email);
+    Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId);
 
-    /// <summary>Hashes a plain-text password using BCrypt.</summary>
-    string HashPassword(string plainTextPassword);
+    /// <summary>
+    /// Persists all changes to an existing Item row.
+    /// The caller is responsible for preserving immutable fields
+    /// (UserId, CreatedAt) on the entity before calling this method.
+    /// </summary>
+    Task UpdateAsync(Item item);
 
-    /// <summary>Verifies a plain-text password against a stored BCrypt hash.</summary>
-    bool VerifyPassword(string plainTextPassword, string passwordHash);
+    /// <summary>Removes the Item row with the given primary key (no-op if not found).</summary>
+    Task DeleteAsync(int id);
 }
 
 
@@ -1054,476 +577,129 @@ public class ItemCreateViewModel
 }
 
 
---- Views/_ViewImports.cshtml ---
+--- ViewModels/ItemEditViewModel.cs ---
 
-@using ThriftLoop
-@using ThriftLoop.Models
-@using ThriftLoop.DTOs.Auth
-@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+using System.ComponentModel.DataAnnotations;
 
+namespace ThriftLoop.ViewModels;
 
-
---- Views/_ViewStart.cshtml ---
-
-@{
-    Layout = "_Layout";
-}
-
-
-
---- Views/Auth/Login.cshtml ---
-
-@model ThriftLoop.DTOs.Auth.LoginDTO
-@{
-    ViewData["Title"] = "Sign In";
-    Layout = "~/Views/Shared/_Layout.cshtml";
-    var returnUrl = ViewData["ReturnUrl"] as string;
-}
-
-<div class="auth-shell">
-
-    <aside class="auth-panel auth-panel--brand">
-        <div class="brand-wordmark">ThriftLoop</div>
-        <p class="brand-tagline">Second-hand style.<br>First-class finds.</p>
-        <div class="brand-decoration" aria-hidden="true">
-            <span class="deco-ring deco-ring--lg"></span>
-            <span class="deco-ring deco-ring--md"></span>
-            <span class="deco-ring deco-ring--sm"></span>
-        </div>
-    </aside>
-
-    <main class="auth-panel auth-panel--form">
-        <div class="form-card">
-
-            <header class="form-card__header">
-                <h1 class="form-card__title">Welcome back</h1>
-                <p class="form-card__subtitle">Sign in to continue to ThriftLoop</p>
-            </header>
-
-            @if (TempData["ExternalAuthError"] is string extError)
-            {
-                <div class="alert alert--error" role="alert">
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
-                    <span>@extError</span>
-                </div>
-            }
-
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="alert alert--error" role="alert">
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
-                    <div asp-validation-summary="ModelOnly"></div>
-                </div>
-            }
-
-            <a asp-action="GoogleLogin" asp-controller="Auth"
-               asp-route-returnUrl="@returnUrl"
-               class="btn btn--google">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Continue with Google
-            </a>
-
-            <div class="auth-divider">
-                <span>or sign in with email</span>
-            </div>
-
-            <form asp-action="Login" asp-controller="Auth" asp-route-returnUrl="@returnUrl"
-                  method="post" novalidate class="auth-form">
-                @Html.AntiForgeryToken()
-
-                <div class="field">
-                    <label asp-for="Email" class="field__label"></label>
-                    <input asp-for="Email"
-                           class="field__input"
-                           type="email"
-                           autocomplete="email"
-                           placeholder="you@example.com"
-                           spellcheck="false" />
-                    <span asp-validation-for="Email" class="field__error"></span>
-                </div>
-
-                <div class="field">
-                    <div class="field__label-row">
-                        <label asp-for="Password" class="field__label"></label>
-                        <a href="#" class="field__link">Forgot password?</a>
-                    </div>
-                    <div class="field__input-wrapper">
-                        <input asp-for="Password"
-                               id="passwordInput"
-                               class="field__input"
-                               type="password"
-                               autocomplete="current-password"
-                               placeholder="••••••••" />
-                        <button type="button" class="toggle-password" aria-label="Toggle password visibility"
-                                onclick="togglePassword()">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                        </button>
-                    </div>
-                    <span asp-validation-for="Password" class="field__error"></span>
-                </div>
-
-                <div class="field field--inline">
-                    <label class="checkbox-label">
-                        <input asp-for="RememberMe" type="checkbox" class="checkbox-input" />
-                        <span class="checkbox-custom"></span>
-                        <span class="checkbox-text">Keep me signed in</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn--primary">
-                    Sign In
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
-                </button>
-            </form>
-
-            <footer class="form-card__footer">
-                <p>
-                    Don't have an account?
-                    <a asp-action="Register" asp-controller="Auth" class="footer-link">Create one free</a>
-                </p>
-            </footer>
-
-        </div>
-    </main>
-
-</div>
-
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-    <script>
-        function togglePassword() {
-            const input = document.getElementById('passwordInput');
-            input.type = input.type === 'password' ? 'text' : 'password';
-        }
-    </script>
-}
-
-
-
---- Views/Auth/Login.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
+/// <summary>
+/// ViewModel for the Edit Item form.
+/// Mirrors ItemCreateViewModel but also carries the item's primary key,
+/// its current image URL (so the view can display it and the controller
+/// can preserve it when no replacement is uploaded), and a RemoveImage flag.
+/// </summary>
+public class ItemEditViewModel
 {
-    public class LoginModel : PageModel
+    // ── Identity ────────────────────────────────────────────────────────────
+
+    /// <summary>Primary key — rendered as a hidden field and used to route the POST.</summary>
+    public int Id { get; set; }
+
+    // ── Core Fields ─────────────────────────────────────────────────────────
+
+    [Required(ErrorMessage = "Title is required.")]
+    [StringLength(100, MinimumLength = 3,
+        ErrorMessage = "Title must be between 3 and 100 characters.")]
+    [Display(Name = "Title")]
+    public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Description is required.")]
+    [StringLength(1000, MinimumLength = 10,
+        ErrorMessage = "Description must be between 10 and 1 000 characters.")]
+    [Display(Name = "Description")]
+    public string Description { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Price is required.")]
+    [Range(0.01, 99_999.99,
+        ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
+    [DataType(DataType.Currency)]
+    [Display(Name = "Price (₱)")]
+    public decimal Price { get; set; }
+
+    [Required(ErrorMessage = "Please select a category.")]
+    [StringLength(50)]
+    [Display(Name = "Category")]
+    public string Category { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Please select a condition.")]
+    [StringLength(50)]
+    [Display(Name = "Condition")]
+    public string Condition { get; set; } = string.Empty;
+
+    // ── Image ────────────────────────────────────────────────────────────────
+
+    /// <summary>Optional replacement image uploaded by the user.</summary>
+    [Display(Name = "Item Photo")]
+    [DataType(DataType.Upload)]
+    public IFormFile? Image { get; set; }
+
+    /// <summary>
+    /// The URL of the item's current image, populated from the database.
+    /// Passed back through the form as a hidden field so the controller
+    /// can keep it when no new image is uploaded.
+    /// </summary>
+    public string? ExistingImageUrl { get; set; }
+
+    /// <summary>
+    /// When true the controller will delete the existing image file and
+    /// set ImageUrl to null, even if no replacement is uploaded.
+    /// </summary>
+    public bool RemoveImage { get; set; }
+
+    // ── Select-List Options ──────────────────────────────────────────────────
+
+    public static readonly IReadOnlyList<string> Categories = new[]
     {
-        public void OnGet()
-        {
-        }
-    }
-}
+        "Clothing",
+        "Electronics",
+        "Furniture",
+        "Books",
+        "Toys & Games",
+        "Sports & Outdoors",
+        "Home & Kitchen",
+        "Collectibles",
+        "Other"
+    };
 
-
-
---- Views/Auth/Register.cshtml ---
-
-@model ThriftLoop.DTOs.Auth.RegisterDTO
-@{
-    ViewData["Title"] = "Create Account";
-    Layout = "~/Views/Shared/_Layout.cshtml";
-}
-
-<div class="auth-shell">
-
-    <aside class="auth-panel auth-panel--brand">
-        <div class="brand-wordmark">ThriftLoop</div>
-        <p class="brand-tagline">Join thousands of<br>sustainable shoppers.</p>
-        <div class="brand-decoration" aria-hidden="true">
-            <span class="deco-ring deco-ring--lg"></span>
-            <span class="deco-ring deco-ring--md"></span>
-            <span class="deco-ring deco-ring--sm"></span>
-        </div>
-    </aside>
-
-    <main class="auth-panel auth-panel--form">
-        <div class="form-card">
-
-            <header class="form-card__header">
-                <h1 class="form-card__title">Create your account</h1>
-                <p class="form-card__subtitle">It's free and takes under a minute</p>
-            </header>
-
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="alert alert--error" role="alert">
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
-                    <div asp-validation-summary="ModelOnly"></div>
-                </div>
-            }
-
-            {{!-- Google sign-up --}}
-            <a asp-action="GoogleLogin" asp-controller="Auth" class="btn btn--google">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Continue with Google
-            </a>
-
-            <div class="auth-divider">
-                <span>or register with email</span>
-            </div>
-
-            <form asp-action="Register" asp-controller="Auth"
-                  method="post" novalidate class="auth-form">
-                @Html.AntiForgeryToken()
-
-                <div class="field">
-                    <label asp-for="Email" class="field__label"></label>
-                    <input asp-for="Email"
-                           class="field__input"
-                           type="email"
-                           autocomplete="email"
-                           placeholder="you@example.com"
-                           spellcheck="false" />
-                    <span asp-validation-for="Email" class="field__error"></span>
-                </div>
-
-                <div class="field">
-                    <label asp-for="Password" class="field__label"></label>
-                    <div class="field__input-wrapper">
-                        <input asp-for="Password"
-                               id="passwordInput"
-                               class="field__input"
-                               type="password"
-                               autocomplete="new-password"
-                               placeholder="Min. 8 characters" />
-                        <button type="button" class="toggle-password" aria-label="Toggle password visibility"
-                                onclick="togglePassword('passwordInput')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                        </button>
-                    </div>
-                    <span asp-validation-for="Password" class="field__error"></span>
-                    <div class="strength-bar" aria-hidden="true">
-                        <span class="strength-bar__fill" id="strengthFill"></span>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label asp-for="ConfirmPassword" class="field__label"></label>
-                    <div class="field__input-wrapper">
-                        <input asp-for="ConfirmPassword"
-                               id="confirmPasswordInput"
-                               class="field__input"
-                               type="password"
-                               autocomplete="new-password"
-                               placeholder="Repeat your password" />
-                        <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility"
-                                onclick="togglePassword('confirmPasswordInput')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                        </button>
-                    </div>
-                    <span asp-validation-for="ConfirmPassword" class="field__error"></span>
-                </div>
-
-                <p class="legal-note">
-                    By registering, you agree to our
-                    <a href="#" class="footer-link">Terms of Service</a> and
-                    <a href="#" class="footer-link">Privacy Policy</a>.
-                </p>
-
-                <button type="submit" class="btn btn--primary">
-                    Create Account
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
-                </button>
-            </form>
-
-            <footer class="form-card__footer">
-                <p>
-                    Already have an account?
-                    <a asp-action="Login" asp-controller="Auth" class="footer-link">Sign in</a>
-                </p>
-            </footer>
-
-        </div>
-    </main>
-
-</div>
-
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-    <script>
-        function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            input.type = input.type === 'password' ? 'text' : 'password';
-        }
-
-        document.getElementById('passwordInput').addEventListener('input', function () {
-            const val = this.value;
-            const fill = document.getElementById('strengthFill');
-            let strength = 0;
-            if (val.length >= 8) strength++;
-            if (/[A-Z]/.test(val)) strength++;
-            if (/[0-9]/.test(val)) strength++;
-            if (/[^A-Za-z0-9]/.test(val)) strength++;
-
-            const pct = (strength / 4) * 100;
-            fill.style.width = pct + '%';
-            fill.className = 'strength-bar__fill';
-            if (strength <= 1)      fill.classList.add('strength-bar__fill--weak');
-            else if (strength <= 2) fill.classList.add('strength-bar__fill--fair');
-            else if (strength <= 3) fill.classList.add('strength-bar__fill--good');
-            else                    fill.classList.add('strength-bar__fill--strong');
-        });
-    </script>
-}
-
-
-
---- Views/Auth/Register.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class RegisterModel : PageModel
+    public static readonly IReadOnlyList<string> Conditions = new[]
     {
-        public void OnGet()
-        {
-        }
-    }
+        "New",
+        "Like New",
+        "Good",
+        "Fair",
+        "Poor"
+    };
 }
-
 
 
 --- Views/Home/Index.cshtml ---
 
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Home";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "shopper";
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard – ThriftLoop</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap"
-          rel="stylesheet">
-    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
-    <style>
-        .dashboard {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: var(--cream);
-        }
-        .dashboard-nav {
-            background: var(--forest);
-            padding: 1rem 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .dashboard-nav__logo {
-            font-family: 'DM Serif Display', serif;
-            font-size: 1.6rem;
-            color: var(--cream);
-            letter-spacing: -.02em;
-        }
-        .dashboard-nav__user {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-        .dashboard-nav__email {
-            font-size: .88rem;
-            color: rgba(245,240,232,.7);
-        }
-        .dashboard-main {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 3rem 1.5rem;
-        }
-        .welcome-card {
-            background: #fff;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-card);
-            padding: 3rem 3.5rem;
-            text-align: center;
-            max-width: 480px;
-            width: 100%;
-        }
-        .welcome-card__badge {
-            display: inline-block;
-            background: rgba(45,84,64,.1);
-            color: var(--forest-lite);
-            font-size: .78rem;
-            font-weight: 600;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            padding: .35rem .9rem;
-            border-radius: 999px;
-            margin-bottom: 1.25rem;
-        }
-        .welcome-card__title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 2rem;
-            color: var(--forest);
-            margin-bottom: .75rem;
-        }
-        .welcome-card__body {
-            font-size: .95rem;
-            color: var(--text-secondary);
-            line-height: 1.65;
-            margin-bottom: 2rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
+@* The navbar (with the sign-out button) is rendered by _Layout / _Navbar.
+   This view only contains the page body content. *@
 
-        <nav class="dashboard-nav">
-            <span class="dashboard-nav__logo">ThriftLoop</span>
-            <div class="dashboard-nav__user">
-                <span class="dashboard-nav__email">@userEmail</span>
-                <form asp-action="Logout" asp-controller="Auth" method="post">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn--primary"
-                            style="padding:.5rem 1.1rem;font-size:.85rem;margin-top:0;">
-                        Sign out
-                    </button>
-                </form>
-            </div>
-        </nav>
-
-        <main class="dashboard-main">
-            <div class="welcome-card">
-                <span class="welcome-card__badge">✓ Authenticated</span>
-                <h1 class="welcome-card__title">You're in, @userEmail.Split('@')[0]!</h1>
-                <p class="welcome-card__body">
-                    Your ThriftLoop account is set up and ready.<br>
-                    Start browsing second-hand finds curated just for you.
-                </p>
-                <a href="#" class="btn btn--primary" style="display:inline-flex;width:auto;padding:.75rem 2rem;">
-                    Explore listings
-                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
-                </a>
-            </div>
-        </main>
-
+<div class="home-shell">
+    <div class="welcome-card">
+        <span class="welcome-card__badge">✓ Authenticated</span>
+        <h1 class="welcome-card__title">You're in, @userEmail.Split('@')[0]!</h1>
+        <p class="welcome-card__body">
+            Your ThriftLoop account is set up and ready.<br>
+            Start browsing second-hand finds curated just for you.
+        </p>
+        <a href="#" class="btn btn--primary" style="display:inline-flex;width:auto;padding:.75rem 2rem;">
+            Explore listings
+            <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
+            </svg>
+        </a>
     </div>
-</body>
-</html>
+</div>
 
 
 
@@ -1545,104 +721,177 @@ namespace ThriftLoop.Views.Auth
     ViewData["Title"] = "List an Item";
 }
 
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+<div class="container">
+    <div class="create-page">
 
-        <h1 class="mb-1">List an Item</h1>
-        <p class="text-muted mb-4">Fill in the details below to post your item for sale.</p>
+        <div class="create-header">
+            <a asp-controller="Home" asp-action="Index" class="create-header__back">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Back
+            </a>
+            <div>
+                <h1 class="create-header__title">List an item</h1>
+                <p class="create-header__subtitle">Fill in the details below</p>
+            </div>
+        </div>
 
-        @* Success banner (shown after a successful Post/Redirect/Get) *@
         @if (TempData["SuccessMessage"] is string successMsg)
         {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <div class="create-toast">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
                 @successMsg
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         }
 
-        @* Summary of server-side validation errors *@
-        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-        <form asp-action="Create" asp-controller="Items" method="post"
-              enctype="multipart/form-data">
+        <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
             @Html.AntiForgeryToken()
 
-            @* ── Title ─────────────────────────────────────────────────── *@
-            <div class="mb-3">
-                <label asp-for="Title" class="form-label"></label>
-                <input asp-for="Title" class="form-control" placeholder="e.g. Vintage Levi's 501 Jeans" />
-                <span asp-validation-for="Title" class="text-danger small"></span>
-            </div>
+            <div class="create-grid">
 
-            @* ── Description ───────────────────────────────────────────── *@
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label"></label>
-                <textarea asp-for="Description" class="form-control" rows="4"
-                          placeholder="Describe the item honestly — size, colour, any flaws…"></textarea>
-                <span asp-validation-for="Description" class="text-danger small"></span>
-            </div>
+                <!-- Photo Column -->
+                <div class="create-photo-col">
+                    <p class="create-section-label">Photo</p>
 
-            @* ── Price ─────────────────────────────────────────────────── *@
-            <div class="mb-3">
-                <label asp-for="Price" class="form-label"></label>
-                <div class="input-group">
-                    <span class="input-group-text">₱</span>
-                    <input asp-for="Price" class="form-control" type="number"
-                           step="0.01" min="0.01" placeholder="0.00" />
+                    <div class="photo-dropzone" id="photoDropzone" tabindex="0" role="button">
+                        <input asp-for="Image" type="file" id="photoInput" class="photo-dropzone__input" accept="image/jpeg,image/png,image/webp" />
+
+                        <div class="photo-dropzone__empty" id="dropzoneEmpty">
+                            <div class="photo-dropzone__icon">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" />
+                                    <circle cx="34" cy="18" r="3" stroke="currentColor" />
+                                    <path d="M4 32l10-10 8 8 6-6 8 8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <p class="photo-dropzone__main">
+                                <span class="photo-dropzone__cta">Click to upload</span> or drag
+                            </p>
+                            <p class="photo-dropzone__hint">JPEG, PNG · max 5MB</p>
+                        </div>
+
+                        <div class="photo-dropzone__preview" id="dropzonePreview" hidden>
+                            <img id="previewImg" src="" alt="Preview" />
+                            <button type="button" class="photo-dropzone__remove" id="removePhoto">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="photo-dropzone__overlay" id="dropzoneOverlay" hidden>
+                            <p>Drop to add photo</p>
+                        </div>
+                    </div>
+
+                    <span asp-validation-for="Image" class="field__error"></span>
+
+                    <div class="create-tips">
+                        <p class="create-tips__heading">Quick tips</p>
+                        <ul class="create-tips__list">
+                            <li>Use natural light</li>
+                            <li>Show any wear honestly</li>
+                            <li>Square crops work best</li>
+                        </ul>
+                    </div>
                 </div>
-                <span asp-validation-for="Price" class="text-danger small"></span>
-            </div>
 
-            @* ── Category ──────────────────────────────────────────────── *@
-            <div class="mb-3">
-                <label asp-for="Category" class="form-label"></label>
-                @*
-                    We build the <select> manually using the static list on the
-                    ViewModel so the options stay in one place.
-                    asp-items with SelectList is an equally valid alternative.
-                *@
-                <select asp-for="Category" class="form-select">
-                    <option value="">— Select a category —</option>
-                    @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
-                    {
-                        <option value="@cat" selected="@(Model.Category == cat ? "selected" : null)">
-                            @cat
-                        </option>
-                    }
-                </select>
-                <span asp-validation-for="Category" class="text-danger small"></span>
-            </div>
+                <!-- Form Column -->
+                <div class="create-form-col">
 
-            @* ── Condition ─────────────────────────────────────────────── *@
-            <div class="mb-3">
-                <label asp-for="Condition" class="form-label"></label>
-                <select asp-for="Condition" class="form-select">
-                    <option value="">— Select a condition —</option>
-                    @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
-                    {
-                        <option value="@cond" selected="@(Model.Condition == cond ? "selected" : null)">
-                            @cond
-                        </option>
-                    }
-                </select>
-                <span asp-validation-for="Condition" class="text-danger small"></span>
-            </div>
+                    <!-- Title -->
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Title" class="create-field__label">Title</label>
+                            <span class="create-field__counter" id="titleCounter">0/100</span>
+                        </div>
+                        <input asp-for="Title" class="create-field__input" id="titleInput" placeholder="e.g. Vintage Levi's 501" maxlength="100" />
+                        <span asp-validation-for="Title" class="field__error"></span>
+                    </div>
 
-            @* Replace the ImageUrl text input with: *@
-            <div class="mb-4">
-                <label asp-for="Image" class="form-label"></label>
-                <input asp-for="Image" class="form-control" type="file"
-                       accept="image/jpeg,image/png,image/webp" />
-                <div class="form-text">JPEG, PNG or WebP · max 5 MB · optional</div>
-                <span asp-validation-for="Image" class="text-danger small"></span>
-            </div>
+                    <!-- Description -->
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Description" class="create-field__label">Description</label>
+                            <span class="create-field__counter" id="descCounter">0/1000</span>
+                        </div>
+                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea" id="descInput" rows="3" maxlength="1000" placeholder="Describe the item..."></textarea>
+                        <span asp-validation-for="Description" class="field__error"></span>
+                    </div>
 
-            @* ── Submit ────────────────────────────────────────────────── *@
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Post Listing</button>
-                <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary">Cancel</a>
-            </div>
+                    <!-- Price -->
+                    <div class="create-field">
+                        <label asp-for="Price" class="create-field__label">Price</label>
+                        <div class="create-price-wrap">
+                            <span class="create-price-wrap__symbol">₱</span>
+                            <input asp-for="Price" class="create-field__input create-price-wrap__input" type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
+                        </div>
+                        <span asp-validation-for="Price" class="field__error"></span>
+                    </div>
 
+                    <!-- Category -->
+                    <div class="create-field">
+                        <label class="create-field__label">Category</label>
+                        <select asp-for="Category" class="create-hidden-select" id="categorySelect">
+                            <option value=""></option>
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                            {
+                                <option value="@cat">@cat</option>
+                            }
+                        </select>
+
+                        <div class="create-chips" id="categoryChips">
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                            {
+                                <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")" data-value="@cat" data-target="categorySelect">@cat</button>
+                            }
+                        </div>
+                        <span asp-validation-for="Category" class="field__error"></span>
+                    </div>
+
+                    <!-- Condition -->
+                    <div class="create-field">
+                        <label class="create-field__label">Condition</label>
+                        <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
+                            <option value=""></option>
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                            {
+                                <option value="@cond">@cond</option>
+                            }
+                        </select>
+
+                        <div class="create-condition" id="conditionPills">
+                            @{
+                                var icons = new[] { "✦", "★", "◆", "▲", "●" };
+                                var idx = 0;
+                            }
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                            {
+                                <button type="button" class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")" data-value="@cond" data-target="conditionSelect">
+                                    <span>@icons[idx]</span>
+                                    <span>@cond</span>
+                                </button>
+                                idx++;
+                            }
+                        </div>
+                        <span asp-validation-for="Condition" class="field__error"></span>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="create-actions">
+                        <button type="submit" class="btn btn--primary" id="submitBtn">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
+                            </svg>
+                            Post Listing
+                        </button>
+                        <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
+                    </div>
+                </div>
+            </div>
         </form>
     </div>
 </div>
@@ -1651,8 +900,163 @@ namespace ThriftLoop.Views.Auth
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-}
 
+    <script>
+        (function() {
+            'use strict';
+
+            // Character counters
+            function initCounter(inputId, counterId, max) {
+                const input = document.getElementById(inputId);
+                const counter = document.getElementById(counterId);
+                if (!input || !counter) return;
+
+                const update = () => {
+                    const len = input.value.length;
+                    counter.textContent = len + '/' + max;
+                    counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
+                };
+
+                input.addEventListener('input', update);
+                update();
+            }
+
+            initCounter('titleInput', 'titleCounter', 100);
+            initCounter('descInput', 'descCounter', 1000);
+
+            // Category/Condition chips
+            function initChips(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    const select = document.getElementById(btn.dataset.target);
+                    if (!select) return;
+
+                    // Deactivate all
+                    container.querySelectorAll('[data-value]').forEach(b => {
+                        b.classList.remove('create-chip--active', 'create-condition__pill--active');
+                    });
+
+                    // Activate clicked
+                    btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
+                    select.value = btn.dataset.value;
+
+                    // Trigger validation
+                    if (window.$ && $.validator) $(select).valid();
+                });
+            }
+
+            initChips('categoryChips');
+            initChips('conditionPills');
+
+            // Photo dropzone
+            const dropzone = document.getElementById('photoDropzone');
+            const input = document.getElementById('photoInput');
+            const empty = document.getElementById('dropzoneEmpty');
+            const preview = document.getElementById('dropzonePreview');
+            const previewImg = document.getElementById('previewImg');
+            const removeBtn = document.getElementById('removePhoto');
+            const overlay = document.getElementById('dropzoneOverlay');
+
+            if (dropzone && input) {
+                dropzone.addEventListener('click', (e) => {
+                    if (e.target === removeBtn || removeBtn?.contains(e.target)) return;
+                    input.click();
+                });
+
+                input.addEventListener('change', () => {
+                    if (input.files?.[0]) showPreview(input.files[0]);
+                });
+
+                removeBtn?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearPreview();
+                });
+
+                // Drag & drop
+                ['dragenter', 'dragover'].forEach(evt => {
+                    dropzone.addEventListener(evt, (e) => {
+                        e.preventDefault();
+                        overlay.hidden = false;
+                    });
+                });
+
+                ['dragleave', 'dragend', 'drop'].forEach(evt => {
+                    dropzone.addEventListener(evt, (e) => {
+                        e.preventDefault();
+                        overlay.hidden = true;
+                    });
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (!file) return;
+
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                        showError('Only JPEG, PNG, or WebP images are accepted.');
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        showError('Image must be smaller than 5 MB.');
+                        return;
+                    }
+
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                    showPreview(file);
+                });
+            }
+
+            function showPreview(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    empty.hidden = true;
+                    preview.hidden = false;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function clearPreview() {
+                input.value = '';
+                previewImg.src = '';
+                preview.hidden = true;
+                empty.hidden = false;
+            }
+
+            function showError(msg) {
+                const errorSpan = document.querySelector('.create-photo-col .field__error');
+                if (errorSpan) {
+                    errorSpan.textContent = msg;
+                    setTimeout(() => errorSpan.textContent = '', 3000);
+                }
+            }
+
+            // Submit button loading state
+            const form = document.getElementById('createForm');
+            const submitBtn = document.getElementById('submitBtn');
+
+            form?.addEventListener('submit', () => {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
+            });
+
+            // Auto-dismiss toast
+            const toast = document.querySelector('.create-toast');
+            if (toast) {
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 400);
+                }, 4000);
+            }
+        })();
+    </script>
+}
 
 
 --- Views/Items/Create.cshtml.cs ---
@@ -1672,109 +1076,686 @@ namespace ThriftLoop.Views.Items
 
 
 
---- Views/Shared/Error.cshtml ---
+--- Views/Items/Delete.cshtml ---
 
-@model ErrorViewModel
+@model ThriftLoop.Models.Item
 @{
-    ViewData["Title"] = "Error";
+    ViewData["Title"] = "Delete Listing";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<div class="container">
+    <div class="confirm-shell">
+        <div class="confirm-card">
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+            <div class="confirm-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+            </div>
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+            <h1 class="confirm-card__title">Delete this listing?</h1>
+            <p class="confirm-card__body">
+                This action is permanent and cannot be undone.
+            </p>
 
-
-
---- Views/Shared/_Layout.cshtml ---
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - ThriftLoop</title>
-    <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/ThriftLoop.styles.css" asp-append-version="true" />
-</head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">ThriftLoop</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
+            <div class="confirm-item">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" alt="@Model.Title" class="confirm-item__img" />
+                }
+                else
+                {
+                    <div class="confirm-item__img confirm-item__img--placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                        </svg>
+                    </div>
+                }
+                <div>
+                    <p class="confirm-item__title">@Model.Title</p>
+                    <p class="confirm-item__price">₱@Model.Price.ToString("N2")</p>
                 </div>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - ThriftLoop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <div class="confirm-actions">
+                <a asp-action="Index" class="btn btn--ghost">Cancel</a>
+                <form asp-action="Delete" asp-route-id="@Model.Id" method="post" id="deleteForm">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn--danger" id="deleteBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                        </svg>
+                        Yes, Delete
+                    </button>
+                </form>
+            </div>
         </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
-</body>
-</html>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('deleteForm')?.addEventListener('submit', function() {
+            const btn = document.getElementById('deleteBtn');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+        });
+    </script>
+}
+
+
+--- Views/Items/Delete.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Items
+{
+    public class DeleteModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
 
 
 
---- Views/Shared/_ValidationScriptsPartial.cshtml ---
+--- Views/Items/Edit.cshtml ---
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
-        integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.21.0/jquery.validate.min.js"
-        integrity="sha512-KFHXdr2oObHKI9w4Hv1XPKc898mE4kgYx58oqsc/JqqdLMDI4YjOLzom+EMlW8HFUd0QfjfAvxSL6sEq/a42A=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"
-        integrity="sha512-xq+Vm4iSiMFqWFBPNmMgTR5hpFz8F7P+gnquoBVoNiSMTpNFdgcg/3fgIK1FhT4i4PLo/rnUbDObH4Fp1DLOQ=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+@model ThriftLoop.ViewModels.ItemEditViewModel
+@{
+    ViewData["Title"] = "Edit Listing";
+}
+
+<div class="container">
+    <div class="create-page">
+
+        <div class="create-header">
+            <a asp-action="Index" asp-controller="Items" class="create-header__back">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Back to Listings
+            </a>
+            <div>
+                <h1 class="create-header__title">Edit Listing</h1>
+                <p class="create-header__subtitle">Update your item details below</p>
+            </div>
+        </div>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="create-error-banner">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+                <div asp-validation-summary="ModelOnly"></div>
+            </div>
+        }
+
+        <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="editForm" novalidate>
+            @Html.AntiForgeryToken()
+
+            @* Hidden fields *@
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="ExistingImageUrl" id="existingImageUrlInput" />
+            <input type="hidden" asp-for="RemoveImage" id="removeImageInput" value="false" />
+
+            <div class="create-grid">
+
+                <!-- Photo Column -->
+                <div class="create-photo-col">
+                    <p class="create-section-label">Item Photo</p>
+
+                    <div class="photo-dropzone" id="photoDropzone" tabindex="0" role="button">
+                        <input asp-for="Image" type="file" id="photoInput" class="photo-dropzone__input" accept="image/jpeg,image/png,image/webp" />
+
+                        <div class="photo-dropzone__empty" id="dropzoneEmpty" @(Model.ExistingImageUrl != null ? "hidden" : "")>
+                            <div class="photo-dropzone__icon">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" />
+                                    <circle cx="34" cy="18" r="3" stroke="currentColor" />
+                                    <path d="M4 32l10-10 8 8 6-6 8 8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <p class="photo-dropzone__main">
+                                <span class="photo-dropzone__cta">Click to upload</span> or drag
+                            </p>
+                            <p class="photo-dropzone__hint">JPEG, PNG · max 5MB</p>
+                        </div>
+
+                        <div class="photo-dropzone__preview" id="dropzonePreview" @(Model.ExistingImageUrl == null ? "hidden" : "")>
+                            <img id="previewImg" src="@(Model.ExistingImageUrl ?? string.Empty)" alt="Preview" />
+                            <button type="button" class="photo-dropzone__remove" id="removePhoto">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="photo-dropzone__overlay" id="dropzoneOverlay" hidden>
+                            <p>Drop to upload</p>
+                        </div>
+                    </div>
+
+                    <span asp-validation-for="Image" class="field__error"></span>
+
+                    <div class="create-tips">
+                        <p class="create-tips__heading">Photo tips</p>
+                        <ul class="create-tips__list">
+                            <li>Clear, well-lit photos sell faster</li>
+                            <li>Show any wear or flaws honestly</li>
+                            <li>Square format works best</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Form Column -->
+                <div class="create-form-col">
+
+                    <!-- Title -->
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Title" class="create-field__label">Title</label>
+                            <span class="create-field__counter" id="titleCounter">0/100</span>
+                        </div>
+                        <input asp-for="Title" class="create-field__input" id="titleInput"
+                               placeholder="e.g. Vintage Levi's Jacket" maxlength="100" />
+                        <span asp-validation-for="Title" class="field__error"></span>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Description" class="create-field__label">Description</label>
+                            <span class="create-field__counter" id="descCounter">0/1000</span>
+                        </div>
+                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
+                                  id="descInput" rows="3" maxlength="1000"
+                                  placeholder="Describe the item — size, colour, condition, any flaws…"></textarea>
+                        <span asp-validation-for="Description" class="field__error"></span>
+                    </div>
+
+                    <!-- Price -->
+                    <div class="create-field">
+                        <label asp-for="Price" class="create-field__label">Price (₱)</label>
+                        <div class="create-price-wrap">
+                            <span class="create-price-wrap__symbol">₱</span>
+                            <input asp-for="Price" class="create-field__input create-price-wrap__input"
+                                   type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
+                        </div>
+                        <span asp-validation-for="Price" class="field__error"></span>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="create-field">
+                        <label class="create-field__label">Category</label>
+                        <select asp-for="Category" class="create-hidden-select" id="categorySelect">
+                            <option value=""></option>
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemEditViewModel.Categories)
+                            {
+                                <option value="@cat">@cat</option>
+                            }
+                        </select>
+
+                        <div class="create-chips" id="categoryChips">
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemEditViewModel.Categories)
+                            {
+                                var isActive = Model.Category == cat;
+                                <button type="button"
+                                        class="create-chip @(isActive ? "create-chip--active" : "")"
+                                        data-value="@cat"
+                                        data-target="categorySelect"
+                                        aria-pressed="@(isActive ? "true" : "false")">
+                                    @cat
+                                </button>
+                            }
+                        </div>
+                        <span asp-validation-for="Category" class="field__error"></span>
+                    </div>
+
+                    <!-- Condition -->
+                    <div class="create-field">
+                        <label class="create-field__label">Condition</label>
+                        <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
+                            <option value=""></option>
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemEditViewModel.Conditions)
+                            {
+                                <option value="@cond">@cond</option>
+                            }
+                        </select>
+
+                        <div class="create-condition" id="conditionPills">
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemEditViewModel.Conditions)
+                            {
+                                var isActive = Model.Condition == cond;
+                                <button type="button"
+                                        class="create-condition__pill @(isActive ? "create-condition__pill--active" : "")"
+                                        data-value="@cond"
+                                        data-target="conditionSelect"
+                                        aria-pressed="@(isActive ? "true" : "false")">
+                                    @cond
+                                </button>
+                            }
+                        </div>
+                        <span asp-validation-for="Condition" class="field__error"></span>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="create-actions">
+                        <button type="submit" class="btn btn--primary" id="submitBtn">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                            </svg>
+                            Save Changes
+                        </button>
+                        <a asp-action="Index" class="btn btn--ghost">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Character counters
+            function initCounter(inputId, counterId, max) {
+                const input = document.getElementById(inputId);
+                const counter = document.getElementById(counterId);
+                if (!input || !counter) return;
+
+                const update = () => {
+                    const len = input.value.length;
+                    counter.textContent = len + '/' + max;
+                    counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
+                };
+
+                input.addEventListener('input', update);
+                update(); // Initialize with current value
+            }
+
+            initCounter('titleInput', 'titleCounter', 100);
+            initCounter('descInput', 'descCounter', 1000);
+
+            // Category/Condition chips
+            function initChips(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    const select = document.getElementById(btn.dataset.target);
+                    if (!select) return;
+
+                    // Deactivate all siblings
+                    container.querySelectorAll('[data-value]').forEach(b => {
+                        b.classList.remove('create-chip--active', 'create-condition__pill--active');
+                        b.setAttribute('aria-pressed', 'false');
+                    });
+
+                    // Activate clicked
+                    btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
+                    btn.setAttribute('aria-pressed', 'true');
+                    select.value = btn.dataset.value;
+
+                    // Trigger validation
+                    if (window.$ && $.validator) {
+                        $(select).valid();
+                    }
+                });
+
+                // Keyboard support
+                container.addEventListener('keydown', (e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                        const btn = e.target.closest('[data-value]');
+                        if (btn) {
+                            e.preventDefault();
+                            btn.click();
+                        }
+                    }
+                });
+            }
+
+            initChips('categoryChips');
+            initChips('conditionPills');
+
+            // Photo dropzone with existing image support
+            const dropzone = document.getElementById('photoDropzone');
+            const input = document.getElementById('photoInput');
+            const emptyEl = document.getElementById('dropzoneEmpty');
+            const previewEl = document.getElementById('dropzonePreview');
+            const previewImg = document.getElementById('previewImg');
+            const removeBtn = document.getElementById('removePhoto');
+            const overlay = document.getElementById('dropzoneOverlay');
+            const removeInput = document.getElementById('removeImageInput');
+
+            if (dropzone && input) {
+                dropzone.addEventListener('click', (e) => {
+                    if (e.target === removeBtn || removeBtn?.contains(e.target)) return;
+                    input.click();
+                });
+
+                input.addEventListener('change', () => {
+                    if (input.files?.[0]) {
+                        showPreview(input.files[0]);
+                        removeInput.value = 'false'; // Replacing, not removing
+                    }
+                });
+
+                removeBtn?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearPreview();
+                    removeInput.value = 'true'; // Signal to remove existing image
+                });
+
+                // Drag & drop
+                ['dragenter', 'dragover'].forEach(evt => {
+                    dropzone.addEventListener(evt, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        overlay.hidden = false;
+                        dropzone.classList.add('photo-dropzone--drag');
+                    });
+                });
+
+                ['dragleave', 'dragend'].forEach(evt => {
+                    dropzone.addEventListener(evt, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        overlay.hidden = true;
+                        dropzone.classList.remove('photo-dropzone--drag');
+                    });
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    overlay.hidden = true;
+                    dropzone.classList.remove('photo-dropzone--drag');
+
+                    const file = e.dataTransfer.files[0];
+                    if (!file) return;
+
+                    // Validate file type
+                    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowed.includes(file.type)) {
+                        showError('Only JPEG, PNG, or WebP images are accepted.');
+                        return;
+                    }
+
+                    // Validate file size (5MB max)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showError('Image must be smaller than 5 MB.');
+                        return;
+                    }
+
+                    // Update the file input
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+
+                    showPreview(file);
+                    removeInput.value = 'false'; // Replacing, not removing
+                });
+            }
+
+            function showPreview(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    emptyEl.hidden = true;
+                    previewEl.hidden = false;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function clearPreview() {
+                input.value = '';
+                previewImg.src = '';
+                previewEl.hidden = true;
+                emptyEl.hidden = false;
+            }
+
+            function showError(msg) {
+                const errorSpan = document.querySelector('.create-photo-col .field__error');
+                if (errorSpan) {
+                    errorSpan.textContent = msg;
+                    setTimeout(() => errorSpan.textContent = '', 3000);
+                }
+            }
+
+            // Submit button loading state
+            const form = document.getElementById('editForm');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (form && submitBtn) {
+                form.addEventListener('submit', () => {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Saving...';
+                });
+            }
+
+            // Initialize condition pills with current values
+            // This ensures the UI matches the model on page load
+            (function initSelectedValues() {
+                const categorySelect = document.getElementById('categorySelect');
+                const conditionSelect = document.getElementById('conditionSelect');
+
+                if (categorySelect) {
+                    const activeCategory = Array.from(document.querySelectorAll('#categoryChips [data-value]')).find(
+                        btn => btn.dataset.value === categorySelect.value
+                    );
+                    if (activeCategory) {
+                        activeCategory.classList.add('create-chip--active');
+                        activeCategory.setAttribute('aria-pressed', 'true');
+                    }
+                }
+
+                if (conditionSelect) {
+                    const activeCondition = Array.from(document.querySelectorAll('#conditionPills [data-value]')).find(
+                        btn => btn.dataset.value === conditionSelect.value
+                    );
+                    if (activeCondition) {
+                        activeCondition.classList.add('create-condition__pill--active');
+                        activeCondition.setAttribute('aria-pressed', 'true');
+                    }
+                }
+            })();
+        })();
+    </script>
+}
+
+
+--- Views/Items/Edit.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Items
+{
+    public class EditModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
 
 
 
---- wwwroot/js/site.js ---
+--- Views/Items/Index.cshtml ---
 
-// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+@model IReadOnlyList<ThriftLoop.Models.Item>
+@{
+    ViewData["Title"] = "My Listings";
+}
 
-// Write your JavaScript code.
+<div class="container">
+    <div class="listings-shell">
+
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div class="listings-toast">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
+                <span>@successMsg</span>
+            </div>
+        }
+
+        <div class="listings-header">
+            <div>
+                <h1 class="listings-header__title">My Listings</h1>
+                <p class="listings-header__subtitle">
+                    @if (Model.Count == 1)
+                    {
+                        <span>You have <strong>1</strong> active listing</span>
+                    }
+                    else
+                    {
+                        <span>You have <strong>@Model.Count</strong> active listings</span>
+                    }
+                </p>
+            </div>
+            <a asp-action="Create" class="btn btn--primary">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+                New Listing
+            </a>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <div class="listings-empty">
+                <div class="listings-empty__icon">
+                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="8" y="10" width="32" height="32" rx="4" />
+                        <path d="M16 10V8a4 4 0 018 0v2M24 22v8M20 26h8" />
+                    </svg>
+                </div>
+                <h2 class="listings-empty__title">No listings yet</h2>
+                <p class="listings-empty__body">
+                    Post your first item and start earning from things you no longer need.
+                </p>
+                <a asp-action="Create" class="btn btn--primary">Post your first item</a>
+            </div>
+        }
+        else
+        {
+            <div class="listings-table-wrap">
+                <table class="listings-table">
+                    <thead>
+                        <tr>
+                            <th class="listings-th listings-th--img">Photo</th>
+                            <th class="listings-th">Title</th>
+                            <th class="listings-th">Category</th>
+                            <th class="listings-th listings-th--price">Price</th>
+                            <th class="listings-th listings-th--date">Listed</th>
+                            <th class="listings-th listings-th--actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr class="listings-row">
+                                <td class="listings-td listings-td--img">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="@item.Title" class="listings-thumb" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <div class="listings-thumb listings-thumb--placeholder">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <rect x="3" y="3" width="18" height="18" rx="3" />
+                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <path d="M21 15l-5-5L5 21" />
+                                            </svg>
+                                        </div>
+                                    }
+                                </td>
+                                <td class="listings-td">
+                                    <span class="listings-item-title">@item.Title</span>
+                                    <span class="listings-item-condition">@item.Condition</span>
+                                </td>
+                                <td class="listings-td">
+                                    <span class="listings-badge">@item.Category</span>
+                                </td>
+                                <td class="listings-td listings-td--price">
+                                    <span class="listings-price">₱@item.Price.ToString("N2")</span>
+                                </td>
+                                <td class="listings-td listings-td--date">
+                                    <time datetime="@item.CreatedAt.ToString("yyyy-MM-dd")">
+                                        @item.CreatedAt.ToString("MMM d, yyyy")
+                                    </time>
+                                </td>
+                                <td class="listings-td listings-td--actions">
+                                    <div class="listings-actions">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="listings-action-btn listings-action-btn--edit">
+                                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                                            </svg>
+                                            Edit
+                                        </a>
+                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="listings-delete-form" onsubmit="return confirm('Delete \'@item.Title\'? This cannot be undone.');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="listings-action-btn listings-action-btn--delete">
+                                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                                                </svg>
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const toast = document.querySelector('.listings-toast');
+        if (toast) {
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+    </script>
+}
+
+
+--- Views/Items/Index.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Items
+{
+    public class IndexModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
 

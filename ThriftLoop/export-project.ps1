@@ -48,51 +48,54 @@ Add-Content -Path $OutputFile -Value "`n`n======================================
 
 Write-Host "`nExtracting file contents..." -ForegroundColor Cyan
 
-# 4. Filter and Exclude Logic
+# 4. Filter and Exclude Logic (PATH-BASED)
 $allFiles = Get-ChildItem -Path . -Recurse -File -Force -ErrorAction SilentlyContinue |
             Where-Object {
-                $normalizedPath = $_.FullName.Replace('/', '\')
+                # Get the path relative to the project root (e.g., "Views/Home/Index.cshtml")
+                $relativePath = $_.FullName.Substring($PWD.Path.Length + 1).Replace('\', '/')
+                
+                # Check Extensions & System Folders first
                 $isValidExt = $IncludeExtensions -contains $_.Extension
-                $isNotSystemDir = $true
+                $isSystemDir = $false
                 foreach ($dir in $ExcludeFolders) {
-                    if ($normalizedPath -match "\\$dir\\") { $isNotSystemDir = $false; break }
+                    if ($relativePath -match "^$dir/" -or $relativePath -match "/$dir/") { $isSystemDir = $true; break }
                 }
 
-                $matchesFilter = ($Filters.Count -eq 0)
+                if (-not $isValidExt -or $isSystemDir) { return $false }
+
+                # A. Filter Logic: Matches against the Relative Path
+                $passFilter = ($Filters.Count -eq 0)
                 if ($Filters.Count -gt 0) {
                     foreach ($f in $Filters) {
-                        if ($normalizedPath.IndexOf($f.Replace('/', '\'), [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                            $matchesFilter = $true; break
+                        $normalizedFilter = $f.Replace('\', '/')
+                        if ($relativePath.IndexOf($normalizedFilter, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 
+                            $passFilter = $true; break 
                         }
                     }
                 }
 
-                $isExcluded = $false
+                # B. Exclude Logic: Matches against the Relative Path
+                $failExclude = $false
                 if ($Excludes.Count -gt 0) {
                     foreach ($e in $Excludes) {
-                        if ($normalizedPath.IndexOf($e.Replace('/', '\'), [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                            $isExcluded = $true; break
+                        $normalizedExclude = $e.Replace('\', '/')
+                        if ($relativePath.IndexOf($normalizedExclude, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 
+                            $failExclude = $true; break 
                         }
                     }
                 }
-                
-                $isValidExt -and $isNotSystemDir -and $matchesFilter -and -not $isExcluded
+
+                $passFilter -and -not $failExclude
             }
 
-# 5. Append Contents (FIXED LOGIC)
+# 5. Append Contents
 $exportedCount = 0
 foreach ($file in $allFiles) {
     $relativePath = $file.FullName.Substring($PWD.Path.Length + 1).Replace('\', '/')
     Add-Content -Path $OutputFile -Value "`n`n--- $relativePath ---`n" -Encoding UTF8
     
     $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
-    
-    # Check content status before writing
-    if ([string]::IsNullOrWhiteSpace($content)) {
-        $textToWrite = "[Empty File]"
-    } else {
-        $textToWrite = $content
-    }
+    $textToWrite = if ([string]::IsNullOrWhiteSpace($content)) { "[Empty File]" } else { $content }
 
     Add-Content -Path $OutputFile -Value $textToWrite -Encoding UTF8
     $exportedCount++
@@ -102,6 +105,3 @@ Write-Host "Export completed! $exportedCount files exported." -ForegroundColor G
 
 # 6. Open in Chrome
 Start-Process "chrome.exe" "file:///$($OutputFile.Replace('\','/'))"
-
-
-# Commands: .\export-project.ps1 -Excludes -Filter

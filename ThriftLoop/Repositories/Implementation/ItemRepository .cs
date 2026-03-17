@@ -1,4 +1,5 @@
-﻿using ThriftLoop.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using ThriftLoop.Data;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 
@@ -20,5 +21,39 @@ public class ItemRepository : IItemRepository
         await _context.SaveChangesAsync();
         // After SaveChangesAsync, EF Core back-fills item.Id with the
         // database-generated identity value.
+    }
+
+    /// <inheritdoc />
+    public async Task<Item?> GetByIdAsync(int id)
+        => await _context.Items
+                         .AsNoTracking()
+                         .FirstOrDefaultAsync(i => i.Id == id);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId)
+        => await _context.Items
+                         .AsNoTracking()
+                         .Where(i => i.UserId == userId)
+                         .OrderByDescending(i => i.CreatedAt)
+                         .ToListAsync();
+
+    /// <inheritdoc />
+    public async Task UpdateAsync(Item item)
+    {
+        // Attach the detached entity and mark it as modified so EF issues
+        // a full UPDATE statement. Immutable fields (UserId, CreatedAt) are
+        // preserved by the caller before this method is invoked.
+        _context.Items.Update(item);
+        await _context.SaveChangesAsync();
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteAsync(int id)
+    {
+        var item = await _context.Items.FindAsync(id);
+        if (item is null) return;
+
+        _context.Items.Remove(item);
+        await _context.SaveChangesAsync();
     }
 }
