@@ -30,6 +30,20 @@ public class ItemRepository : IItemRepository
                          .FirstOrDefaultAsync(i => i.Id == id);
 
     /// <inheritdoc />
+    public async Task<Item?> GetByIdWithUserAsync(int id)
+        => await _context.Items
+                         .AsNoTracking()
+                         .Include(i => i.User)
+                         .FirstOrDefaultAsync(i => i.Id == id);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Item>> GetAllAsync()
+        => await _context.Items
+                         .AsNoTracking()
+                         .OrderByDescending(i => i.CreatedAt)
+                         .ToListAsync();
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId)
         => await _context.Items
                          .AsNoTracking()

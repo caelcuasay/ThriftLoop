@@ -1,0 +1,229 @@
+﻿@model ThriftLoop.Models.Item
+@{
+    ViewData["Title"] = Model.Title;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    bool isOwner = (bool)(ViewBag.IsOwner ?? false);
+    bool isAnonymous = (bool)(ViewBag.IsAnonymous ?? true);
+
+    @* Derive a display name from the seller's email: take the part before '@' *@
+    string sellerDisplay = Model.User is not null
+        ? Model.User.Email.Split('@')[0]
+        : "Unknown seller";
+
+    @* Condition → colour class *@
+    string condClass = Model.Condition switch
+    {
+        "New" => "detail-condition--new",
+        "Like New" => "detail-condition--like-new",
+        "Good" => "detail-condition--good",
+        "Fair" => "detail-condition--fair",
+        _ => "detail-condition--poor"
+    };
+}
+
+<div class="detail-shell">
+
+    @* ── Back navigation ──────────────────────────────────────────────────── *@
+    <nav class="detail-breadcrumb" aria-label="Breadcrumb">
+        <a asp-action="Index" asp-controller="Home" class="detail-breadcrumb__link">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to listings
+        </a>
+    </nav>
+
+    @* ── Two-column layout ────────────────────────────────────────────────── *@
+    <div class="detail-grid">
+
+        @* ════════════════════════════════════════
+           LEFT — Image
+           ════════════════════════════════════════ *@
+        <aside class="detail-img-col">
+
+            <div class="detail-img-frame">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl"
+                         alt="Photo of @Model.Title"
+                         class="detail-img"
+                         loading="eager" />
+                }
+                else
+                {
+                    <div class="detail-img detail-img--placeholder" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                            <rect x="6" y="10" width="52" height="44" rx="6" />
+                            <circle cx="22" cy="26" r="6" />
+                            <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <span>No photo</span>
+                    </div>
+                }
+            </div>
+
+            @* Seller card — desktop: in the image column *@
+            <div class="detail-seller detail-seller--below-img">
+                <div class="detail-seller__avatar" aria-hidden="true">
+                    @sellerDisplay.Substring(0, 1).ToUpper()
+                </div>
+                <div class="detail-seller__info">
+                    <p class="detail-seller__label">Listed by</p>
+                    <p class="detail-seller__name">@sellerDisplay</p>
+                    <p class="detail-seller__since">
+                        Member since @(Model.User?.CreatedAt.ToString("MMMM yyyy") ?? "—")
+                    </p>
+                </div>
+            </div>
+
+        </aside>
+
+        @* ════════════════════════════════════════
+           RIGHT — Details
+           ════════════════════════════════════════ *@
+        <section class="detail-info-col">
+
+            @* Category + condition + size badges *@
+            <div class="detail-meta-row">
+                <span class="detail-category">@Model.Category</span>
+                <span class="detail-condition @condClass">@Model.Condition</span>
+                @if (!string.IsNullOrEmpty(Model.Size))
+                {
+                    <span class="detail-size">@Model.Size</span>
+                }
+            </div>
+
+            @* Title *@
+            <h1 class="detail-title">@Model.Title</h1>
+
+            @* Price — deliberately prominent *@
+            <div class="detail-price-block">
+                <span class="detail-price">₱@Model.Price.ToString("N2")</span>
+                <span class="detail-price-label">Fixed price</span>
+            </div>
+
+            <hr class="detail-divider" />
+
+            @* Description *@
+            <div class="detail-description-block">
+                <h2 class="detail-section-heading">Description</h2>
+                <p class="detail-description">@Model.Description</p>
+            </div>
+
+            @* Facts grid *@
+            <div class="detail-facts">
+                <div class="detail-fact">
+                    <span class="detail-fact__label">Listed</span>
+                    <span class="detail-fact__value">
+                        <time datetime="@Model.CreatedAt.ToString("yyyy-MM-dd")">
+                            @Model.CreatedAt.ToString("MMMM d, yyyy")
+                        </time>
+                    </span>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Size))
+                {
+                    <div class="detail-fact">
+                        <span class="detail-fact__label">Size</span>
+                        <span class="detail-fact__value">@Model.Size</span>
+                    </div>
+                }
+                <div class="detail-fact">
+                    <span class="detail-fact__label">Item ID</span>
+                    <span class="detail-fact__value">#@Model.Id</span>
+                </div>
+            </div>
+
+            @* Seller — mobile: inline in the info column *@
+            <div class="detail-seller detail-seller--inline">
+                <div class="detail-seller__avatar" aria-hidden="true">
+                    @sellerDisplay.Substring(0, 1).ToUpper()
+                </div>
+                <div class="detail-seller__info">
+                    <p class="detail-seller__label">Listed by</p>
+                    <p class="detail-seller__name">@sellerDisplay</p>
+                    <p class="detail-seller__since">
+                        Member since @(Model.User?.CreatedAt.ToString("MMMM yyyy") ?? "—")
+                    </p>
+                </div>
+            </div>
+
+            <hr class="detail-divider" />
+
+            @* ── Action buttons ─────────────────────────────────────────── *@
+            @if (isOwner)
+            {
+                <div class="detail-actions">
+                    <a asp-action="Edit"
+                       asp-controller="Items"
+                       asp-route-id="@Model.Id"
+                       class="detail-btn detail-btn--edit">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                        </svg>
+                        Edit Listing
+                    </a>
+                    <a asp-action="Delete"
+                       asp-controller="Items"
+                       asp-route-id="@Model.Id"
+                       class="detail-btn detail-btn--delete">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd"
+                                  d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                                  clip-rule="evenodd" />
+                        </svg>
+                        Delete Listing
+                    </a>
+                </div>
+                <p class="detail-owner-note">
+                    This is your listing.
+                    <a asp-action="Index" asp-controller="Items">View all your listings →</a>
+                </p>
+            }
+            else if (isAnonymous)
+            {
+                <div class="detail-actions">
+                    <a asp-action="Login"
+                       asp-controller="Auth"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       class="detail-btn detail-btn--buy">
+                        Sign in to Buy
+                    </a>
+                    <a asp-action="Login"
+                       asp-controller="Auth"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       class="detail-btn detail-btn--cart">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
+                            <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
+                        </svg>
+                        Add to Cart
+                    </a>
+                </div>
+                <p class="detail-anon-note">
+                    <a asp-action="Login" asp-controller="Auth">Sign in</a> or
+                    <a asp-action="Register" asp-controller="Auth">create a free account</a>
+                    to purchase this item.
+                </p>
+            }
+            else
+            {
+                <div class="detail-actions">
+                    <button type="button" class="detail-btn detail-btn--buy" disabled>
+                        Buy Now
+                    </button>
+                    <button type="button" class="detail-btn detail-btn--cart" disabled>
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
+                            <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
+                        </svg>
+                        Add to Cart
+                    </button>
+                </div>
+            }
+
+        </section>
+
+    </div>
+
+</div>

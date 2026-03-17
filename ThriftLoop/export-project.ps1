@@ -11,7 +11,7 @@ $OutputFile = "$PWD\Project_Export.txt"
 
 # 1. Initialize file and write the header
 $header = "Project Export`n"
-if ($Filters.Count -gt 0) { $header += "Filters: $($Filters -join ', ')`n" }
+if ($Filters.Count -gt 0) { $header += "Filters (Path or Content): $($Filters -join ', ')`n" }
 if ($Excludes.Count -gt 0) { $header += "Excludes: $($Excludes -join ', ')`n" }
 
 Set-Content -Path $OutputFile -Value "Project Structure: $PWD`n$header`n=========================================`n" -Encoding UTF8
@@ -46,15 +46,14 @@ Export-Tree
 # 3. Append Content Header
 Add-Content -Path $OutputFile -Value "`n`n=========================================`nFILE CONTENTS`n=========================================`n" -Encoding UTF8
 
-Write-Host "`nExtracting file contents..." -ForegroundColor Cyan
+Write-Host "`nExtracting file contents (Scanning for keywords)..." -ForegroundColor Cyan
 
-# 4. Filter and Exclude Logic (PATH-BASED)
+# 4. Deep Filter Logic (Path + Content Search)
 $allFiles = Get-ChildItem -Path . -Recurse -File -Force -ErrorAction SilentlyContinue |
             Where-Object {
-                # Get the path relative to the project root (e.g., "Views/Home/Index.cshtml")
                 $relativePath = $_.FullName.Substring($PWD.Path.Length + 1).Replace('\', '/')
                 
-                # Check Extensions & System Folders first
+                # Basic validation
                 $isValidExt = $IncludeExtensions -contains $_.Extension
                 $isSystemDir = $false
                 foreach ($dir in $ExcludeFolders) {
@@ -63,23 +62,31 @@ $allFiles = Get-ChildItem -Path . -Recurse -File -Force -ErrorAction SilentlyCon
 
                 if (-not $isValidExt -or $isSystemDir) { return $false }
 
-                # A. Filter Logic: Matches against the Relative Path
+                # Load content for deep scanning
+                $fileContent = Get-Content -Path $_.FullName -Raw -ErrorAction SilentlyContinue
+
+                # A. Filter Logic (Checks Path OR File Content)
                 $passFilter = ($Filters.Count -eq 0)
                 if ($Filters.Count -gt 0) {
                     foreach ($f in $Filters) {
-                        $normalizedFilter = $f.Replace('\', '/')
-                        if ($relativePath.IndexOf($normalizedFilter, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 
-                            $passFilter = $true; break 
+                        $fNorm = $f.Replace('\', '/')
+                        # Check if keyword is in the Path
+                        $inPath = $relativePath.IndexOf($fNorm, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+                        # Check if keyword is inside the file content
+                        $inContent = $false
+                        if ($fileContent) {
+                            $inContent = $fileContent.IndexOf($f, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
                         }
+
+                        if ($inPath -or $inContent) { $passFilter = $true; break }
                     }
                 }
 
-                # B. Exclude Logic: Matches against the Relative Path
+                # B. Exclude Logic
                 $failExclude = $false
                 if ($Excludes.Count -gt 0) {
                     foreach ($e in $Excludes) {
-                        $normalizedExclude = $e.Replace('\', '/')
-                        if ($relativePath.IndexOf($normalizedExclude, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 
+                        if ($relativePath.IndexOf($e.Replace('\', '/'), [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 
                             $failExclude = $true; break 
                         }
                     }
@@ -101,7 +108,7 @@ foreach ($file in $allFiles) {
     $exportedCount++
 }
 
-Write-Host "Export completed! $exportedCount files exported." -ForegroundColor Green
+Write-Host "Export completed! $exportedCount files mentioned your keywords." -ForegroundColor Green
 
 # 6. Open in Chrome
 Start-Process "chrome.exe" "file:///$($OutputFile.Replace('\','/'))"

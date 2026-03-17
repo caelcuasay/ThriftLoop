@@ -12,14 +12,14 @@ public class ApplicationDbContext : DbContext
 
     // ── DbSets ───────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
-    public DbSet<Item> Items => Set<Item>();   // ← ADD THIS LINE
+    public DbSet<Item> Items => Set<Item>();
 
     // ── Model Configuration ──────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // ── Users (unchanged) ────────────────────────────────────────────
+        // ── Users ────────────────────────────────────────────────────────
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
@@ -42,7 +42,7 @@ public class ApplicationDbContext : DbContext
                   .HasDefaultValueSql("SYSUTCDATETIME()");
         });
 
-        // ── Items (new) ──────────────────────────────────────────────────
+        // ── Items ────────────────────────────────────────────────────────
         modelBuilder.Entity<Item>(entity =>
         {
             entity.ToTable("Items");
@@ -72,6 +72,11 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasMaxLength(50);
 
+            // Nullable — not all item types carry a standard clothing size.
+            entity.Property(i => i.Size)
+                  .IsRequired(false)
+                  .HasMaxLength(10);
+
             entity.Property(i => i.ImageUrl)
                   .IsRequired(false)
                   .HasMaxLength(500);
@@ -83,7 +88,7 @@ public class ApplicationDbContext : DbContext
 
             // ── Relationship: Item → User (many-to-one) ──────────────────
             entity.HasOne(i => i.User)
-                  .WithMany()                       // User has no Items collection yet
+                  .WithMany()
                   .HasForeignKey(i => i.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
         });

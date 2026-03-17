@@ -1117,3 +1117,1310 @@ body {
         width: 100%;
     }
 }
+
+@keyframes fyFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Outer shell: sidebar + main side-by-side */
+.fy-shell {
+    display: flex;
+    align-items: flex-start;
+    gap: 2rem;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+    animation: fyFadeUp .45s ease both;
+}
+
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+
+.fy-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    /* offset accounts for the navbar; adjust the value to match your navbar height */
+    top: 72px;
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--border, #D8D0C0);
+    border-radius: var(--radius-md, 12px);
+    padding: 1.25rem 1.125rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    scrollbar-width: thin;
+}
+
+.fy-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.fy-sidebar__title {
+    font-weight: 700;
+    font-size: .9375rem;
+    color: var(--text-primary, #1A1A1A);
+}
+
+.fy-sidebar__reset {
+    background: none;
+    border: none;
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--terra, #C96B3A);
+    cursor: pointer;
+    padding: 0;
+    transition: opacity .15s;
+}
+
+    .fy-sidebar__reset:hover {
+        opacity: .7;
+    }
+
+/* Filter group */
+.fy-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--cream-dark, #EDE6D8);
+}
+
+    .fy-filter-group:first-of-type {
+        border-top: none;
+        padding-top: 0;
+    }
+
+.fy-filter-group__label {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+/* Search */
+.fy-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+    .fy-search-wrap svg {
+        position: absolute;
+        left: .65rem;
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted, #8A8A8A);
+        pointer-events: none;
+        flex-shrink: 0;
+    }
+
+.fy-search-input {
+    width: 100%;
+    padding: .5rem .75rem .5rem 2rem;
+    border: 1.5px solid var(--border, #D8D0C0);
+    border-radius: var(--radius-sm, 6px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .875rem;
+    color: var(--text-primary, #1A1A1A);
+    background: var(--cream, #F5F0E8);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    appearance: none;
+}
+
+    .fy-search-input::placeholder {
+        color: var(--text-muted, #8A8A8A);
+    }
+
+    .fy-search-input:focus {
+        border-color: var(--border-focus, #2D5440);
+        box-shadow: 0 0 0 3px rgba(45,84,64,.1);
+        background: #fff;
+    }
+
+/* Price range inputs */
+.fy-price-row {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.fy-price-sep {
+    color: var(--text-muted, #8A8A8A);
+    font-size: .85rem;
+}
+
+.fy-price-field {
+    position: relative;
+    flex: 1;
+}
+
+.fy-price-field__sym {
+    position: absolute;
+    left: .5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: .78rem;
+    color: var(--text-muted, #8A8A8A);
+    pointer-events: none;
+}
+
+.fy-price-input {
+    width: 100%;
+    padding: .45rem .4rem .45rem 1.35rem;
+    border: 1.5px solid var(--border, #D8D0C0);
+    border-radius: var(--radius-sm, 6px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .8rem;
+    color: var(--text-primary, #1A1A1A);
+    background: var(--cream, #F5F0E8);
+    outline: none;
+    appearance: none;
+    -moz-appearance: textfield;
+    transition: border-color .15s;
+}
+
+    .fy-price-input::-webkit-outer-spin-button,
+    .fy-price-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+    }
+
+    .fy-price-input:focus {
+        border-color: var(--border-focus, #2D5440);
+        background: #fff;
+    }
+
+/* Checkbox list */
+.fy-check-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.fy-check-label {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.fy-check {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.fy-check-box {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border, #D8D0C0);
+    border-radius: 4px;
+    background: var(--cream, #F5F0E8);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .12s, border-color .12s;
+}
+
+.fy-check:checked + .fy-check-box {
+    background: var(--forest, #1E3A2F);
+    border-color: var(--forest, #1E3A2F);
+}
+
+    .fy-check:checked + .fy-check-box::after {
+        content: '';
+        display: block;
+        width: 8px;
+        height: 5px;
+        border-left: 2px solid #fff;
+        border-bottom: 2px solid #fff;
+        transform: rotate(-45deg) translateY(-1px);
+    }
+
+.fy-check-text {
+    font-size: .84rem;
+    color: var(--text-secondary, #5A5A5A);
+}
+
+.fy-check-label:hover .fy-check-text {
+    color: var(--text-primary, #1A1A1A);
+}
+
+
+/* ── Main feed ─────────────────────────────────────────────────────────────── */
+
+.fy-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.fy-feed-header {
+    display: flex;
+    align-items: baseline;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+}
+
+.fy-feed-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.75rem;
+    color: var(--forest, #1E3A2F);
+    margin: 0;
+    letter-spacing: -.02em;
+}
+
+.fy-feed-meta {
+    font-size: .84rem;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+
+/* ── Item grid ─────────────────────────────────────────────────────────────── */
+
+.fy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+
+/* ── Item card ─────────────────────────────────────────────────────────────── */
+
+.fy-card {
+    background: #fff;
+    border: 1px solid var(--border, #D8D0C0);
+    border-radius: var(--radius-md, 12px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s, transform .2s;
+    animation: fyFadeUp .4s ease both;
+}
+
+    .fy-card:hover {
+        box-shadow: 0 8px 28px rgba(30,58,47,.12);
+        transform: translateY(-3px);
+    }
+
+    /* Stagger the fade-in for a cascade effect */
+    .fy-card:nth-child(1) {
+        animation-delay: .03s;
+    }
+
+    .fy-card:nth-child(2) {
+        animation-delay: .07s;
+    }
+
+    .fy-card:nth-child(3) {
+        animation-delay: .11s;
+    }
+
+    .fy-card:nth-child(4) {
+        animation-delay: .15s;
+    }
+
+    .fy-card:nth-child(5) {
+        animation-delay: .19s;
+    }
+
+    .fy-card:nth-child(6) {
+        animation-delay: .23s;
+    }
+
+    .fy-card:nth-child(7) {
+        animation-delay: .27s;
+    }
+
+    .fy-card:nth-child(8) {
+        animation-delay: .31s;
+    }
+
+    .fy-card:nth-child(n+9) {
+        animation-delay: .35s;
+    }
+
+/* Hidden state set by JS filter */
+.fy-card--hidden {
+    display: none !important;
+}
+
+/* Image area */
+.fy-card__img-wrap {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: var(--cream-dark, #EDE6D8);
+    overflow: hidden;
+}
+
+.fy-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .35s ease;
+}
+
+.fy-card:hover .fy-card__img {
+    transform: scale(1.04);
+}
+
+.fy-card__img--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #8A8A8A);
+}
+
+    .fy-card__img--placeholder svg {
+        width: 40px;
+        height: 40px;
+    }
+
+/* Condition badge — top-left overlay */
+.fy-card__condition-badge {
+    position: absolute;
+    top: .55rem;
+    left: .55rem;
+    background: rgba(30,58,47,.82);
+    color: var(--cream, #F5F0E8);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    padding: .2rem .55rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    backdrop-filter: blur(4px);
+}
+
+/* Owner badge — top-right overlay */
+.fy-card__owner-badge {
+    position: absolute;
+    top: .55rem;
+    right: .55rem;
+    background: var(--terra, #C96B3A);
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    padding: .2rem .6rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+/* Card body */
+.fy-card__body {
+    padding: .875rem 1rem .75rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    flex: 1;
+}
+
+.fy-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.fy-card__category {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--forest-lite, #3D6B52);
+}
+
+.fy-card__date {
+    font-size: .72rem;
+    color: var(--text-muted, #8A8A8A);
+    white-space: nowrap;
+}
+
+.fy-card__title {
+    font-size: .9375rem;
+    font-weight: 600;
+    color: var(--text-primary, #1A1A1A);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+.fy-card__price {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--forest, #1E3A2F);
+    margin: .15rem 0 0;
+}
+
+/* Action footer */
+.fy-card__actions {
+    padding: 0 .875rem .875rem;
+    display: flex;
+    gap: .5rem;
+}
+
+.fy-card__actions--owner {
+    padding-top: 0;
+}
+
+/* Shared button base */
+.fy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    padding: .5rem .85rem;
+    border-radius: var(--radius-sm, 6px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .8125rem;
+    font-weight: 600;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, color .15s, border-color .15s, transform .1s;
+    line-height: 1;
+}
+
+    .fy-btn svg {
+        width: .875rem;
+        height: .875rem;
+        flex-shrink: 0;
+    }
+
+/* Add to Cart — ghost/outline style */
+.fy-btn--cart {
+    flex: 1;
+    background: transparent;
+    color: var(--forest, #1E3A2F);
+    border-color: var(--border, #D8D0C0);
+}
+
+    .fy-btn--cart:not(:disabled):hover {
+        background: var(--cream-dark, #EDE6D8);
+        border-color: var(--forest, #1E3A2F);
+        transform: translateY(-1px);
+    }
+
+/* Buy Now — primary fill */
+.fy-btn--buy {
+    flex: 1;
+    background: var(--forest, #1E3A2F);
+    color: var(--cream, #F5F0E8);
+    border-color: var(--forest, #1E3A2F);
+}
+
+    .fy-btn--buy:not(:disabled):hover {
+        background: var(--forest-mid, #2D5440);
+        border-color: var(--forest-mid, #2D5440);
+        transform: translateY(-1px);
+    }
+
+/* Disabled state while cart/buy are not yet wired up */
+.fy-btn:disabled {
+    opacity: 1; /* intentionally full opacity — they look active */
+    cursor: pointer;
+}
+
+/* Manage listing link (owner view) */
+.fy-btn--manage {
+    width: 100%;
+    background: transparent;
+    color: var(--terra, #C96B3A);
+    border-color: rgba(201,107,58,.35);
+    font-size: .8125rem;
+}
+
+    .fy-btn--manage:hover {
+        background: rgba(201,107,58,.08);
+        border-color: var(--terra, #C96B3A);
+    }
+
+
+/* ── Empty states ──────────────────────────────────────────────────────────── */
+
+.fy-empty {
+    text-align: center;
+    padding: 4rem 1.5rem;
+    border: 2px dashed var(--border, #D8D0C0);
+    border-radius: var(--radius-md, 12px);
+}
+
+.fy-empty--hidden {
+    display: none !important;
+}
+
+.fy-empty__icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1.25rem;
+    color: var(--text-muted, #8A8A8A);
+}
+
+    .fy-empty__icon svg {
+        width: 100%;
+        height: 100%;
+    }
+
+.fy-empty__title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary, #1A1A1A);
+    margin: 0 0 .4rem;
+}
+
+.fy-empty__body {
+    font-size: .9rem;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0 auto .5rem;
+    max-width: 26rem;
+}
+
+.fy-empty__cta {
+    margin-top: 1rem;
+    display: inline-flex;
+    width: auto;
+}
+
+.fy-empty__reset-btn {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    padding: .55rem 1.25rem;
+    background: var(--forest, #1E3A2F);
+    color: var(--cream, #F5F0E8);
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+    .fy-empty__reset-btn:hover {
+        background: var(--forest-mid, #2D5440);
+    }
+
+
+/* ── Mobile: sidebar becomes slide-in drawer ───────────────────────────────── */
+
+@media (max-width: 768px) {
+    .fy-shell {
+        flex-direction: column;
+        gap: 0;
+        padding: 1rem 1rem 3rem;
+    }
+
+    .fy-sidebar {
+        position: fixed;
+        top: 0;
+        left: -280px;
+        width: 260px;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid var(--border, #D8D0C0);
+        box-shadow: 4px 0 24px rgba(0,0,0,.12);
+        z-index: 200;
+        transition: left .28s ease;
+        padding-top: 1.5rem;
+    }
+
+    .fy-sidebar--open {
+        left: 0;
+    }
+
+    .fy-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: .875rem;
+    }
+
+    /* Mobile filter-toggle button — shown only on small screens */
+    .fy-filter-toggle {
+        display: inline-flex;
+    }
+}
+
+@media (min-width: 769px) {
+    .fy-filter-toggle {
+        display: none;
+    }
+}
+
+/* ============================================================
+   ThriftLoop — Item Details Page
+   Append this block to the bottom of wwwroot/css/site.css
+   ============================================================ */
+
+
+/* ── Page entry animation ──────────────────────────────────────────────────── */
+
+@keyframes detailFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* ── Outer shell ───────────────────────────────────────────────────────────── */
+
+.detail-shell {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem 5rem;
+    animation: detailFadeUp .4s ease both;
+}
+
+
+/* ── Breadcrumb / back link ────────────────────────────────────────────────── */
+
+.detail-breadcrumb {
+    margin-bottom: 1.5rem;
+}
+
+.detail-breadcrumb__link {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .875rem;
+    font-weight: 500;
+    color: var(--text-secondary, #5A5A5A);
+    text-decoration: none;
+    transition: color .15s;
+}
+
+    .detail-breadcrumb__link svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+    }
+
+    .detail-breadcrumb__link:hover {
+        color: var(--forest, #1E3A2F);
+    }
+
+
+/* ── Two-column grid ───────────────────────────────────────────────────────── */
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+        gap: 1.75rem;
+    }
+}
+
+
+/* ── Left column — image ───────────────────────────────────────────────────── */
+
+.detail-img-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    position: sticky;
+    top: 88px; /* match navbar height */
+}
+
+@media (max-width: 768px) {
+    .detail-img-col {
+        position: static;
+    }
+}
+
+.detail-img-frame {
+    border-radius: var(--radius-md, 12px);
+    overflow: hidden;
+    background: var(--cream-dark, #EDE6D8);
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--border, #D8D0C0);
+}
+
+.detail-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .4s ease;
+}
+
+.detail-img-frame:hover .detail-img {
+    transform: scale(1.03);
+}
+
+.detail-img--placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    color: var(--text-muted, #8A8A8A);
+    font-size: .875rem;
+}
+
+    .detail-img--placeholder svg {
+        width: 56px;
+        height: 56px;
+    }
+
+
+/* ── Seller card ───────────────────────────────────────────────────────────── */
+
+.detail-seller {
+    display: flex;
+    align-items: center;
+    gap: .875rem;
+    background: #fff;
+    border: 1px solid var(--border, #D8D0C0);
+    border-radius: var(--radius-md, 12px);
+    padding: 1rem 1.125rem;
+}
+
+/*
+ * Two copies of the seller card exist in the markup:
+ *   - .detail-seller--below-img  → shown on desktop in the image column
+ *   - .detail-seller--inline     → shown on mobile inside the info column
+ * We toggle them with media queries to avoid duplication issues.
+ */
+.detail-seller--below-img {
+    display: flex;
+}
+
+.detail-seller--inline {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .detail-seller--below-img {
+        display: none;
+    }
+
+    .detail-seller--inline {
+        display: flex;
+    }
+}
+
+.detail-seller__avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--forest, #1E3A2F);
+    color: var(--cream, #F5F0E8);
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.detail-seller__info {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+
+.detail-seller__label {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+.detail-seller__name {
+    font-size: .9375rem;
+    font-weight: 600;
+    color: var(--text-primary, #1A1A1A);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-seller__since {
+    font-size: .78rem;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+
+/* ── Right column — info ───────────────────────────────────────────────────── */
+
+.detail-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+
+/* Category + condition row */
+.detail-meta-row {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+}
+
+.detail-category {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--forest-lite, #3D6B52);
+    background: rgba(61,107,82,.1);
+    padding: .25rem .7rem;
+    border-radius: 20px;
+}
+
+/* Condition badges — colour-coded */
+.detail-condition {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: .25rem .7rem;
+    border-radius: 20px;
+}
+
+.detail-condition--new {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.detail-condition--like-new {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.detail-condition--good {
+    background: #fef9c3;
+    color: #713f12;
+}
+
+.detail-condition--fair {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.detail-condition--poor {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+
+/* Title */
+.detail-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--text-primary, #1A1A1A);
+    letter-spacing: -.025em;
+    line-height: 1.2;
+    margin: 0;
+}
+
+@media (max-width: 480px) {
+    .detail-title {
+        font-size: 1.6rem;
+    }
+}
+
+
+/* ── Price block — the most visually prominent element ─────────────────────── */
+
+.detail-price-block {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+}
+
+.detail-price {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.5rem;
+    font-weight: 400;
+    color: var(--forest, #1E3A2F);
+    letter-spacing: -.03em;
+    line-height: 1;
+}
+
+.detail-price-label {
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--text-muted, #8A8A8A);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: .1rem;
+}
+
+
+/* Divider */
+.detail-divider {
+    border: none;
+    border-top: 1px solid var(--cream-dark, #EDE6D8);
+    margin: 0;
+}
+
+
+/* Description */
+.detail-description-block {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.detail-section-heading {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+.detail-description {
+    font-size: .9375rem;
+    color: var(--text-secondary, #5A5A5A);
+    line-height: 1.7;
+    margin: 0;
+    white-space: pre-wrap; /* honour newlines from textarea input */
+}
+
+
+/* Facts mini-grid */
+.detail-facts {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.detail-fact {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.detail-fact__label {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8A8A8A);
+}
+
+.detail-fact__value {
+    font-size: .875rem;
+    color: var(--text-primary, #1A1A1A);
+    font-weight: 500;
+}
+
+
+/* ── Action buttons ────────────────────────────────────────────────────────── */
+
+.detail-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+.detail-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    padding: .75rem 1.5rem;
+    border-radius: var(--radius-sm, 6px);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9375rem;
+    font-weight: 600;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, border-color .15s, transform .1s, box-shadow .15s;
+    flex: 1;
+    min-width: 0;
+}
+
+    .detail-btn svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+/* Buy Now — forest fill */
+.detail-btn--buy {
+    background: var(--forest, #1E3A2F);
+    color: var(--cream, #F5F0E8);
+    border-color: var(--forest, #1E3A2F);
+}
+
+    .detail-btn--buy:not(:disabled):hover {
+        background: var(--forest-mid, #2D5440);
+        border-color: var(--forest-mid, #2D5440);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(30,58,47,.22);
+    }
+
+/* Add to Cart — outline */
+.detail-btn--cart {
+    background: transparent;
+    color: var(--forest, #1E3A2F);
+    border-color: var(--border, #D8D0C0);
+}
+
+    .detail-btn--cart:not(:disabled):hover {
+        background: var(--cream-dark, #EDE6D8);
+        border-color: var(--forest, #1E3A2F);
+        transform: translateY(-1px);
+    }
+
+/* Edit — purple-tinted outline (matches My Listings table) */
+.detail-btn--edit {
+    color: #5b21b6;
+    border-color: #c4b5fd;
+    background: #ede9fe;
+}
+
+    .detail-btn--edit:hover {
+        background: #5b21b6;
+        color: #fff;
+        border-color: #5b21b6;
+        transform: translateY(-1px);
+    }
+
+/* Delete — red outline */
+.detail-btn--delete {
+    color: #b91c1c;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+    .detail-btn--delete:hover {
+        background: #b91c1c;
+        color: #fff;
+        border-color: #b91c1c;
+        transform: translateY(-1px);
+    }
+
+/* Disabled — intentionally full-opacity until cart feature is wired */
+.detail-btn:disabled {
+    opacity: 1;
+    cursor: pointer;
+}
+
+
+/* ── Owner note ────────────────────────────────────────────────────────────── */
+
+.detail-owner-note {
+    font-size: .84rem;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+    .detail-owner-note a {
+        color: var(--forest-lite, #3D6B52);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+        .detail-owner-note a:hover {
+            text-decoration: underline;
+        }
+
+
+/* ── Anonymous prompt note ─────────────────────────────────────────────────── */
+
+.detail-anon-note {
+    font-size: .84rem;
+    color: var(--text-muted, #8A8A8A);
+    margin: 0;
+}
+
+    .detail-anon-note a {
+        color: var(--forest-lite, #3D6B52);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+        .detail-anon-note a:hover {
+            text-decoration: underline;
+        }
+
+
+/* ============================================================
+   ThriftLoop — Clickable card & row additions
+   Append this block to the bottom of wwwroot/css/site.css
+   ============================================================ */
+
+
+/* ── Stretched-link pattern for .fy-card ──────────────────────────────────── */
+
+/*
+ * How it works:
+ *   1. .fy-card already has position:relative (set in the For You CSS block).
+ *   2. .fy-card__link is an empty <a> placed at the end of .fy-card__body.
+ *      Its ::after pseudo-element expands to cover the entire card.
+ *   3. .fy-card__actions sits at position:relative + z-index:1 so its buttons
+ *      remain clickable above the invisible ::after overlay.
+ */
+
+.fy-card__link {
+    /* The <a> itself takes no visual space */
+    position: static;
+    font-size: 0;
+    line-height: 0;
+}
+
+    .fy-card__link::after {
+        content: '';
+        position: absolute;
+        inset: 0; /* top/right/bottom/left: 0 — covers the whole card */
+        z-index: 0;
+        border-radius: inherit;
+    }
+
+/* Lift action buttons above the overlay so they remain independently clickable */
+.fy-card__actions {
+    position: relative;
+    z-index: 1;
+}
+
+/* Show a pointer on the card body area (the image-wrap is already covered) */
+.fy-card:has(.fy-card__link) {
+    cursor: pointer;
+}
+
+
+/* ── Clickable table rows in Items/Index ───────────────────────────────────── */
+
+.listings-row--clickable {
+    cursor: pointer;
+}
+
+    /*
+ * Subtle highlight on hover so users know the row is interactive.
+ * The existing .listings-row:hover rule handles the background;
+ * this rule just reinforces the pointer cursor and adds a left accent.
+ */
+    .listings-row--clickable:hover {
+        background: var(--cream-dark, #EDE6D8);
+    }
+
+        .listings-row--clickable:hover .listings-item-title--link {
+            color: var(--forest, #1E3A2F);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+/* Title link — looks like plain text by default, underlines on row hover */
+.listings-item-title--link {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+    display: block;
+    transition: color .15s;
+}
+
+/*
+ * The <a> inside the row must NOT be styled as a stretched link here —
+ * it just acts as a normal inline link for keyboard users.
+ * Its click is handled natively; the row's JS click handler skips it.
+ */
+
+/* ============================================================
+   ThriftLoop — Size chips & detail badge
+   Append this block to the bottom of wwwroot/css/site.css
+   ============================================================ */
+
+/*
+ * .create-chips--size
+ * The size chip row is narrower than category chips because the labels
+ * (XS, S, M…) are short. We constrain the flex wrap so the chips stay
+ * compact and aligned, and give each one a fixed min-width so they all
+ * appear the same visual weight.
+ */
+.create-chips--size {
+    gap: 0.375rem;
+}
+
+    .create-chips--size .create-chip {
+        min-width: 3rem;
+        justify-content: center;
+        font-weight: 600;
+        letter-spacing: .03em;
+    }
+
+/*
+ * .create-field__optional
+ * Small "optional" label shown to the right of the field label.
+ * Styled to be subtle — visually lighter than the label itself.
+ */
+.create-field__optional {
+    font-size: .72rem;
+    font-weight: 400;
+    color: var(--text-muted, #8A8A8A);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: auto; /* pushed to the far right of the flex label row */
+    padding: .1rem .45rem;
+    background: var(--cream-dark, #EDE6D8);
+    border-radius: 20px;
+}
+
+/*
+ * .detail-size
+ * Size badge displayed alongside Category and Condition in the detail meta row.
+ * Uses a neutral cream background to distinguish it from the colour-coded
+ * condition badges, while staying visually consistent.
+ */
+.detail-size {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .25rem .7rem;
+    border-radius: 20px;
+    background: var(--cream-dark, #EDE6D8);
+    color: var(--text-secondary, #5A5A5A);
+    border: 1px solid var(--border, #D8D0C0);
+}

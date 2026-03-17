@@ -14,7 +14,7 @@
                 Back
             </a>
             <div>
-                <h1 class="create-header__title">List an item</h1>
+                <h1 class="create-header__title">List a new item</h1>
                 <p class="create-header__subtitle">Fill in the details below</p>
             </div>
         </div>
@@ -34,7 +34,7 @@
 
             <div class="create-grid">
 
-                <!-- Photo Column -->
+                @* Photo Column *@
                 <div class="create-photo-col">
                     <p class="create-section-label">Photo</p>
 
@@ -81,10 +81,10 @@
                     </div>
                 </div>
 
-                <!-- Form Column -->
+                @* Form Column *@
                 <div class="create-form-col">
 
-                    <!-- Title -->
+                    @* Title *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label asp-for="Title" class="create-field__label">Title</label>
@@ -94,7 +94,7 @@
                         <span asp-validation-for="Title" class="field__error"></span>
                     </div>
 
-                    <!-- Description -->
+                    @* Description *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label asp-for="Description" class="create-field__label">Description</label>
@@ -104,7 +104,7 @@
                         <span asp-validation-for="Description" class="field__error"></span>
                     </div>
 
-                    <!-- Price -->
+                    @* Price *@
                     <div class="create-field">
                         <label asp-for="Price" class="create-field__label">Price</label>
                         <div class="create-price-wrap">
@@ -114,7 +114,7 @@
                         <span asp-validation-for="Price" class="field__error"></span>
                     </div>
 
-                    <!-- Category -->
+                    @* Category *@
                     <div class="create-field">
                         <label class="create-field__label">Category</label>
                         <select asp-for="Category" class="create-hidden-select" id="categorySelect">
@@ -124,7 +124,6 @@
                                 <option value="@cat">@cat</option>
                             }
                         </select>
-
                         <div class="create-chips" id="categoryChips">
                             @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
                             {
@@ -134,7 +133,7 @@
                         <span asp-validation-for="Category" class="field__error"></span>
                     </div>
 
-                    <!-- Condition -->
+                    @* Condition *@
                     <div class="create-field">
                         <label class="create-field__label">Condition</label>
                         <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
@@ -144,7 +143,6 @@
                                 <option value="@cond">@cond</option>
                             }
                         </select>
-
                         <div class="create-condition" id="conditionPills">
                             @{
                                 var icons = new[] { "✦", "★", "◆", "▲", "●" };
@@ -162,7 +160,42 @@
                         <span asp-validation-for="Condition" class="field__error"></span>
                     </div>
 
-                    <!-- Actions -->
+                    @* Size — optional, reuses the same chip pattern as Category *@
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label class="create-field__label">Size</label>
+                            <span class="create-field__optional">optional</span>
+                        </div>
+
+                        @* Hidden select drives model binding — empty value = no size selected *@
+                        <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
+                            <option value=""></option>
+                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                            {
+                                <option value="@size">@size</option>
+                            }
+                        </select>
+
+                        <div class="create-chips create-chips--size" id="sizeChips">
+                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                            {
+                                <button type="button"
+                                        class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
+                                        data-value="@size"
+                                        data-target="sizeSelect">
+                                    @size
+                                </button>
+                            }
+                        </div>
+
+                        @*
+                            Unlike Category/Condition, a second click on an already-active size chip
+                            deselects it (clears the size) — handled in the JS below.
+                        *@
+                        <span asp-validation-for="Size" class="field__error"></span>
+                    </div>
+
+                    @* Actions *@
                     <div class="create-actions">
                         <button type="submit" class="btn btn--primary" id="submitBtn">
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -187,7 +220,7 @@
         (function() {
             'use strict';
 
-            // Character counters
+            // ── Character counters ───────────────────────────────────────────────
             function initCounter(inputId, counterId, max) {
                 const input = document.getElementById(inputId);
                 const counter = document.getElementById(counterId);
@@ -206,7 +239,7 @@
             initCounter('titleInput', 'titleCounter', 100);
             initCounter('descInput', 'descCounter', 1000);
 
-            // Category/Condition chips
+            // ── Category / Condition chips (required — click activates, cannot deselect) ──
             function initChips(containerId) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
@@ -227,7 +260,6 @@
                     btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
                     select.value = btn.dataset.value;
 
-                    // Trigger validation
                     if (window.$ && $.validator) $(select).valid();
                 });
             }
@@ -235,7 +267,34 @@
             initChips('categoryChips');
             initChips('conditionPills');
 
-            // Photo dropzone
+            // ── Size chips (optional — clicking an active chip deselects it) ────────
+            (function initSizeChips() {
+                const container = document.getElementById('sizeChips');
+                const select    = document.getElementById('sizeSelect');
+                if (!container || !select) return;
+
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    const alreadyActive = btn.classList.contains('create-chip--active');
+
+                    // Deactivate all size chips first
+                    container.querySelectorAll('[data-value]').forEach(b => {
+                        b.classList.remove('create-chip--active');
+                    });
+
+                    if (alreadyActive) {
+                        // Second click on same chip → clear selection
+                        select.value = '';
+                    } else {
+                        btn.classList.add('create-chip--active');
+                        select.value = btn.dataset.value;
+                    }
+                });
+            })();
+
+            // ── Photo dropzone ───────────────────────────────────────────────────
             const dropzone = document.getElementById('photoDropzone');
             const input = document.getElementById('photoInput');
             const empty = document.getElementById('dropzoneEmpty');
@@ -259,7 +318,6 @@
                     clearPreview();
                 });
 
-                // Drag & drop
                 ['dragenter', 'dragover'].forEach(evt => {
                     dropzone.addEventListener(evt, (e) => {
                         e.preventDefault();
@@ -319,7 +377,7 @@
                 }
             }
 
-            // Submit button loading state
+            // ── Submit loading state ─────────────────────────────────────────────
             const form = document.getElementById('createForm');
             const submitBtn = document.getElementById('submitBtn');
 
@@ -328,7 +386,7 @@
                 submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
             });
 
-            // Auto-dismiss toast
+            // ── Auto-dismiss toast ───────────────────────────────────────────────
             const toast = document.querySelector('.create-toast');
             if (toast) {
                 setTimeout(() => {

@@ -57,6 +57,13 @@
         else
         {
             <div class="listings-table-wrap">
+                @*
+                    Each <tr> carries data-href pointing to the Details page.
+                    A JS delegated-click handler (at the bottom of this file) navigates
+                    there when the click target is NOT a link, button, or form element,
+                    so Edit / Delete still work independently.
+                    cursor:pointer is applied via the listings-row--clickable CSS class.
+                *@
                 <table class="listings-table">
                     <thead>
                         <tr>
@@ -71,7 +78,10 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
-                            <tr class="listings-row">
+                            <tr class="listings-row listings-row--clickable"
+                                data-href="@Url.Action("Details", "Items", new { id = item.Id })">
+
+                                @* Thumbnail *@
                                 <td class="listings-td listings-td--img">
                                     @if (!string.IsNullOrEmpty(item.ImageUrl))
                                     {
@@ -88,30 +98,51 @@
                                         </div>
                                     }
                                 </td>
+
+                                @* Title — also acts as an explicit link for keyboard users *@
                                 <td class="listings-td">
-                                    <span class="listings-item-title">@item.Title</span>
+                                    <a asp-action="Details"
+                                       asp-controller="Items"
+                                       asp-route-id="@item.Id"
+                                       class="listings-item-title listings-item-title--link">
+                                        @item.Title
+                                    </a>
                                     <span class="listings-item-condition">@item.Condition</span>
                                 </td>
+
+                                @* Category *@
                                 <td class="listings-td">
                                     <span class="listings-badge">@item.Category</span>
                                 </td>
+
+                                @* Price *@
                                 <td class="listings-td listings-td--price">
                                     <span class="listings-price">₱@item.Price.ToString("N2")</span>
                                 </td>
+
+                                @* Date *@
                                 <td class="listings-td listings-td--date">
                                     <time datetime="@item.CreatedAt.ToString("yyyy-MM-dd")">
                                         @item.CreatedAt.ToString("MMM d, yyyy")
                                     </time>
                                 </td>
+
+                                @* Actions — clicks here do NOT trigger row navigation *@
                                 <td class="listings-td listings-td--actions">
                                     <div class="listings-actions">
-                                        <a asp-action="Edit" asp-route-id="@item.Id" class="listings-action-btn listings-action-btn--edit">
+                                        <a asp-action="Edit"
+                                           asp-route-id="@item.Id"
+                                           class="listings-action-btn listings-action-btn--edit">
                                             <svg viewBox="0 0 20 20" fill="currentColor">
                                                 <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                                             </svg>
                                             Edit
                                         </a>
-                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="listings-delete-form" onsubmit="return confirm('Delete \'@item.Title\'? This cannot be undone.');">
+                                        <form asp-action="Delete"
+                                              asp-route-id="@item.Id"
+                                              method="post"
+                                              class="listings-delete-form"
+                                              onsubmit="return confirm('Delete \'@item.Title\'? This cannot be undone.');">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="listings-action-btn listings-action-btn--delete">
                                                 <svg viewBox="0 0 20 20" fill="currentColor">
@@ -122,6 +153,7 @@
                                         </form>
                                     </div>
                                 </td>
+
                             </tr>
                         }
                     </tbody>
@@ -133,12 +165,34 @@
 
 @section Scripts {
     <script>
-        const toast = document.querySelector('.listings-toast');
-        if (toast) {
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 400);
-            }, 4000);
-        }
+        (function () {
+            'use strict';
+
+            // ── Toast auto-dismiss ───────────────────────────────────────────────
+            var toast = document.querySelector('.listings-toast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.opacity = '0';
+                    setTimeout(function () { toast.remove(); }, 400);
+                }, 4000);
+            }
+
+            // ── Clickable rows ───────────────────────────────────────────────────
+            // Navigate to the Details page when the user clicks anywhere on a row
+            // that is NOT an interactive element (link, button, or form).
+            var rows = document.querySelectorAll('.listings-row--clickable');
+
+            rows.forEach(function (row) {
+                row.addEventListener('click', function (e) {
+                    // Walk up from the click target — if we hit an interactive element
+                    // before reaching the row itself, let the browser handle it normally.
+                    if (e.target.closest('a, button, input, form')) return;
+
+                    var href = row.dataset.href;
+                    if (href) window.location.href = href;
+                });
+            });
+
+        }());
     </script>
 }

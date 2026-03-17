@@ -46,6 +46,14 @@ public class ItemEditViewModel
     [Display(Name = "Condition")]
     public string Condition { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional clothing size. Not required — some categories (bags, accessories)
+    /// do not have a standard size.
+    /// </summary>
+    [StringLength(10)]
+    [Display(Name = "Size (optional)")]
+    public string? Size { get; set; }
+
     // ── Image ────────────────────────────────────────────────────────────────
 
     /// <summary>Optional replacement image uploaded by the user.</summary>
@@ -70,14 +78,15 @@ public class ItemEditViewModel
 
     public static readonly IReadOnlyList<string> Categories = new[]
     {
-        "Clothing",
-        "Electronics",
-        "Furniture",
-        "Books",
-        "Toys & Games",
-        "Sports & Outdoors",
-        "Home & Kitchen",
-        "Collectibles",
+        "Tops",
+        "Bottoms",
+        "Dresses & Skirts",
+        "Outerwear",
+        "Footwear",
+        "Accessories",
+        "Vintage",
+        "Activewear",
+        "Bags",
         "Other"
     };
 
@@ -88,5 +97,16 @@ public class ItemEditViewModel
         "Good",
         "Fair",
         "Poor"
+    };
+
+    public static readonly IReadOnlyList<string> Sizes = new[]
+    {
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL",
+        "XXXL"
     };
 }

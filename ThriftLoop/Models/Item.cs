@@ -19,6 +19,12 @@ public class Item
 
     public string Condition { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Standard clothing size (XS / S / M / L / XL / XXL / XXXL).
+    /// Nullable — not all item types carry a standard size (e.g. bags, accessories).
+    /// </summary>
+    public string? Size { get; set; }
+
     /// <summary>Relative or absolute URL to the uploaded image.</summary>
     public string? ImageUrl { get; set; }
 

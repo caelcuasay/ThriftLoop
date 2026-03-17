@@ -9,9 +9,22 @@ public interface IItemRepository
 
     /// <summary>
     /// Returns a single item by primary key, or null if not found.
-    /// Result is not change-tracked.
+    /// Result is not change-tracked. Does NOT load the User navigation property.
     /// </summary>
     Task<Item?> GetByIdAsync(int id);
+
+    /// <summary>
+    /// Returns a single item by primary key with the related User (seller)
+    /// eagerly loaded, or null if not found.
+    /// Used by the Details page.
+    /// </summary>
+    Task<Item?> GetByIdWithUserAsync(int id);
+
+    /// <summary>
+    /// Returns every item across all users, ordered by most-recently created first.
+    /// Used by the public "For You" feed.
+    /// </summary>
+    Task<IReadOnlyList<Item>> GetAllAsync();
 
     /// <summary>
     /// Returns all items belonging to the specified user,

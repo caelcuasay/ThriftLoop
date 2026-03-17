@@ -39,7 +39,7 @@
 
             <div class="create-grid">
 
-                <!-- Photo Column -->
+                @* Photo Column *@
                 <div class="create-photo-col">
                     <p class="create-section-label">Item Photo</p>
 
@@ -86,10 +86,10 @@
                     </div>
                 </div>
 
-                <!-- Form Column -->
+                @* Form Column *@
                 <div class="create-form-col">
 
-                    <!-- Title -->
+                    @* Title *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label asp-for="Title" class="create-field__label">Title</label>
@@ -100,7 +100,7 @@
                         <span asp-validation-for="Title" class="field__error"></span>
                     </div>
 
-                    <!-- Description -->
+                    @* Description *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label asp-for="Description" class="create-field__label">Description</label>
@@ -112,7 +112,7 @@
                         <span asp-validation-for="Description" class="field__error"></span>
                     </div>
 
-                    <!-- Price -->
+                    @* Price *@
                     <div class="create-field">
                         <label asp-for="Price" class="create-field__label">Price (₱)</label>
                         <div class="create-price-wrap">
@@ -123,7 +123,7 @@
                         <span asp-validation-for="Price" class="field__error"></span>
                     </div>
 
-                    <!-- Category -->
+                    @* Category *@
                     <div class="create-field">
                         <label class="create-field__label">Category</label>
                         <select asp-for="Category" class="create-hidden-select" id="categorySelect">
@@ -133,7 +133,6 @@
                                 <option value="@cat">@cat</option>
                             }
                         </select>
-
                         <div class="create-chips" id="categoryChips">
                             @foreach (var cat in ThriftLoop.ViewModels.ItemEditViewModel.Categories)
                             {
@@ -150,7 +149,7 @@
                         <span asp-validation-for="Category" class="field__error"></span>
                     </div>
 
-                    <!-- Condition -->
+                    @* Condition *@
                     <div class="create-field">
                         <label class="create-field__label">Condition</label>
                         <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
@@ -160,7 +159,6 @@
                                 <option value="@cond">@cond</option>
                             }
                         </select>
-
                         <div class="create-condition" id="conditionPills">
                             @foreach (var cond in ThriftLoop.ViewModels.ItemEditViewModel.Conditions)
                             {
@@ -177,7 +175,38 @@
                         <span asp-validation-for="Condition" class="field__error"></span>
                     </div>
 
-                    <!-- Actions -->
+                    @* Size — optional, pre-selected from the saved value *@
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label class="create-field__label">Size</label>
+                            <span class="create-field__optional">optional</span>
+                        </div>
+
+                        <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
+                            <option value=""></option>
+                            @foreach (var size in ThriftLoop.ViewModels.ItemEditViewModel.Sizes)
+                            {
+                                <option value="@size">@size</option>
+                            }
+                        </select>
+
+                        <div class="create-chips create-chips--size" id="sizeChips">
+                            @foreach (var size in ThriftLoop.ViewModels.ItemEditViewModel.Sizes)
+                            {
+                                var isActive = Model.Size == size;
+                                <button type="button"
+                                        class="create-chip @(isActive ? "create-chip--active" : "")"
+                                        data-value="@size"
+                                        data-target="sizeSelect"
+                                        aria-pressed="@(isActive ? "true" : "false")">
+                                    @size
+                                </button>
+                            }
+                        </div>
+                        <span asp-validation-for="Size" class="field__error"></span>
+                    </div>
+
+                    @* Actions *@
                     <div class="create-actions">
                         <button type="submit" class="btn btn--primary" id="submitBtn">
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -202,7 +231,7 @@
         (function() {
             'use strict';
 
-            // Character counters
+            // ── Character counters ───────────────────────────────────────────────
             function initCounter(inputId, counterId, max) {
                 const input = document.getElementById(inputId);
                 const counter = document.getElementById(counterId);
@@ -215,13 +244,13 @@
                 };
 
                 input.addEventListener('input', update);
-                update(); // Initialize with current value
+                update();
             }
 
             initCounter('titleInput', 'titleCounter', 100);
             initCounter('descInput', 'descCounter', 1000);
 
-            // Category/Condition chips
+            // ── Category / Condition chips (required — cannot deselect) ──────────
             function initChips(containerId) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
@@ -233,31 +262,22 @@
                     const select = document.getElementById(btn.dataset.target);
                     if (!select) return;
 
-                    // Deactivate all siblings
                     container.querySelectorAll('[data-value]').forEach(b => {
                         b.classList.remove('create-chip--active', 'create-condition__pill--active');
                         b.setAttribute('aria-pressed', 'false');
                     });
 
-                    // Activate clicked
                     btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
                     btn.setAttribute('aria-pressed', 'true');
                     select.value = btn.dataset.value;
 
-                    // Trigger validation
-                    if (window.$ && $.validator) {
-                        $(select).valid();
-                    }
+                    if (window.$ && $.validator) $(select).valid();
                 });
 
-                // Keyboard support
                 container.addEventListener('keydown', (e) => {
                     if (e.key === ' ' || e.key === 'Enter') {
                         const btn = e.target.closest('[data-value]');
-                        if (btn) {
-                            e.preventDefault();
-                            btn.click();
-                        }
+                        if (btn) { e.preventDefault(); btn.click(); }
                     }
                 });
             }
@@ -265,14 +285,42 @@
             initChips('categoryChips');
             initChips('conditionPills');
 
-            // Photo dropzone with existing image support
-            const dropzone = document.getElementById('photoDropzone');
-            const input = document.getElementById('photoInput');
-            const emptyEl = document.getElementById('dropzoneEmpty');
-            const previewEl = document.getElementById('dropzonePreview');
+            // ── Size chips (optional — clicking an active chip deselects it) ────────
+            (function initSizeChips() {
+                const container = document.getElementById('sizeChips');
+                const select    = document.getElementById('sizeSelect');
+                if (!container || !select) return;
+
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    const alreadyActive = btn.classList.contains('create-chip--active');
+
+                    container.querySelectorAll('[data-value]').forEach(b => {
+                        b.classList.remove('create-chip--active');
+                        b.setAttribute('aria-pressed', 'false');
+                    });
+
+                    if (alreadyActive) {
+                        // Second click on same chip → clear selection
+                        select.value = '';
+                    } else {
+                        btn.classList.add('create-chip--active');
+                        btn.setAttribute('aria-pressed', 'true');
+                        select.value = btn.dataset.value;
+                    }
+                });
+            })();
+
+            // ── Photo dropzone ───────────────────────────────────────────────────
+            const dropzone   = document.getElementById('photoDropzone');
+            const input      = document.getElementById('photoInput');
+            const emptyEl    = document.getElementById('dropzoneEmpty');
+            const previewEl  = document.getElementById('dropzonePreview');
             const previewImg = document.getElementById('previewImg');
-            const removeBtn = document.getElementById('removePhoto');
-            const overlay = document.getElementById('dropzoneOverlay');
+            const removeBtn  = document.getElementById('removePhoto');
+            const overlay    = document.getElementById('dropzoneOverlay');
             const removeInput = document.getElementById('removeImageInput');
 
             if (dropzone && input) {
@@ -284,17 +332,16 @@
                 input.addEventListener('change', () => {
                     if (input.files?.[0]) {
                         showPreview(input.files[0]);
-                        removeInput.value = 'false'; // Replacing, not removing
+                        removeInput.value = 'false';
                     }
                 });
 
                 removeBtn?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     clearPreview();
-                    removeInput.value = 'true'; // Signal to remove existing image
+                    removeInput.value = 'true';
                 });
 
-                // Drag & drop
                 ['dragenter', 'dragover'].forEach(evt => {
                     dropzone.addEventListener(evt, (e) => {
                         e.preventDefault();
@@ -322,26 +369,20 @@
                     const file = e.dataTransfer.files[0];
                     if (!file) return;
 
-                    // Validate file type
-                    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-                    if (!allowed.includes(file.type)) {
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
                         showError('Only JPEG, PNG, or WebP images are accepted.');
                         return;
                     }
-
-                    // Validate file size (5MB max)
                     if (file.size > 5 * 1024 * 1024) {
                         showError('Image must be smaller than 5 MB.');
                         return;
                     }
 
-                    // Update the file input
                     const dt = new DataTransfer();
                     dt.items.add(file);
                     input.files = dt.files;
-
                     showPreview(file);
-                    removeInput.value = 'false'; // Replacing, not removing
+                    removeInput.value = 'false';
                 });
             }
 
@@ -370,43 +411,15 @@
                 }
             }
 
-            // Submit button loading state
+            // ── Submit loading state ─────────────────────────────────────────────
             const form = document.getElementById('editForm');
             const submitBtn = document.getElementById('submitBtn');
 
-            if (form && submitBtn) {
-                form.addEventListener('submit', () => {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Saving...';
-                });
-            }
+            form?.addEventListener('submit', () => {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Saving...';
+            });
 
-            // Initialize condition pills with current values
-            // This ensures the UI matches the model on page load
-            (function initSelectedValues() {
-                const categorySelect = document.getElementById('categorySelect');
-                const conditionSelect = document.getElementById('conditionSelect');
-
-                if (categorySelect) {
-                    const activeCategory = Array.from(document.querySelectorAll('#categoryChips [data-value]')).find(
-                        btn => btn.dataset.value === categorySelect.value
-                    );
-                    if (activeCategory) {
-                        activeCategory.classList.add('create-chip--active');
-                        activeCategory.setAttribute('aria-pressed', 'true');
-                    }
-                }
-
-                if (conditionSelect) {
-                    const activeCondition = Array.from(document.querySelectorAll('#conditionPills [data-value]')).find(
-                        btn => btn.dataset.value === conditionSelect.value
-                    );
-                    if (activeCondition) {
-                        activeCondition.classList.add('create-condition__pill--active');
-                        activeCondition.setAttribute('aria-pressed', 'true');
-                    }
-                }
-            })();
         })();
     </script>
 }

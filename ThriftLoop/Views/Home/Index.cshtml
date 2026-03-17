@@ -1,25 +1,352 @@
-﻿@{
-    ViewData["Title"] = "Home";
+﻿@model ThriftLoop.ViewModels.HomeIndexViewModel
+@using ThriftLoop.ViewModels
+@{
+    ViewData["Title"] = "For You";
     Layout = "~/Views/Shared/_Layout.cshtml";
-    var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "shopper";
+
+    var categories = ItemCreateViewModel.Categories;
+    var conditions = ItemCreateViewModel.Conditions;
+
+    @* Derive global price bounds from the item set for the range slider *@
+    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
 }
 
-@* The navbar (with the sign-out button) is rendered by _Layout / _Navbar.
-   This view only contains the page body content. *@
+<div class="fy-shell">
 
-<div class="home-shell">
-    <div class="welcome-card">
-        <span class="welcome-card__badge">✓ Authenticated</span>
-        <h1 class="welcome-card__title">You're in, @userEmail.Split('@')[0]!</h1>
-        <p class="welcome-card__body">
-            Your ThriftLoop account is set up and ready.<br>
-            Start browsing second-hand finds curated just for you.
-        </p>
-        <a href="#" class="btn btn--primary" style="display:inline-flex;width:auto;padding:.75rem 2rem;">
-            Explore listings
-            <svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
-            </svg>
-        </a>
-    </div>
+    @* ── Left: sticky filter sidebar ────────────────────────────────────── *@
+    <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
+
+        <div class="fy-sidebar__header">
+            <span class="fy-sidebar__title">Filters</span>
+            <button type="button" class="fy-sidebar__reset" id="resetFilters">Clear all</button>
+        </div>
+
+        @* Search *@
+        <div class="fy-filter-group">
+            <label class="fy-filter-group__label" for="searchInput">Search</label>
+            <div class="fy-search-wrap">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="5.5" />
+                    <path d="M13.5 13.5L18 18" stroke-linecap="round" />
+                </svg>
+                <input type="search"
+                       id="searchInput"
+                       class="fy-search-input"
+                       placeholder="Title or description…"
+                       autocomplete="off" />
+            </div>
+        </div>
+
+        @* Price range *@
+        <div class="fy-filter-group">
+            <label class="fy-filter-group__label">Price</label>
+            <div class="fy-price-row">
+                <div class="fy-price-field">
+                    <span class="fy-price-field__sym">₱</span>
+                    <input type="number" id="priceMin" class="fy-price-input" placeholder="0" min="0" max="@maxPrice" value="0" />
+                </div>
+                <span class="fy-price-sep">–</span>
+                <div class="fy-price-field">
+                    <span class="fy-price-field__sym">₱</span>
+                    <input type="number" id="priceMax" class="fy-price-input" placeholder="@maxPrice" min="0" max="@maxPrice" value="@maxPrice" />
+                </div>
+            </div>
+        </div>
+
+        @* Category *@
+        <div class="fy-filter-group">
+            <p class="fy-filter-group__label">Category</p>
+            <ul class="fy-check-list" id="catFilters">
+                @foreach (var cat in categories)
+                {
+                    <li>
+                        <label class="fy-check-label">
+                            <input type="checkbox" class="fy-check" value="@cat" />
+                            <span class="fy-check-box"></span>
+                            <span class="fy-check-text">@cat</span>
+                        </label>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @* Condition *@
+        <div class="fy-filter-group">
+            <p class="fy-filter-group__label">Condition</p>
+            <ul class="fy-check-list" id="condFilters">
+                @foreach (var cond in conditions)
+                {
+                    <li>
+                        <label class="fy-check-label">
+                            <input type="checkbox" class="fy-check" value="@cond" />
+                            <span class="fy-check-box"></span>
+                            <span class="fy-check-text">@cond</span>
+                        </label>
+                    </li>
+                }
+            </ul>
+        </div>
+
+    </aside>
+
+    @* ── Right: feed ─────────────────────────────────────────────────────── *@
+    <main class="fy-main" id="fyMain">
+
+        <header class="fy-feed-header">
+            <h1 class="fy-feed-title">For You</h1>
+            <p class="fy-feed-meta" id="feedMeta">
+                <span id="visibleCount">@Model.Items.Count</span>&nbsp;listings
+            </p>
+        </header>
+
+        @if (!Model.Items.Any())
+        {
+            @* Global empty state — no items at all in the database *@
+            <div class="fy-empty" id="globalEmpty">
+                <div class="fy-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="8" y="14" width="48" height="36" rx="6" />
+                        <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                        <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h2 class="fy-empty__title">Nothing listed yet</h2>
+                <p class="fy-empty__body">Be the first to post an item.</p>
+                <a asp-action="Create" asp-controller="Items" class="btn btn--primary fy-empty__cta">
+                    Post an item
+                </a>
+            </div>
+        }
+        else
+        {
+            @* Filter empty state — shown by JS when all cards are filtered out *@
+            <div class="fy-empty fy-empty--hidden" id="filterEmpty" aria-live="polite">
+                <div class="fy-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <circle cx="28" cy="28" r="18" />
+                        <path d="M42 42l14 14" stroke-linecap="round" />
+                        <path d="M22 28h12M28 22v12" stroke-linecap="round" />
+                        <path d="M37 19l4-4M19 37l-4 4" stroke-linecap="round" opacity=".4" />
+                    </svg>
+                </div>
+                <h2 class="fy-empty__title">No matches</h2>
+                <p class="fy-empty__body">Try adjusting or clearing your filters.</p>
+                <button type="button" class="fy-empty__reset-btn" id="resetFilters2">Clear filters</button>
+            </div>
+
+            @* Item grid *@
+            <div class="fy-grid" id="itemGrid">
+                @foreach (var item in Model.Items)
+                {
+                    var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+
+                    @*
+                        The card uses a "stretched link" pattern:
+                          - .fy-card has position:relative
+                          - .fy-card__link::after fills the entire card (position:absolute, inset:0)
+                          - .fy-card__actions has position:relative + z-index:1 to stay above the overlay
+                        This means clicking anywhere on the card (except the action buttons) navigates
+                        to the Details page — no JS needed for the navigation itself.
+                    *@
+                    <article class="fy-card"
+                             data-category="@item.Category"
+                             data-condition="@item.Condition"
+                             data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                             data-title="@item.Title.ToLower()"
+                             data-desc="@item.Description.ToLower()">
+
+                        @* Image *@
+                        <div class="fy-card__img-wrap">
+                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                <img src="@item.ImageUrl"
+                                     alt="@item.Title"
+                                     class="fy-card__img"
+                                     loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="fy-card__img fy-card__img--placeholder" aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                        <rect x="4" y="8" width="40" height="32" rx="4" />
+                                        <circle cx="17" cy="20" r="4" />
+                                        <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                            }
+
+                            @* Condition chip overlaid on image *@
+                            <span class="fy-card__condition-badge">@item.Condition</span>
+
+                            @* Owner badge *@
+                            @if (isOwner)
+                            {
+                                <span class="fy-card__owner-badge" aria-label="Your listing">Your listing</span>
+                            }
+                        </div>
+
+                        @* Body — the stretched link lives here *@
+                        <div class="fy-card__body">
+                            <div class="fy-card__top">
+                                <span class="fy-card__category">@item.Category</span>
+                                <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
+                            </div>
+
+                            <h2 class="fy-card__title">@item.Title</h2>
+                            <p class="fy-card__price">₱@item.Price.ToString("N2")</p>
+
+                            @*
+                                The anchor text is visually hidden — the ::after pseudo-element
+                                covers the whole card. The visible text above is still read by
+                                screen readers before this link, so the accessible name
+                                "View details for [Title]" is unambiguous.
+                            *@
+                            <a asp-action="Details"
+                               asp-controller="Items"
+                               asp-route-id="@item.Id"
+                               class="fy-card__link"
+                               aria-label="View details for @item.Title">
+                            </a>
+                        </div>
+
+                        @* Actions — z-index:1 keeps these above the stretched link overlay *@
+                        @if (!isOwner)
+                        {
+                            <div class="fy-card__actions">
+                                <button type="button"
+                                        class="fy-btn fy-btn--cart"
+                                        aria-label="Add @item.Title to cart"
+                                        disabled>
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
+                                        <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
+                                    </svg>
+                                    Add to Cart
+                                </button>
+                                <button type="button"
+                                        class="fy-btn fy-btn--buy"
+                                        aria-label="Buy @item.Title now"
+                                        disabled>
+                                    Buy Now
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="fy-card__actions fy-card__actions--owner">
+                                <a asp-action="Edit"
+                                   asp-controller="Items"
+                                   asp-route-id="@item.Id"
+                                   class="fy-btn fy-btn--manage">
+                                    Manage listing
+                                </a>
+                            </div>
+                        }
+
+                    </article>
+                }
+            </div>
+        }
+
+    </main>
+
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            // ── Element references ───────────────────────────────────────────────
+            var grid         = document.getElementById('itemGrid');
+            var filterEmpty  = document.getElementById('filterEmpty');
+            var visibleCount = document.getElementById('visibleCount');
+            var searchInput  = document.getElementById('searchInput');
+            var priceMin     = document.getElementById('priceMin');
+            var priceMax     = document.getElementById('priceMax');
+            var catChecks    = document.querySelectorAll('#catFilters .fy-check');
+            var condChecks   = document.querySelectorAll('#condFilters .fy-check');
+
+            // Guard — grid is absent on the global-empty state (no items at all).
+            if (!grid) return;
+
+            var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
+
+            // ── Core filter function ─────────────────────────────────────────────
+            function applyFilters() {
+                var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
+                var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
+                var maxVal = priceMax    ? parseFloat(priceMax.value) || Infinity : Infinity;
+
+                var activeCats = [];
+                catChecks.forEach(function (cb) {
+                    if (cb.checked) activeCats.push(cb.value);
+                });
+
+                var activeConds = [];
+                condChecks.forEach(function (cb) {
+                    if (cb.checked) activeConds.push(cb.value);
+                });
+
+                var shown = 0;
+
+                cards.forEach(function (card) {
+                    var cat   = card.dataset.category;
+                    var cond  = card.dataset.condition;
+                    var price = parseFloat(card.dataset.price);
+                    var title = card.dataset.title || '';
+                    var desc  = card.dataset.desc  || '';
+
+                    var catOk   = activeCats.length  === 0 || activeCats.indexOf(cat)   !== -1;
+                    var condOk  = activeConds.length === 0 || activeConds.indexOf(cond) !== -1;
+                    var priceOk = price >= minVal && price <= maxVal;
+                    var textOk  = !query || title.indexOf(query) !== -1 || desc.indexOf(query) !== -1;
+
+                    var visible = catOk && condOk && priceOk && textOk;
+                    card.classList.toggle('fy-card--hidden', !visible);
+                    if (visible) shown++;
+                });
+
+                if (visibleCount) visibleCount.textContent = shown;
+
+                if (filterEmpty) {
+                    filterEmpty.classList.toggle('fy-empty--hidden', shown > 0);
+                }
+            }
+
+            // ── Wire up all controls — live, no submit needed ────────────────────
+            if (searchInput) searchInput.addEventListener('input',  applyFilters);
+            if (priceMin)    priceMin.addEventListener('input',     applyFilters);
+            if (priceMax)    priceMax.addEventListener('input',     applyFilters);
+            catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
+            condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
+
+            // ── Reset ────────────────────────────────────────────────────────────
+            function resetAll() {
+                if (searchInput) searchInput.value = '';
+                if (priceMin)    priceMin.value    = priceMin.min  || 0;
+                if (priceMax)    priceMax.value    = priceMax.max  || 100000;
+                catChecks.forEach(function (cb)  { cb.checked = false; });
+                condChecks.forEach(function (cb) { cb.checked = false; });
+                applyFilters();
+            }
+
+            var resetBtn  = document.getElementById('resetFilters');
+            var resetBtn2 = document.getElementById('resetFilters2');
+            if (resetBtn)  resetBtn.addEventListener('click',  resetAll);
+            if (resetBtn2) resetBtn2.addEventListener('click', resetAll);
+
+            // ── Mobile sidebar toggle ────────────────────────────────────────────
+            var toggleBtn = document.getElementById('fyFilterToggle');
+            var sidebar   = document.getElementById('fySidebar');
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('fy-sidebar--open');
+                    toggleBtn.setAttribute('aria-expanded',
+                        sidebar.classList.contains('fy-sidebar--open').toString());
+                });
+            }
+
+        }());
+    </script>
+}

@@ -40,23 +40,32 @@ public class ItemCreateViewModel
     [Display(Name = "Condition")]
     public string Condition { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional clothing size. Not required — some categories (bags, accessories)
+    /// do not have a standard size.
+    /// </summary>
+    [StringLength(10)]
+    [Display(Name = "Size (optional)")]
+    public string? Size { get; set; }
+
     [Display(Name = "Item Photo (optional)")]
     [DataType(DataType.Upload)]
     public IFormFile? Image { get; set; }
     public string? ImageUrl { get; set; }
 
-    // ── Select-List Options (used by the View to build <select> dropdowns) ─
+    // ── Select-List Options (used by the View to build chip/pill selectors) ─
 
     public static readonly IReadOnlyList<string> Categories = new[]
     {
-        "Clothing",
-        "Electronics",
-        "Furniture",
-        "Books",
-        "Toys & Games",
-        "Sports & Outdoors",
-        "Home & Kitchen",
-        "Collectibles",
+        "Tops",
+        "Bottoms",
+        "Dresses & Skirts",
+        "Outerwear",
+        "Footwear",
+        "Accessories",
+        "Vintage",
+        "Activewear",
+        "Bags",
         "Other"
     };
 
@@ -67,5 +76,16 @@ public class ItemCreateViewModel
         "Good",
         "Fair",
         "Poor"
+    };
+
+    public static readonly IReadOnlyList<string> Sizes = new[]
+    {
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL",
+        "XXXL"
     };
 }

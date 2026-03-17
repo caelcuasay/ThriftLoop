@@ -42,6 +42,39 @@ public class ItemsController : Controller
         return View(items);
     }
 
+    // ── DETAILS ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// GET /Items/Details/{id} — public detail page for a single listing.
+    /// Loads the seller (User) via eager loading so the view can display
+    /// who posted the item. Ownership is surfaced via ViewBag.
+    /// </summary>
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> Details(int id)
+    {
+        var item = await _itemRepository.GetByIdWithUserAsync(id);
+        if (item is null)
+            return NotFound();
+
+        // Resolve current user — null when the visitor is anonymous.
+        int? currentUserId = null;
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(rawId, out int parsedId))
+            currentUserId = parsedId;
+
+        ViewBag.IsOwner = currentUserId.HasValue && item.UserId == currentUserId.Value;
+        ViewBag.IsAnonymous = !currentUserId.HasValue;
+        ViewBag.CurrentUserId = currentUserId;
+
+        _logger.LogInformation(
+            "Item {ItemId} details viewed by user {UserId}.",
+            item.Id,
+            currentUserId?.ToString() ?? "anonymous");
+
+        return View(item);
+    }
+
     // ── CREATE ─────────────────────────────────────────────────────────────
 
     /// <summary>GET /Items/Create — renders the empty Create form.</summary>
@@ -83,6 +116,7 @@ public class ItemsController : Controller
             Price = viewModel.Price,
             Category = viewModel.Category,
             Condition = viewModel.Condition,
+            Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size,
             ImageUrl = imageUrl,
             CreatedAt = DateTime.UtcNow,
             UserId = userId
@@ -122,19 +156,15 @@ public class ItemsController : Controller
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
 
-        // ── Resolve the final ImageUrl ──────────────────────────────────────
-
-        string? imageUrl = item!.ImageUrl;   // default: keep existing
+        string? imageUrl = item!.ImageUrl;
 
         if (viewModel.RemoveImage)
         {
-            // User explicitly ticked "Remove photo" — delete file and clear URL.
             DeleteImageFile(imageUrl);
             imageUrl = null;
         }
         else if (viewModel.Image is not null && viewModel.Image.Length > 0)
         {
-            // User uploaded a replacement — delete old file then save new one.
             var (saved, error) = await SaveImageAsync(viewModel.Image);
             if (error is not null)
             {
@@ -145,12 +175,12 @@ public class ItemsController : Controller
             imageUrl = saved;
         }
 
-        // ── Apply changes — preserve immutable fields ───────────────────────
         item.Title = viewModel.Title;
         item.Description = viewModel.Description;
         item.Price = viewModel.Price;
         item.Category = viewModel.Category;
         item.Condition = viewModel.Condition;
+        item.Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size;
         item.ImageUrl = imageUrl;
         // item.UserId and item.CreatedAt are intentionally not touched.
 
@@ -194,8 +224,7 @@ public class ItemsController : Controller
 
     /// <summary>
     /// Fetches an item by id and verifies ownership against the current user.
-    /// Returns (item, null) on success or (null, actionResult) when the caller
-    /// should short-circuit and return the provided result.
+    /// Returns (item, null) on success or (null, actionResult) to short-circuit.
     /// </summary>
     private async Task<(Item? item, IActionResult? actionResult)> GetOwnedItemAsync(int id)
     {
@@ -263,6 +292,7 @@ public class ItemsController : Controller
         Price = item.Price,
         Category = item.Category,
         Condition = item.Condition,
+        Size = item.Size,
         ExistingImageUrl = item.ImageUrl
     };
 }
