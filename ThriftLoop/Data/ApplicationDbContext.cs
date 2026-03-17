@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
     // ── DbSets ───────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
     public DbSet<Item> Items => Set<Item>();
+    public DbSet<Order> Orders => Set<Order>();
 
     // ── Model Configuration ──────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -48,9 +49,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("Items");
 
             entity.HasKey(i => i.Id);
-
-            entity.Property(i => i.Id)
-                  .ValueGeneratedOnAdd();
+            entity.Property(i => i.Id).ValueGeneratedOnAdd();
 
             entity.Property(i => i.Title)
                   .IsRequired()
@@ -72,7 +71,6 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasMaxLength(50);
 
-            // Nullable — not all item types carry a standard clothing size.
             entity.Property(i => i.Size)
                   .IsRequired(false)
                   .HasMaxLength(10);
@@ -86,11 +84,78 @@ public class ApplicationDbContext : DbContext
                   .HasColumnType("datetime2")
                   .HasDefaultValueSql("SYSUTCDATETIME()");
 
-            // ── Relationship: Item → User (many-to-one) ──────────────────
+            // ── Stealable listing columns ────────────────────────────────
+            entity.Property(i => i.ListingType)
+                  .IsRequired()
+                  .HasDefaultValue(ListingType.Standard);
+
+            entity.Property(i => i.Status)
+                  .IsRequired()
+                  .HasDefaultValue(ItemStatus.Available);
+
+            entity.Property(i => i.StealDurationHours)
+                  .IsRequired(false);
+
+            entity.Property(i => i.StealEndsAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(i => i.CurrentWinnerId)
+                  .IsRequired(false);
+
+            // Computed helpers have no backing columns.
+            entity.Ignore(i => i.IsInFinalizeWindow);
+            entity.Ignore(i => i.FinalizeDeadline);
+
+            // ── Relationship: Item → User (seller) ───────────────────────
             entity.HasOne(i => i.User)
                   .WithMany()
                   .HasForeignKey(i => i.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Orders ───────────────────────────────────────────────────────
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.ToTable("Orders");
+
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.Id).ValueGeneratedOnAdd();
+
+            entity.Property(o => o.FinalPrice)
+                  .IsRequired()
+                  .HasColumnType("decimal(10,2)");
+
+            entity.Property(o => o.OrderDate)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(o => o.Status)
+                  .IsRequired()
+                  .HasDefaultValue(OrderStatus.Pending);
+
+            // ── Relationship: Order → Item ───────────────────────────────
+            // NoAction: we keep order history even if the item row is ever
+            // removed from the marketplace.
+            entity.HasOne(o => o.Item)
+                  .WithMany()
+                  .HasForeignKey(o => o.ItemId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            // ── Relationship: Order → Buyer (User) ───────────────────────
+            // NoAction on both user FKs: SQL Server prohibits multiple cascade
+            // paths to the same table, so Cascade would raise a migration error.
+            entity.HasOne(o => o.Buyer)
+                  .WithMany()
+                  .HasForeignKey(o => o.BuyerId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            // ── Relationship: Order → Seller (User) ──────────────────────
+            entity.HasOne(o => o.Seller)
+                  .WithMany()
+                  .HasForeignKey(o => o.SellerId)
+                  .OnDelete(DeleteBehavior.NoAction);
         });
     }
 }

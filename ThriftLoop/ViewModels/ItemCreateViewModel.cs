@@ -7,7 +7,7 @@ namespace ThriftLoop.ViewModels;
 /// All user-facing validation annotations live here, keeping the domain
 /// model (Item.cs) focused purely on the database schema.
 /// </summary>
-public class ItemCreateViewModel
+public class ItemCreateViewModel : IValidatableObject
 {
     // ── Core Fields ────────────────────────────────────────────────────────
 
@@ -53,7 +53,49 @@ public class ItemCreateViewModel
     public IFormFile? Image { get; set; }
     public string? ImageUrl { get; set; }
 
-    // ── Select-List Options (used by the View to build chip/pill selectors) ─
+    // ── Stealable Listing Fields ───────────────────────────────────────────
+
+    /// <summary>
+    /// When true the listing is created as a Stealable listing.
+    /// Bound to a toggle/checkbox in the form.
+    /// </summary>
+    [Display(Name = "Make this a Stealable listing")]
+    public bool IsStealable { get; set; }
+
+    /// <summary>
+    /// The seller-chosen Steal window duration in hours (6, 12, or 24).
+    /// Required only when <see cref="IsStealable"/> is true.
+    /// Validated via <see cref="Validate"/>.
+    /// </summary>
+    [Display(Name = "Steal Window")]
+    public int? StealDurationHours { get; set; }
+
+    // ── IValidatableObject ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Cross-field validation: StealDurationHours is required and must be one
+    /// of the allowed values whenever the listing is marked as Stealable.
+    /// </summary>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (IsStealable)
+        {
+            if (StealDurationHours is null)
+            {
+                yield return new ValidationResult(
+                    "Please select a Steal window duration.",
+                    new[] { nameof(StealDurationHours) });
+            }
+            else if (!StealDurations.Contains(StealDurationHours.Value))
+            {
+                yield return new ValidationResult(
+                    "Steal window must be 6, 12, or 24 hours.",
+                    new[] { nameof(StealDurationHours) });
+            }
+        }
+    }
+
+    // ── Select-List Options ────────────────────────────────────────────────
 
     public static readonly IReadOnlyList<string> Categories = new[]
     {
@@ -88,4 +130,7 @@ public class ItemCreateViewModel
         "XXL",
         "XXXL"
     };
+
+    /// <summary>The three allowed Steal window durations displayed in the form dropdown.</summary>
+    public static readonly IReadOnlyList<int> StealDurations = new[] { 6, 12, 24 };
 }

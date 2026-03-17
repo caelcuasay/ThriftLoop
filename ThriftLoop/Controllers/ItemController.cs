@@ -67,6 +67,9 @@ public class ItemsController : Controller
         ViewBag.IsAnonymous = !currentUserId.HasValue;
         ViewBag.CurrentUserId = currentUserId;
 
+        // Stealable-specific state for the view.
+        ViewBag.IsCurrentWinner = currentUserId.HasValue && item.CurrentWinnerId == currentUserId.Value;
+
         _logger.LogInformation(
             "Item {ItemId} details viewed by user {UserId}.",
             item.Id,
@@ -119,11 +122,24 @@ public class ItemsController : Controller
             Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size,
             ImageUrl = imageUrl,
             CreatedAt = DateTime.UtcNow,
-            UserId = userId
+            UserId = userId,
+
+            // ── Stealable fields ──────────────────────────────────────────
+            // ListingType is stored so the Details view and purchase actions
+            // know how to render and guard each interaction.
+            ListingType = viewModel.IsStealable ? ListingType.Stealable : ListingType.Standard,
+            StealDurationHours = viewModel.IsStealable ? viewModel.StealDurationHours : null,
+
+            // StealEndsAt is intentionally null at creation time.
+            // It is calculated and persisted when the first buyer clicks "Get".
+            StealEndsAt = null,
+            CurrentWinnerId = null,
+            Status = ItemStatus.Available
         };
 
         await _itemRepository.AddAsync(item);
-        _logger.LogInformation("User {UserId} created Item {ItemId}.", userId, item.Id);
+        _logger.LogInformation("User {UserId} created Item {ItemId} (type: {ListingType}).",
+            userId, item.Id, item.ListingType);
 
         TempData["SuccessMessage"] = $"'{item.Title}' was listed successfully!";
         return RedirectToAction(nameof(Index));
@@ -182,7 +198,7 @@ public class ItemsController : Controller
         item.Condition = viewModel.Condition;
         item.Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size;
         item.ImageUrl = imageUrl;
-        // item.UserId and item.CreatedAt are intentionally not touched.
+        // item.UserId, item.CreatedAt, and all Stealable fields are intentionally not touched.
 
         await _itemRepository.UpdateAsync(item);
         _logger.LogInformation("User {UserId} updated Item {ItemId}.", item.UserId, item.Id);
@@ -218,6 +234,170 @@ public class ItemsController : Controller
 
         TempData["SuccessMessage"] = $"'{item.Title}' was deleted.";
         return RedirectToAction(nameof(Index));
+    }
+
+    // ── GET ITEM (Stealable — claim the base price) ────────────────────────
+
+    /// <summary>
+    /// POST /Items/GetItem/{id}
+    /// Marks the current authenticated buyer as the <see cref="Item.CurrentWinnerId"/>
+    /// at the base price, sets the item to <see cref="ItemStatus.Reserved"/>, and
+    /// starts the Steal countdown by writing <see cref="Item.StealEndsAt"/>.
+    ///
+    /// Guard conditions (each returns an error TempData and redirects to Details):
+    ///   • Item does not exist → 404.
+    ///   • The buyer is the seller → cannot buy your own listing.
+    ///   • The item is not a Stealable listing → wrong flow.
+    ///   • The item is not Available → already reserved or sold.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GetItem(int id)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int buyerId))
+            return Unauthorized();
+
+        var item = await _itemRepository.GetByIdAsync(id);
+        if (item is null)
+            return NotFound();
+
+        // ── Guard: seller cannot buy their own listing ────────────────────
+        if (item.UserId == buyerId)
+        {
+            TempData["ErrorMessage"] = "You cannot claim your own listing.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: only Stealable listings use this flow ──────────────────
+        if (item.ListingType != ListingType.Stealable)
+        {
+            TempData["ErrorMessage"] = "This listing does not support the Get/Steal flow.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: item must still be Available ───────────────────────────
+        if (item.Status != ItemStatus.Available)
+        {
+            TempData["ErrorMessage"] = item.Status == ItemStatus.Reserved
+                ? "This item has already been claimed. You may still Steal it before the timer expires."
+                : "This item has already been sold.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Claim the item ────────────────────────────────────────────────
+        item.CurrentWinnerId = buyerId;
+        item.Status = ItemStatus.Reserved;
+        item.StealEndsAt = DateTime.UtcNow.AddHours(item.StealDurationHours!.Value);
+
+        await _itemRepository.UpdateAsync(item);
+
+        _logger.LogInformation(
+            "User {BuyerId} claimed (Get) Item {ItemId}. Steal window closes at {StealEndsAt} UTC.",
+            buyerId, item.Id, item.StealEndsAt);
+
+        TempData["SuccessMessage"] =
+            $"You've claimed '{item.Title}'! Another buyer can Steal it within " +
+            $"{item.StealDurationHours} hour(s). If no one does, you'll have 2 hours to finalise.";
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    // ── STEAL ITEM (Stealable — override the current winner) ──────────────
+
+    /// <summary>
+    /// POST /Items/StealItem/{id}
+    /// Allows a second buyer to "Steal" the item from the current winner.
+    /// The steal adds ₱50 to the current price, marks the item as
+    /// <see cref="ItemStatus.Sold"/>, and immediately redirects the stealer
+    /// to the Checkout page so they can finalise the higher-price purchase.
+    ///
+    /// Guard conditions:
+    ///   • Item not found → 404.
+    ///   • Stealer is the seller → cannot buy your own listing.
+    ///   • Stealer is the current winner → you already hold this item.
+    ///   • Item is not Stealable → wrong flow.
+    ///   • Item is not Reserved (Available or already Sold) → nothing to steal.
+    ///   • Steal window has expired → too late to steal.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StealItem(int id)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int stealerId))
+            return Unauthorized();
+
+        var item = await _itemRepository.GetByIdAsync(id);
+        if (item is null)
+            return NotFound();
+
+        // ── Guard: seller cannot steal their own listing ──────────────────
+        if (item.UserId == stealerId)
+        {
+            TempData["ErrorMessage"] = "You cannot steal your own listing.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: the current winner cannot steal from themselves ────────
+        if (item.CurrentWinnerId == stealerId)
+        {
+            TempData["ErrorMessage"] = "You already hold this item — head to checkout to finalise.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: only Stealable listings use this flow ──────────────────
+        if (item.ListingType != ListingType.Stealable)
+        {
+            TempData["ErrorMessage"] = "This listing does not support the Steal flow.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: there must be a current winner to steal from ───────────
+        if (item.Status != ItemStatus.Reserved)
+        {
+            TempData["ErrorMessage"] = item.Status == ItemStatus.Available
+                ? "No one has claimed this item yet. Use 'Get' to claim it at the base price."
+                : "This item has already been sold — it can no longer be stolen.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Guard: steal window must still be open ────────────────────────
+        if (item.StealEndsAt.HasValue && DateTime.UtcNow > item.StealEndsAt.Value)
+        {
+            TempData["ErrorMessage"] =
+                "The Steal window has expired. The original buyer has the first right to finalise.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ── Apply the steal ───────────────────────────────────────────────
+        // Steal can only happen once — the item moves straight to Sold after
+        // the price bump, and the stealer is redirected to Checkout immediately.
+        const decimal StealPremium = 50m;
+
+        item.Price += StealPremium;   // ₱50 is added automatically.
+        item.Status = ItemStatus.Sold;
+
+        // Record who stole (CurrentWinnerId is overwritten; the previous winner
+        // is effectively outbid and should be notified via a future notification
+        // service — outside the scope of this controller).
+        int previousWinnerId = item.CurrentWinnerId!.Value;
+        item.CurrentWinnerId = stealerId;
+
+        await _itemRepository.UpdateAsync(item);
+
+        _logger.LogInformation(
+            "User {StealerId} stole Item {ItemId} from User {PreviousWinnerId}. " +
+            "New price: ₱{NewPrice}.",
+            stealerId, item.Id, previousWinnerId, item.Price);
+
+        TempData["SuccessMessage"] =
+            $"You stole '{item.Title}'! The price has been updated to ₱{item.Price:N2}. " +
+            $"Please complete your purchase below.";
+
+        // Redirect immediately to Checkout.
+        // Replace "Orders" / "Checkout" with your actual controller/action once created.
+        return RedirectToAction("Checkout", "Orders", new { itemId = item.Id });
     }
 
     // ── Private helpers ────────────────────────────────────────────────────

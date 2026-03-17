@@ -1,4 +1,5 @@
 ﻿@model ThriftLoop.ViewModels.HomeIndexViewModel
+@using ThriftLoop.Models
 @using ThriftLoop.ViewModels
 @{
     ViewData["Title"] = "For You";
@@ -13,7 +14,7 @@
 
 <div class="fy-shell">
 
-    @* ── Left: sticky filter sidebar ────────────────────────────────────── *@
+    @* ── Left: sticky filter sidebar ──────────────────────────────────────── *@
     <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
 
         <div class="fy-sidebar__header">
@@ -89,7 +90,7 @@
 
     </aside>
 
-    @* ── Right: feed ─────────────────────────────────────────────────────── *@
+    @* ── Right: feed ──────────────────────────────────────────────────────── *@
     <main class="fy-main" id="fyMain">
 
         <header class="fy-feed-header">
@@ -138,17 +139,18 @@
             <div class="fy-grid" id="itemGrid">
                 @foreach (var item in Model.Items)
                 {
-                    var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                    var isOwner      = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                    var isStealable  = item.ListingType == ListingType.Stealable;
+                    var isReserved   = item.Status == ItemStatus.Reserved;
+                    var isSold       = item.Status == ItemStatus.Sold;
 
                     @*
                         The card uses a "stretched link" pattern:
                           - .fy-card has position:relative
                           - .fy-card__link::after fills the entire card (position:absolute, inset:0)
                           - .fy-card__actions has position:relative + z-index:1 to stay above the overlay
-                        This means clicking anywhere on the card (except the action buttons) navigates
-                        to the Details page — no JS needed for the navigation itself.
                     *@
-                    <article class="fy-card"
+                    <article class="fy-card @(isSold ? "fy-card--sold" : "")"
                              data-category="@item.Category"
                              data-condition="@item.Condition"
                              data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
@@ -178,6 +180,38 @@
                             @* Condition chip overlaid on image *@
                             <span class="fy-card__condition-badge">@item.Condition</span>
 
+                            @* Stealable badge — top-right corner of the image *@
+                            @if (isStealable)
+                            {
+                                <span class="fy-card__stealable-badge"
+                                      aria-label="Stealable listing — @item.StealDurationHours hr window">
+                                    @if (isReserved)
+                                    {
+                                        @* Clock SVG — someone has already claimed it *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm.5 3.25a.5.5 0 00-1 0V7c0 .276.224.5.5.5h2.75a.5.5 0 000-1H7.5V4.25z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span>Reserved</span>
+                                    }
+                                    else if (isSold)
+                                    {
+                                        @* Checkmark — sold *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm2.97 4.47a.75.75 0 00-1.19-.94L6.5 7.28 5.28 6.06a.75.75 0 00-1.06 1.06l1.75 1.75a.75.75 0 001.12-.06l2.88-3.34z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span>Sold</span>
+                                    }
+                                    else
+                                    {
+                                        @* Lightning / competition icon — available to steal *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z"/>
+                                        </svg>
+                                        <span>Stealable</span>
+                                    }
+                                </span>
+                            }
+
                             @* Owner badge *@
                             @if (isOwner)
                             {
@@ -193,14 +227,15 @@
                             </div>
 
                             <h2 class="fy-card__title">@item.Title</h2>
-                            <p class="fy-card__price">₱@item.Price.ToString("N2")</p>
+                            <p class="fy-card__price">
+                                ₱@item.Price.ToString("N2")
+                                @if (isStealable && item.Status == ItemStatus.Available)
+                                {
+                                    @* Small "+₱50 if stolen" hint on Available Stealable cards *@
+                                    <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                }
+                            </p>
 
-                            @*
-                                The anchor text is visually hidden — the ::after pseudo-element
-                                covers the whole card. The visible text above is still read by
-                                screen readers before this link, so the accessible name
-                                "View details for [Title]" is unambiguous.
-                            *@
                             <a asp-action="Details"
                                asp-controller="Items"
                                asp-route-id="@item.Id"
@@ -212,24 +247,8 @@
                         @* Actions — z-index:1 keeps these above the stretched link overlay *@
                         @if (!isOwner)
                         {
-                            <div class="fy-card__actions">
-                                <button type="button"
-                                        class="fy-btn fy-btn--cart"
-                                        aria-label="Add @item.Title to cart"
-                                        disabled>
-                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
-                                        <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
-                                    </svg>
-                                    Add to Cart
-                                </button>
-                                <button type="button"
-                                        class="fy-btn fy-btn--buy"
-                                        aria-label="Buy @item.Title now"
-                                        disabled>
-                                    Buy Now
-                                </button>
-                            </div>
+                            @* Non-owner buyer actions are handled on the Details page,
+                               not on the card — keeps the feed clean. *@
                         }
                         else
                         {
@@ -253,11 +272,64 @@
 </div>
 
 @section Scripts {
+    <style>
+        /* ── Stealable badge on card images ─────────────────────────────── */
+        .fy-card__stealable-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 3px 7px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.18);
+            z-index: 2;
+            pointer-events: none; /* sits above the image, below the stretched link */
+        }
+
+        /* Reserved state — amber tint */
+        .fy-card__stealable-badge:has(> span:only-child + svg) {
+            background: #92400e;
+        }
+
+        /* Sold state — muted grey so it doesn't draw the eye */
+        .fy-card--sold .fy-card__stealable-badge {
+            background: #4b5563;
+        }
+
+        /* ── Steal hint text next to the price ───────────────────────────── */
+        .fy-card__steal-hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 500;
+            color: var(--color-primary, #2d5a27);
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        /* ── Sold card — subtle desaturation ─────────────────────────────── */
+        .fy-card--sold {
+            opacity: 0.7;
+            pointer-events: none; /* whole card grayed-out and non-interactive */
+        }
+
+        /* Re-enable pointer events for the manage button on owner's own sold cards *@@
+        /* (This is an edge case; sellers rarely need to interact with sold cards.) */
+        .fy-card--sold .fy-card__actions { pointer-events: auto; }
+    </style>
+
     <script>
         (function () {
             'use strict';
 
-            // ── Element references ───────────────────────────────────────────────
+            // ── Element references ─────────────────────────────────────────────
             var grid         = document.getElementById('itemGrid');
             var filterEmpty  = document.getElementById('filterEmpty');
             var visibleCount = document.getElementById('visibleCount');
@@ -272,7 +344,7 @@
 
             var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
 
-            // ── Core filter function ─────────────────────────────────────────────
+            // ── Core filter function ───────────────────────────────────────────
             function applyFilters() {
                 var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
                 var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
@@ -314,14 +386,14 @@
                 }
             }
 
-            // ── Wire up all controls — live, no submit needed ────────────────────
+            // ── Wire up all controls — live, no submit needed ──────────────────
             if (searchInput) searchInput.addEventListener('input',  applyFilters);
             if (priceMin)    priceMin.addEventListener('input',     applyFilters);
             if (priceMax)    priceMax.addEventListener('input',     applyFilters);
             catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
             condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
 
-            // ── Reset ────────────────────────────────────────────────────────────
+            // ── Reset ──────────────────────────────────────────────────────────
             function resetAll() {
                 if (searchInput) searchInput.value = '';
                 if (priceMin)    priceMin.value    = priceMin.min  || 0;
@@ -336,7 +408,7 @@
             if (resetBtn)  resetBtn.addEventListener('click',  resetAll);
             if (resetBtn2) resetBtn2.addEventListener('click', resetAll);
 
-            // ── Mobile sidebar toggle ────────────────────────────────────────────
+            // ── Mobile sidebar toggle ──────────────────────────────────────────
             var toggleBtn = document.getElementById('fyFilterToggle');
             var sidebar   = document.getElementById('fySidebar');
             if (toggleBtn && sidebar) {

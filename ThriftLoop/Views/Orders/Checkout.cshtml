@@ -1,0 +1,250 @@
+﻿@model ThriftLoop.ViewModels.CheckoutViewModel
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "Confirm Purchase";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string condClass = Model.ItemCondition switch
+    {
+        "New" => "detail-condition--new",
+        "Like New" => "detail-condition--like-new",
+        "Good" => "detail-condition--good",
+        "Fair" => "detail-condition--fair",
+        _ => "detail-condition--poor"
+    };
+}
+
+<div class="co-shell">
+
+    @* ── Back navigation ────────────────────────────────────────────────────── *@
+    <nav class="co-breadcrumb" aria-label="Breadcrumb">
+        <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+           class="co-breadcrumb__link">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to listing
+        </a>
+    </nav>
+
+    @* ── Page header ────────────────────────────────────────────────────────── *@
+    <header class="co-header">
+        <h1 class="co-header__title">Confirm Your Purchase</h1>
+        <p class="co-header__subtitle">Review the details below before finalising.</p>
+    </header>
+
+    @* ── Flash messages ──────────────────────────────────────────────────────── *@
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="co-alert co-alert--error" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            @errMsg
+        </div>
+    }
+
+    @* ── Two-column grid ─────────────────────────────────────────────────────── *@
+    <div class="co-grid">
+
+        @* ════════════════════════════════════════
+           LEFT — Item summary + P2P notice
+           ════════════════════════════════════════ *@
+        <div class="co-summary-col">
+
+            @* Item card *@
+            <div class="co-item-card">
+
+                @* Image *@
+                <div class="co-item-card__img-wrap">
+                    @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+                    {
+                        <img src="@Model.ItemImageUrl"
+                             alt="Photo of @Model.ItemTitle"
+                             class="co-item-card__img"
+                             loading="eager" />
+                    }
+                    else
+                    {
+                        <div class="co-item-card__img co-item-card__img--placeholder" aria-hidden="true">
+                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                                <rect x="6" y="10" width="52" height="44" rx="6" />
+                                <circle cx="22" cy="26" r="6" />
+                                <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                    }
+
+                    @* Stealable badge on image *@
+                    @if (Model.IsStealable)
+                    {
+                        <span class="co-item-card__stealable-badge">
+                            <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                            </svg>
+                            @(Model.WasStolen ? "Stolen" : "Stealable")
+                        </span>
+                    }
+                </div>
+
+                @* Item details *@
+                <div class="co-item-card__body">
+                    <div class="co-item-card__meta">
+                        <span class="co-item-card__category">@Model.ItemCategory</span>
+                        <span class="co-item-card__condition @condClass">@Model.ItemCondition</span>
+                        @if (!string.IsNullOrEmpty(Model.ItemSize))
+                        {
+                            <span class="co-item-card__size">@Model.ItemSize</span>
+                        }
+                    </div>
+
+                    <h2 class="co-item-card__title">@Model.ItemTitle</h2>
+
+                    @* Seller info *@
+                    <div class="co-item-card__seller">
+                        <div class="co-item-card__seller-avatar" aria-hidden="true">
+                            @char.ToUpper(Model.SellerName.FirstOrDefault())
+                        </div>
+                        <div>
+                            <p class="co-item-card__seller-label">Sold by</p>
+                            <p class="co-item-card__seller-name">@Model.SellerName</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* P2P transaction notice *@
+            <div class="co-p2p-notice" role="note">
+                <div class="co-p2p-notice__icon" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="co-p2p-notice__body">
+                    <p class="co-p2p-notice__heading">This is a P2P transaction</p>
+                    <p class="co-p2p-notice__text">
+                        ThriftLoop connects buyers and sellers directly. After confirming,
+                        please coordinate with <strong>@Model.SellerName</strong> for payment
+                        and pickup or shipping details. ThriftLoop does not process payments
+                        or handle delivery.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        @* ════════════════════════════════════════
+           RIGHT — Price breakdown + confirm button
+           ════════════════════════════════════════ *@
+        <div class="co-order-col">
+
+            <div class="co-breakdown">
+
+                <h2 class="co-breakdown__heading">Order Summary</h2>
+
+                <div class="co-breakdown__rows">
+
+                    @* Base price row — always shown *@
+                    <div class="co-breakdown__row">
+                        <span class="co-breakdown__label">
+                            @if (Model.WasStolen)
+                            {
+                                <text>Base price</text>
+                            }
+                            else
+                            {
+                                <text>@Model.ItemTitle</text>
+                            }
+                        </span>
+                        <span class="co-breakdown__value">₱@Model.BasePrice.ToString("N2")</span>
+                    </div>
+
+                    @* Steal premium row — only shown when item was stolen *@
+                    @if (Model.WasStolen)
+                    {
+                        <div class="co-breakdown__row co-breakdown__row--steal">
+                            <span class="co-breakdown__label">
+                                <svg viewBox="0 0 14 14" fill="currentColor" width="11" height="11"
+                                     aria-hidden="true" class="co-breakdown__steal-icon">
+                                    <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                                </svg>
+                                Steal premium
+                            </span>
+                            <span class="co-breakdown__value co-breakdown__value--steal">
+                                +₱@Model.StealPremium.ToString("N2")
+                            </span>
+                        </div>
+                    }
+
+                </div>
+
+                <div class="co-breakdown__divider" aria-hidden="true"></div>
+
+                @* Total row *@
+                <div class="co-breakdown__total-row">
+                    <span class="co-breakdown__total-label">Total to arrange</span>
+                    <span class="co-breakdown__total-value">₱@Model.FinalPrice.ToString("N2")</span>
+                </div>
+
+                @* Confirm button — POST form *@
+                <form asp-action="ConfirmOrder"
+                      asp-controller="Orders"
+                      method="post"
+                      id="confirmForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="itemId" value="@Model.ItemId" />
+
+                    <button type="submit" class="co-confirm-btn" id="confirmBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                        </svg>
+                        Confirm Purchase
+                    </button>
+                </form>
+
+                <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+                   class="co-cancel-link">
+                    Cancel and go back
+                </a>
+
+                @* Payment reminder *@
+                <p class="co-payment-note">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
+                        <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 3.25a.75.75 0 00-1.5 0v3.5c0 .414.336.75.75.75h2a.75.75 0 000-1.5H8.75V4.25z" />
+                    </svg>
+                    Payment is arranged directly with the seller — this button confirms
+                    your intent to purchase, not an actual charge.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+
+            // Disable the confirm button after first click to prevent
+            // double-submission while the POST is in flight.
+            var form = document.getElementById('confirmForm');
+            var btn  = document.getElementById('confirmBtn');
+
+            if (form && btn) {
+                form.addEventListener('submit', function () {
+                    btn.disabled = true;
+                    btn.innerHTML =
+                        '<svg class="co-spin" viewBox="0 0 20 20" fill="currentColor" ' +
+                        'width="16" height="16" aria-hidden="true">' +
+                        '<path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".3"/>' +
+                        '<path d="M10 3a7 7 0 017 7h-1.5A5.5 5.5 0 0010 4.5V3z"/>' +
+                        '</svg> Confirming…';
+                });
+            }
+        }());
+    </script>
+}

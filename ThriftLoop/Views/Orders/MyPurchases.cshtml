@@ -1,0 +1,141 @@
+﻿@model IReadOnlyList<ThriftLoop.Models.Order>
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "My Purchases";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="mp-shell">
+
+    <header class="mp-header">
+        <div>
+            <h1 class="mp-header__title">My Purchases</h1>
+            <p class="mp-header__subtitle">
+                @Model.Count order@(Model.Count == 1 ? "" : "s") placed
+            </p>
+        </div>
+        <a asp-action="Index" asp-controller="Home" class="btn btn--ghost mp-header__cta">
+            Browse listings
+        </a>
+    </header>
+
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mp-toast" id="mpToast" role="status">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+            </svg>
+            @successMsg
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="mp-empty">
+            <div class="mp-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <rect x="8" y="16" width="48" height="36" rx="6" />
+                    <path d="M22 16v-4a10 10 0 0120 0v4" stroke-linecap="round" />
+                    <path d="M24 36h16" stroke-linecap="round" />
+                </svg>
+            </div>
+            <h2 class="mp-empty__title">No purchases yet</h2>
+            <p class="mp-empty__body">Items you confirm will appear here.</p>
+            <a asp-action="Index" asp-controller="Home" class="btn btn--primary mp-empty__cta">
+                Browse listings
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="mp-list">
+            @foreach (var order in Model)
+            {
+                var sellerEmail = order.Seller?.Email ?? string.Empty;
+                var sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+
+                string statusClass = order.Status switch
+                {
+                    OrderStatus.Pending => "mp-status--pending",
+                    OrderStatus.Completed => "mp-status--completed",
+                    OrderStatus.Cancelled => "mp-status--cancelled",
+                    _ => ""
+                };
+
+                string statusLabel = order.Status switch
+                {
+                    OrderStatus.Pending => "Pending",
+                    OrderStatus.Completed => "Completed",
+                    OrderStatus.Cancelled => "Cancelled",
+                    _ => order.Status.ToString()
+                };
+
+                <article class="mp-row">
+
+                    @* Item thumbnail *@
+                    <div class="mp-row__img-wrap">
+                        @if (!string.IsNullOrEmpty(order.Item?.ImageUrl))
+                        {
+                            <img src="@order.Item.ImageUrl"
+                                 alt="@order.Item?.Title"
+                                 class="mp-row__img"
+                                 loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="mp-row__img mp-row__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4">
+                                    <rect x="3" y="5" width="26" height="22" rx="3" />
+                                    <circle cx="11" cy="13" r="3" />
+                                    <path d="M3 23l8-7 5 5 4-3 9 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+                    </div>
+
+                    @* Order details *@
+                    <div class="mp-row__body">
+                        <div class="mp-row__top">
+                            <h3 class="mp-row__title">
+                                @(order.Item?.Title ?? "Item #" + order.ItemId)
+                            </h3>
+                            <span class="mp-status @statusClass">@statusLabel</span>
+                        </div>
+
+                        <p class="mp-row__seller">Seller: @sellerDisplay</p>
+
+                        <p class="mp-row__date">
+                            Ordered
+                            <time datetime="@order.OrderDate.ToString("yyyy-MM-ddTHH:mm:ssZ")">
+                                @order.OrderDate.ToString("MMMM d, yyyy · h:mm tt") UTC
+                            </time>
+                        </p>
+                    </div>
+
+                    @* Price column *@
+                    <div class="mp-row__price-col">
+                        <span class="mp-row__price">₱@order.FinalPrice.ToString("N2")</span>
+                        <span class="mp-row__price-label">Final price</span>
+                    </div>
+
+                </article>
+            }
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+            var toast = document.getElementById('mpToast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.opacity = '0';
+                    setTimeout(function () { toast.remove(); }, 400);
+                }, 5000);
+            }
+        }());
+    </script>
+}

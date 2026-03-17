@@ -1,4 +1,5 @@
 ﻿@model ThriftLoop.ViewModels.ItemCreateViewModel
+@using ThriftLoop.Models
 @{
     ViewData["Title"] = "List an Item";
 }
@@ -34,7 +35,7 @@
 
             <div class="create-grid">
 
-                @* Photo Column *@
+                @* ── Photo Column ──────────────────────────────────────────────── *@
                 <div class="create-photo-col">
                     <p class="create-section-label">Photo</p>
 
@@ -81,7 +82,7 @@
                     </div>
                 </div>
 
-                @* Form Column *@
+                @* ── Form Column ───────────────────────────────────────────────── *@
                 <div class="create-form-col">
 
                     @* Title *@
@@ -160,14 +161,12 @@
                         <span asp-validation-for="Condition" class="field__error"></span>
                     </div>
 
-                    @* Size — optional, reuses the same chip pattern as Category *@
+                    @* Size — optional *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label class="create-field__label">Size</label>
                             <span class="create-field__optional">optional</span>
                         </div>
-
-                        @* Hidden select drives model binding — empty value = no size selected *@
                         <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
                             <option value=""></option>
                             @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
@@ -175,7 +174,6 @@
                                 <option value="@size">@size</option>
                             }
                         </select>
-
                         <div class="create-chips create-chips--size" id="sizeChips">
                             @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
                             {
@@ -187,12 +185,89 @@
                                 </button>
                             }
                         </div>
-
-                        @*
-                            Unlike Category/Condition, a second click on an already-active size chip
-                            deselects it (clears the size) — handled in the JS below.
-                        *@
                         <span asp-validation-for="Size" class="field__error"></span>
+                    </div>
+
+                    @* ── Stealable Listing Section ─────────────────────────────── *@
+                    <div class="create-field create-field--stealable">
+
+                        @* Section divider *@
+                        <div class="create-stealable-header">
+                            <div>
+                                <p class="create-field__label">Listing Type</p>
+                                <p class="create-stealable-header__sub">
+                                    Stealable listings let buyers compete — one claims it, another can steal it.
+                                </p>
+                            </div>
+                        </div>
+
+                        @* Toggle row *@
+                        <label class="stealable-toggle" for="IsStealable">
+                            <span class="stealable-toggle__track">
+                                <input asp-for="IsStealable"
+                                       id="IsStealable"
+                                       type="checkbox"
+                                       class="stealable-toggle__input" />
+                                <span class="stealable-toggle__thumb" aria-hidden="true"></span>
+                            </span>
+                            <span class="stealable-toggle__label-group">
+                                <span class="stealable-toggle__name">Make this a Stealable listing</span>
+                                <span class="stealable-toggle__badge" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                        <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
+                                    </svg>
+                                    NEW
+                                </span>
+                            </span>
+                        </label>
+
+                        @* Duration panel — hidden until checkbox is ticked *@
+                        <div class="stealable-duration-panel" id="stealDurationPanel"
+                             @(Model.IsStealable ? "" : "hidden")
+                             aria-live="polite">
+
+                            <div class="stealable-duration-inner">
+                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                                </svg>
+
+                                <div class="stealable-duration-body">
+                                    <label asp-for="StealDurationHours" class="create-field__label">
+                                        Steal Window Duration
+                                    </label>
+                                    <p class="stealable-duration-body__hint">
+                                        How long a buyer has before another can steal the item.
+                                        After the window closes, the original buyer gets a 2-hour grace period.
+                                    </p>
+
+                                    @* Chip-style duration selector driven by a hidden <select> *@
+                                    <select asp-for="StealDurationHours"
+                                            class="create-hidden-select"
+                                            id="stealDurationSelect">
+                                        <option value=""></option>
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <option value="@hours">@hours hours</option>
+                                        }
+                                    </select>
+
+                                    <div class="create-chips create-chips--duration" id="durationChips">
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <button type="button"
+                                                    class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
+                                                    data-value="@hours"
+                                                    data-target="stealDurationSelect">
+                                                @hours hr
+                                            </button>
+                                        }
+                                    </div>
+
+                                    <span asp-validation-for="StealDurationHours" class="field__error"></span>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                     @* Actions *@
@@ -205,6 +280,7 @@
                         </button>
                         <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
                     </div>
+
                 </div>
             </div>
         </form>
@@ -216,18 +292,169 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 
+    <style>
+        /* ── Stealable toggle ──────────────────────────────────────────────── */
+        .create-field--stealable {
+            border-top: 1px solid var(--color-border, #e8e3da);
+            padding-top: 1.25rem;
+            margin-top: 0.25rem;
+        }
+
+        .create-stealable-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .create-stealable-header__sub {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0.2rem 0 0;
+            line-height: 1.5;
+        }
+
+        /* Toggle switch */
+        .stealable-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            user-select: none;
+            width: fit-content;
+        }
+
+        .stealable-toggle__track {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .stealable-toggle__input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .stealable-toggle__thumb {
+            position: absolute;
+            inset: 0;
+            background: var(--color-border, #d4cdc4);
+            border-radius: 99px;
+            transition: background 0.2s ease;
+        }
+
+            .stealable-toggle__thumb::after {
+                content: '';
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 18px;
+                height: 18px;
+                background: #fff;
+                border-radius: 50%;
+                transition: transform 0.2s ease;
+                box-shadow: 0 1px 3px rgba(0,0,0,.15);
+            }
+
+        .stealable-toggle__input:checked ~ .stealable-toggle__thumb {
+            background: var(--color-primary, #2d5a27);
+        }
+
+            .stealable-toggle__input:checked ~ .stealable-toggle__thumb::after {
+                transform: translateX(20px);
+            }
+
+        .stealable-toggle__input:focus-visible ~ .stealable-toggle__thumb {
+            outline: 2px solid var(--color-primary, #2d5a27);
+            outline-offset: 2px;
+        }
+
+        .stealable-toggle__label-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stealable-toggle__name {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: var(--color-text, #1a1814);
+        }
+
+        .stealable-toggle__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Duration panel */
+        .stealable-duration-panel {
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+            .stealable-duration-panel[hidden] {
+                display: none;
+            }
+
+        .stealable-duration-inner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: var(--color-surface-alt, #f5f1ea);
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            padding: 1rem 1.125rem;
+        }
+
+        .stealable-duration-icon {
+            color: var(--color-primary, #2d5a27);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .stealable-duration-body {
+            flex: 1;
+        }
+
+        .stealable-duration-body__hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0.25rem 0 0.875rem;
+            line-height: 1.55;
+        }
+
+        .create-chips--duration {
+            margin-top: 0.5rem;
+        }
+    </style>
+
     <script>
         (function() {
             'use strict';
 
-            // ── Character counters ───────────────────────────────────────────────
+            // ── Character counters ─────────────────────────────────────────────
             function initCounter(inputId, counterId, max) {
-                const input = document.getElementById(inputId);
-                const counter = document.getElementById(counterId);
+                var input   = document.getElementById(inputId);
+                var counter = document.getElementById(counterId);
                 if (!input || !counter) return;
 
-                const update = () => {
-                    const len = input.value.length;
+                var update = function() {
+                    var len = input.value.length;
                     counter.textContent = len + '/' + max;
                     counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
                 };
@@ -241,22 +468,20 @@
 
             // ── Category / Condition chips (required — click activates, cannot deselect) ──
             function initChips(containerId) {
-                const container = document.getElementById(containerId);
+                var container = document.getElementById(containerId);
                 if (!container) return;
 
-                container.addEventListener('click', (e) => {
-                    const btn = e.target.closest('[data-value]');
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
                     if (!btn) return;
 
-                    const select = document.getElementById(btn.dataset.target);
+                    var select = document.getElementById(btn.dataset.target);
                     if (!select) return;
 
-                    // Deactivate all
-                    container.querySelectorAll('[data-value]').forEach(b => {
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
                         b.classList.remove('create-chip--active', 'create-condition__pill--active');
                     });
 
-                    // Activate clicked
                     btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
                     select.value = btn.dataset.value;
 
@@ -267,25 +492,48 @@
             initChips('categoryChips');
             initChips('conditionPills');
 
-            // ── Size chips (optional — clicking an active chip deselects it) ────────
-            (function initSizeChips() {
-                const container = document.getElementById('sizeChips');
-                const select    = document.getElementById('sizeSelect');
+            // ── Duration chips (required when Stealable — same chip pattern) ───
+            function initDurationChips() {
+                var container = document.getElementById('durationChips');
+                var select    = document.getElementById('stealDurationSelect');
                 if (!container || !select) return;
 
-                container.addEventListener('click', (e) => {
-                    const btn = e.target.closest('[data-value]');
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
                     if (!btn) return;
 
-                    const alreadyActive = btn.classList.contains('create-chip--active');
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
+                        b.classList.remove('create-chip--active');
+                    });
 
-                    // Deactivate all size chips first
-                    container.querySelectorAll('[data-value]').forEach(b => {
+                    btn.classList.add('create-chip--active');
+                    select.value = btn.dataset.value;
+
+                    // Re-run unobtrusive validation on the hidden select so the
+                    // error span clears immediately when the user picks a value.
+                    if (window.$ && $.validator) $(select).valid();
+                });
+            }
+
+            initDurationChips();
+
+            // ── Size chips (optional — second click deselects) ─────────────────
+            (function initSizeChips() {
+                var container = document.getElementById('sizeChips');
+                var select    = document.getElementById('sizeSelect');
+                if (!container || !select) return;
+
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    var alreadyActive = btn.classList.contains('create-chip--active');
+
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
                         b.classList.remove('create-chip--active');
                     });
 
                     if (alreadyActive) {
-                        // Second click on same chip → clear selection
                         select.value = '';
                     } else {
                         btn.classList.add('create-chip--active');
@@ -294,58 +542,89 @@
                 });
             })();
 
-            // ── Photo dropzone ───────────────────────────────────────────────────
-            const dropzone = document.getElementById('photoDropzone');
-            const input = document.getElementById('photoInput');
-            const empty = document.getElementById('dropzoneEmpty');
-            const preview = document.getElementById('dropzonePreview');
-            const previewImg = document.getElementById('previewImg');
-            const removeBtn = document.getElementById('removePhoto');
-            const overlay = document.getElementById('dropzoneOverlay');
+            // ── Stealable toggle — show / hide the duration panel ─────────────
+            (function initStealableToggle() {
+                var checkbox      = document.getElementById('IsStealable');
+                var panel         = document.getElementById('stealDurationPanel');
+                var durationSelect = document.getElementById('stealDurationSelect');
+                if (!checkbox || !panel) return;
+
+                function syncPanel() {
+                    if (checkbox.checked) {
+                        panel.removeAttribute('hidden');
+                    } else {
+                        panel.setAttribute('hidden', '');
+
+                        // Clear the selection so the hidden field submits empty
+                        // and server-side validation does not complain.
+                        if (durationSelect) {
+                            durationSelect.value = '';
+                            document.querySelectorAll('#durationChips [data-value]').forEach(function(b) {
+                                b.classList.remove('create-chip--active');
+                            });
+                        }
+                    }
+                }
+
+                checkbox.addEventListener('change', syncPanel);
+                // Run once on load to restore state after a failed server POST.
+                syncPanel();
+            })();
+
+            // ── Photo dropzone ─────────────────────────────────────────────────
+            var dropzone   = document.getElementById('photoDropzone');
+            var input      = document.getElementById('photoInput');
+            var empty      = document.getElementById('dropzoneEmpty');
+            var preview    = document.getElementById('dropzonePreview');
+            var previewImg = document.getElementById('previewImg');
+            var removeBtn  = document.getElementById('removePhoto');
+            var overlay    = document.getElementById('dropzoneOverlay');
 
             if (dropzone && input) {
-                dropzone.addEventListener('click', (e) => {
-                    if (e.target === removeBtn || removeBtn?.contains(e.target)) return;
+                dropzone.addEventListener('click', function(e) {
+                    if (e.target === removeBtn || (removeBtn && removeBtn.contains(e.target))) return;
                     input.click();
                 });
 
-                input.addEventListener('change', () => {
-                    if (input.files?.[0]) showPreview(input.files[0]);
+                input.addEventListener('change', function() {
+                    if (input.files && input.files[0]) showPreview(input.files[0]);
                 });
 
-                removeBtn?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    clearPreview();
-                });
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        clearPreview();
+                    });
+                }
 
-                ['dragenter', 'dragover'].forEach(evt => {
-                    dropzone.addEventListener(evt, (e) => {
+                ['dragenter', 'dragover'].forEach(function(evt) {
+                    dropzone.addEventListener(evt, function(e) {
                         e.preventDefault();
-                        overlay.hidden = false;
+                        if (overlay) overlay.hidden = false;
                     });
                 });
 
-                ['dragleave', 'dragend', 'drop'].forEach(evt => {
-                    dropzone.addEventListener(evt, (e) => {
+                ['dragleave', 'dragend', 'drop'].forEach(function(evt) {
+                    dropzone.addEventListener(evt, function(e) {
                         e.preventDefault();
-                        overlay.hidden = true;
+                        if (overlay) overlay.hidden = true;
                     });
                 });
 
-                dropzone.addEventListener('drop', (e) => {
-                    const file = e.dataTransfer.files[0];
+                dropzone.addEventListener('drop', function(e) {
+                    var file = e.dataTransfer.files[0];
                     if (!file) return;
 
                     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                        showError('Only JPEG, PNG, or WebP images are accepted.');
+                        showDropzoneError('Only JPEG, PNG, or WebP images are accepted.');
                         return;
                     }
                     if (file.size > 5 * 1024 * 1024) {
-                        showError('Image must be smaller than 5 MB.');
+                        showDropzoneError('Image must be smaller than 5 MB.');
                         return;
                     }
 
-                    const dt = new DataTransfer();
+                    var dt = new DataTransfer();
                     dt.items.add(file);
                     input.files = dt.files;
                     showPreview(file);
@@ -353,11 +632,11 @@
             }
 
             function showPreview(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
+                var reader = new FileReader();
+                reader.onload = function(e) {
                     previewImg.src = e.target.result;
-                    empty.hidden = true;
-                    preview.hidden = false;
+                    if (empty)   empty.hidden   = true;
+                    if (preview) preview.hidden = false;
                 };
                 reader.readAsDataURL(file);
             }
@@ -365,35 +644,38 @@
             function clearPreview() {
                 input.value = '';
                 previewImg.src = '';
-                preview.hidden = true;
-                empty.hidden = false;
+                if (preview) preview.hidden = true;
+                if (empty)   empty.hidden   = false;
             }
 
-            function showError(msg) {
-                const errorSpan = document.querySelector('.create-photo-col .field__error');
+            function showDropzoneError(msg) {
+                var errorSpan = document.querySelector('.create-photo-col .field__error');
                 if (errorSpan) {
                     errorSpan.textContent = msg;
-                    setTimeout(() => errorSpan.textContent = '', 3000);
+                    setTimeout(function() { errorSpan.textContent = ''; }, 3000);
                 }
             }
 
-            // ── Submit loading state ─────────────────────────────────────────────
-            const form = document.getElementById('createForm');
-            const submitBtn = document.getElementById('submitBtn');
+            // ── Submit loading state ───────────────────────────────────────────
+            var form      = document.getElementById('createForm');
+            var submitBtn = document.getElementById('submitBtn');
 
-            form?.addEventListener('submit', () => {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
-            });
+            if (form && submitBtn) {
+                form.addEventListener('submit', function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
+                });
+            }
 
-            // ── Auto-dismiss toast ───────────────────────────────────────────────
-            const toast = document.querySelector('.create-toast');
+            // ── Auto-dismiss toast ─────────────────────────────────────────────
+            var toast = document.querySelector('.create-toast');
             if (toast) {
-                setTimeout(() => {
+                setTimeout(function() {
                     toast.style.opacity = '0';
-                    setTimeout(() => toast.remove(), 400);
+                    setTimeout(function() { toast.remove(); }, 400);
                 }, 4000);
             }
+
         })();
     </script>
 }
