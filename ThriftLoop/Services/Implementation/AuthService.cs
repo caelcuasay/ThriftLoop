@@ -2,23 +2,27 @@
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Interface;
+using ThriftLoop.Services.WalletManagement.Interface;
 
 namespace ThriftLoop.Services.Auth.Implementation;
 
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IWalletService _walletService;
     private readonly ILogger<AuthService> _logger;
 
     private const int BcryptWorkFactor = 12;
 
-    public AuthService(IUserRepository userRepository, ILogger<AuthService> logger)
+    public AuthService(
+        IUserRepository userRepository,
+        IWalletService walletService,
+        ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
+        _walletService = walletService;
         _logger = logger;
     }
-
-    // ── Password registration ─────────────────────────────────────────────────
 
     public async Task<User?> RegisterAsync(RegisterDTO dto)
     {
@@ -37,11 +41,12 @@ public class AuthService : IAuthService
 
         user.Id = await _userRepository.CreateAsync(user);
 
-        _logger.LogInformation("New user registered with ID {UserId}.", user.Id);
+        // Auto-create wallet with ₱1,000 demo seed balance.
+        await _walletService.GetOrCreateWalletAsync(user.Id);
+
+        _logger.LogInformation("New user registered with ID {UserId}. Wallet seeded.", user.Id);
         return user;
     }
-
-    // ── Credential validation ─────────────────────────────────────────────────
 
     public async Task<User?> ValidateCredentialsAsync(LoginDTO dto)
     {
@@ -49,12 +54,10 @@ public class AuthService : IAuthService
 
         if (user is null)
         {
-            // Constant-time dummy verify to prevent timing attacks.
             BCrypt.Net.BCrypt.Verify(dto.Password, BCrypt.Net.BCrypt.HashPassword("dummy"));
             return null;
         }
 
-        // A Google-only account has no password — refuse credential login.
         if (string.IsNullOrEmpty(user.PasswordHash))
         {
             _logger.LogWarning(
@@ -71,8 +74,6 @@ public class AuthService : IAuthService
         return user;
     }
 
-    // ── Google OAuth ──────────────────────────────────────────────────────────
-
     public async Task<User> FindOrCreateGoogleUserAsync(string email)
     {
         var normalised = email.Trim().ToLowerInvariant();
@@ -80,28 +81,29 @@ public class AuthService : IAuthService
         var existing = await _userRepository.GetByEmailAsync(normalised);
         if (existing is not null)
         {
-            _logger.LogInformation(
-                "Google sign-in: returning existing user {UserId}.", existing.Id);
+            // Ensure wallet exists for users who registered before wallet feature.
+            await _walletService.GetOrCreateWalletAsync(existing.Id);
+            _logger.LogInformation("Google sign-in: returning existing user {UserId}.", existing.Id);
             return existing;
         }
 
-        // First-time Google sign-in — provision a password-less account.
         var newUser = new User
         {
             Email = normalised,
-            PasswordHash = null,          // no password for external users
+            PasswordHash = null,
             CreatedAt = DateTime.UtcNow
         };
 
         newUser.Id = await _userRepository.CreateAsync(newUser);
 
+        await _walletService.GetOrCreateWalletAsync(newUser.Id);
+
         _logger.LogInformation(
-            "Google sign-in: created new user {UserId} for '{Email}'.", newUser.Id, normalised);
+            "Google sign-in: created new user {UserId} for '{Email}'. Wallet seeded.",
+            newUser.Id, normalised);
 
         return newUser;
     }
-
-    // ── Hashing helpers ───────────────────────────────────────────────────────
 
     public string HashPassword(string plainTextPassword)
         => BCrypt.Net.BCrypt.HashPassword(plainTextPassword, BcryptWorkFactor);

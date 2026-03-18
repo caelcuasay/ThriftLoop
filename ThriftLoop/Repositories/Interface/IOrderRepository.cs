@@ -4,15 +4,12 @@ namespace ThriftLoop.Repositories.Interface;
 
 public interface IOrderRepository
 {
-    /// <summary>
-    /// Persists a new Order row and populates order.Id via EF Core.
-    /// </summary>
+    /// <summary>Persists a new Order row and populates order.Id via EF Core.</summary>
     Task AddAsync(Order order);
 
     /// <summary>
     /// Returns all orders placed by the given buyer, most-recent first.
-    /// Eagerly loads the related Item and Seller so callers do not need
-    /// a second query to display order summaries.
+    /// Eagerly loads the related Item and Seller.
     /// </summary>
     Task<IReadOnlyList<Order>> GetOrdersByBuyerIdAsync(int userId);
 
@@ -24,8 +21,18 @@ public interface IOrderRepository
 
     /// <summary>
     /// Returns the order associated with a specific item, or null if none exists.
-    /// Used by the checkout controller to prevent duplicate order creation
-    /// when a buyer double-submits the confirmation form.
+    /// Used to prevent duplicate order creation on double-submit.
     /// </summary>
     Task<Order?> GetOrderByItemIdAsync(int itemId);
+
+    /// <summary>
+    /// Persists all changes to an existing Order row (status, payment flags, etc.).
+    /// </summary>
+    Task UpdateAsync(Order order);
+
+    /// <summary>
+    /// Permanently removes an Order row. Used only to roll back a failed
+    /// wallet escrow hold before the order becomes visible to the user.
+    /// </summary>
+    Task DeleteAsync(int orderId);
 }

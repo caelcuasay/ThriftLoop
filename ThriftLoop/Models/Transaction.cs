@@ -1,0 +1,92 @@
+﻿namespace ThriftLoop.Models;
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Describes what a transaction represents in the money lifecycle.
+/// </summary>
+public enum TransactionType
+{
+    /// <summary>
+    /// Funds moved from buyer Balance → buyer PendingBalance when an order is
+    /// confirmed. Money is "in escrow" until the buyer marks delivery.
+    /// </summary>
+    EscrowHold,
+
+    /// <summary>
+    /// Funds moved from buyer PendingBalance → seller Balance when the buyer
+    /// marks the order as delivered / completed.
+    /// </summary>
+    EscrowRelease,
+
+    /// <summary>Seller withdraws available Balance to their bank or pickup point.</summary>
+    Withdrawal,
+
+    /// <summary>
+    /// Cash-on-delivery funds collected by a rider and credited to the seller's
+    /// wallet. Mirrors EscrowRelease but for COD orders.
+    /// </summary>
+    CashCollection,
+
+    /// <summary>Funds added to a wallet (demo top-up or future payment gateway).</summary>
+    TopUp
+}
+
+/// <summary>
+/// Lifecycle state of a single transaction record.
+/// </summary>
+public enum TransactionStatus
+{
+    /// <summary>Initiated but not yet settled.</summary>
+    Pending,
+
+    /// <summary>Successfully settled — balances have been updated.</summary>
+    Completed,
+
+    /// <summary>Failed during processing — balances were not changed.</summary>
+    Failed
+}
+
+// ── Domain model ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Immutable audit record for every money movement in the system.
+/// Create one per logical operation (escrow hold, release, top-up, etc.).
+/// Never mutate a completed transaction — create a reversal instead.
+/// </summary>
+public class Transaction
+{
+    public int Id { get; set; }
+
+    /// <summary>
+    /// The order this transaction relates to. Null for top-ups and withdrawals
+    /// that are not tied to a specific order.
+    /// </summary>
+    public int? OrderId { get; set; }
+
+    /// <summary>The user whose balance is being debited (or the platform for top-ups).</summary>
+    public int FromUserId { get; set; }
+
+    /// <summary>The user whose balance is being credited.</summary>
+    public int ToUserId { get; set; }
+
+    /// <summary>Positive amount being transferred.</summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>What kind of money movement this represents.</summary>
+    public TransactionType Type { get; set; }
+
+    /// <summary>Processing state of this transaction.</summary>
+    public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
+
+    /// <summary>UTC timestamp when the transaction record was created.</summary>
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>UTC timestamp when the transaction reached a terminal state (Completed/Failed).</summary>
+    public DateTime? CompletedAt { get; set; }
+
+    // ── Navigation ────────────────────────────────────────────────────────
+    public Order? Order { get; set; }
+    public User? FromUser { get; set; }
+    public User? ToUser { get; set; }
+}

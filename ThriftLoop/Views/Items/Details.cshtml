@@ -181,7 +181,8 @@
                 }
             }
 
-            @if (isStealable && Model.Status == ItemStatus.Sold)
+            @* Sold notice — shown for both Stealable and Standard sold items *@
+            @if (Model.Status == ItemStatus.Sold)
             {
                 <div class="steal-sold-notice">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
@@ -314,20 +315,27 @@
                    ══════════════════════════════════ *@
                 @if (!isStealable)
                 {
-                    <div class="detail-actions">
-                        @* Checkout for Standard listings is a future controller action.
-                           These buttons are intentional stubs until Orders/Checkout exists. *@
-                        <button type="button" class="detail-btn detail-btn--buy" disabled>
-                            Buy Now
-                        </button>
-                        <button type="button" class="detail-btn detail-btn--cart" disabled>
-                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
-                                <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
-                            </svg>
-                            Add to Cart
-                        </button>
-                    </div>
+                    @* Item already sold — no purchase action available *@
+                    @if (Model.Status == ItemStatus.Sold)
+                    {
+                        @* Sold notice rendered above the divider already handles this;
+                           no additional button is needed here. *@
+                    }
+                    else
+                    {
+                        @* Available — route through BuyNow → Orders/Checkout *@
+                        <div class="detail-actions">
+                            <a asp-action="BuyNow"
+                               asp-controller="Items"
+                               asp-route-id="@Model.Id"
+                               class="detail-btn detail-btn--buy">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                </svg>
+                                Buy Now
+                            </a>
+                        </div>
+                    }
                 }
 
                 @* ══════════════════════════════════
@@ -370,7 +378,6 @@
                         {
                             @* Steal window has closed; winner can now finalise *@
                             <div class="detail-actions">
-                                @* Replace "Orders" / "Checkout" with your actual route when ready. *@
                                 <a asp-action="Checkout"
                                    asp-controller="Orders"
                                    asp-route-itemId="@Model.Id"
@@ -454,14 +461,28 @@
 
                 @* ══════════════════════════════════
                    3d. STEALABLE — Sold
+                   The steal winner's checkout redirect handles this normally.
+                   This branch covers anyone else viewing a sold Stealable item.
                    ══════════════════════════════════ *@
-                else
+                else if (isStealable && Model.Status == ItemStatus.Sold)
                 {
-                    <div class="detail-actions">
-                        <button type="button" class="detail-btn detail-btn--buy" disabled>
-                            Sold
-                        </button>
-                    </div>
+                    @* Sold notice already rendered above; no button needed *@
+                    @if (isCurrentWinner)
+                    {
+                        @* The stealer lands here before confirming — send them to checkout *@
+                        <div class="detail-actions">
+                            <a asp-action="Checkout"
+                               asp-controller="Orders"
+                               asp-route-itemId="@Model.Id"
+                               class="detail-btn detail-btn--complete">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                </svg>
+                                Complete Purchase
+                            </a>
+                        </div>
+                    }
                 }
             }
 

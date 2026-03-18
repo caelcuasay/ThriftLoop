@@ -19,7 +19,7 @@ public class ItemRepository : IItemRepository
     {
         await _context.Items.AddAsync(item);
         await _context.SaveChangesAsync();
-        // After SaveChangesAsync, EF Core back-fills item.Id with the
+        // EF Core back-fills item.Id with the
         // database-generated identity value.
     }
 
@@ -37,9 +37,15 @@ public class ItemRepository : IItemRepository
                          .FirstOrDefaultAsync(i => i.Id == id);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// FIX: Excludes Sold items so they are never shown in the public "For You"
+    /// feed. A sold item disappears from the grid the moment ConfirmOrder marks
+    /// it — no CSS gray-out, no lingering placeholder.
+    /// </remarks>
     public async Task<IReadOnlyList<Item>> GetAllAsync()
         => await _context.Items
                          .AsNoTracking()
+                         .Where(i => i.Status != ItemStatus.Sold)
                          .OrderByDescending(i => i.CreatedAt)
                          .ToListAsync();
 

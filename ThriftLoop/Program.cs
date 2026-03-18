@@ -6,6 +6,8 @@ using ThriftLoop.Repositories.Implementation;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Implementation;
 using ThriftLoop.Services.Auth.Interface;
+using ThriftLoop.Services.WalletManagement.Implementation;
+using ThriftLoop.Services.WalletManagement.Interface;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // ── Authentication ────────────────────────────────────────────────────────────
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 
-    // Primary session cookie
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.LoginPath = "/Auth/Login";
@@ -33,12 +34,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "ThriftLoop.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;   // Lax required for OAuth redirects
+        options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(2);
     })
 
-    // Short-lived cookie that bridges the Google OAuth callback to our handler
     .AddCookie("ExternalCookie", options =>
     {
         options.Cookie.Name = "ThriftLoop.External";
@@ -46,31 +46,31 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     })
 
-    // Google OAuth 2.0
     .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
     {
         options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
         options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
-
-        // The middleware posts back to this path; register it in Google Console as:
-        // https://<your-domain>/signin-google
         options.CallbackPath = "/signin-google";
-
-        // Store the Google identity in the short-lived external cookie
         options.SignInScheme = "ExternalCookie";
-
         options.Scope.Add("email");
         options.Scope.Add("profile");
-
-        // Persist the access token in case it is needed later
         options.SaveTokens = true;
     });
 
 // ── Dependency Injection ──────────────────────────────────────────────────────
+
+// Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
+
+// Services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+
 var app = builder.Build();
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
@@ -82,9 +82,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 

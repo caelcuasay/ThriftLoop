@@ -1,6 +1,6 @@
 ﻿namespace ThriftLoop.Models;
 
-// ── Enum ──────────────────────────────────────────────────────────────────────
+// ── Enums ──────────────────────────────────────────────────────────────────────
 
 /// <summary>
 /// Lifecycle of an order from placement through resolution.
@@ -18,6 +18,24 @@ public enum OrderStatus
 
     /// <summary>The order was cancelled before completion.</summary>
     Cancelled
+}
+
+/// <summary>
+/// How the buyer intends to pay for this order.
+/// </summary>
+public enum PaymentMethod
+{
+    /// <summary>
+    /// Funds are held in escrow from the buyer's ThriftLoop wallet and released
+    /// to the seller when the buyer marks delivery.
+    /// </summary>
+    Wallet,
+
+    /// <summary>
+    /// Buyer pays cash to the rider on delivery. Funds are credited to the
+    /// seller's wallet when a rider (or the buyer) marks cash as collected.
+    /// </summary>
+    Cash
 }
 
 // ── Domain model ──────────────────────────────────────────────────────────────
@@ -57,6 +75,23 @@ public class Order
 
     /// <summary>Current lifecycle state of this order.</summary>
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
+
+    // ── Payment ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How the buyer is paying. Defaults to Wallet.
+    /// For Wallet orders, funds are held in escrow until MarkDelivered is called.
+    /// For Cash orders, no escrow is created — CashCollectedByRider tracks
+    /// whether the physical payment has been collected.
+    /// </summary>
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Wallet;
+
+    /// <summary>
+    /// For Cash orders only. Set to true when the rider (or buyer) confirms
+    /// that cash has been collected, triggering a CashCollection transaction
+    /// to credit the seller's wallet.
+    /// </summary>
+    public bool CashCollectedByRider { get; set; } = false;
 
     // ── Navigation properties ─────────────────────────────────────────────
 

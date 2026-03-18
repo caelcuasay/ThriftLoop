@@ -78,6 +78,25 @@ public class ItemsController : Controller
         return View(item);
     }
 
+    // ── BUY NOW (Standard — redirect to Checkout) ─────────────────────────
+
+    /// <summary>
+    /// GET /Items/BuyNow/{id}
+    /// Entry point for authenticated non-owner buyers on Standard listings.
+    /// Performs a thin redirect to the OrdersController Checkout action,
+    /// which enforces all access guards (owner check, status, idempotency).
+    ///
+    /// Using a dedicated action here keeps the Details view's routing
+    /// symmetric with the rest of the Items controller and makes the
+    /// Standard purchase flow easy to extend later (e.g. add analytics,
+    /// pre-purchase checks, or a cart step) without touching the view.
+    /// </summary>
+    [HttpGet]
+    public IActionResult BuyNow(int id)
+    {
+        return RedirectToAction("Checkout", "Orders", new { itemId = id });
+    }
+
     // ── CREATE ─────────────────────────────────────────────────────────────
 
     /// <summary>GET /Items/Create — renders the empty Create form.</summary>
@@ -395,8 +414,6 @@ public class ItemsController : Controller
             $"You stole '{item.Title}'! The price has been updated to ₱{item.Price:N2}. " +
             $"Please complete your purchase below.";
 
-        // Redirect immediately to Checkout.
-        // Replace "Orders" / "Checkout" with your actual controller/action once created.
         return RedirectToAction("Checkout", "Orders", new { itemId = item.Id });
     }
 

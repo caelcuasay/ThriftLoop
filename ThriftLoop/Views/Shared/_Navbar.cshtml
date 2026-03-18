@@ -2,8 +2,8 @@
 
 @{
     var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
-                   ?? User.Identity?.Name
-                   ?? string.Empty;
+                      ?? User.Identity?.Name
+                      ?? string.Empty;
     var displayName = userEmail.Contains('@') ? userEmail.Split('@')[0] : userEmail;
     var currentPath = Context.Request.Path.Value ?? string.Empty;
 }
@@ -19,10 +19,9 @@
             <li>
                 <a asp-controller="Home"
                    asp-action="Index"
-                   class="tl-nav__link @(currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                   class="tl-nav__link @(currentPath == "/" || currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
                     For You
                 </a>
-            </li>
             </li>
             <li class="tl-nav__divider" aria-hidden="true"></li>
             <li>
@@ -40,19 +39,87 @@
             </li>
         </ul>
 
-        @* Right: user identity + sign-out *@
+        @* Right: user dropdown menu *@
         <div class="tl-nav__user">
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <span class="tl-nav__avatar" title="@userEmail">@char.ToUpper(displayName[0])</span>
-                <span class="tl-nav__name">@displayName</span>
+                <div class="tl-nav__dropdown">
+                    <button class="tl-nav__dropdown-toggle" id="userDropdown" aria-expanded="false">
+                        <span class="tl-nav__avatar" title="@userEmail">@char.ToUpper(displayName[0])</span>
+                        <span class="tl-nav__name">@displayName</span>
+                        <svg class="tl-nav__dropdown-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
 
-                <form asp-action="Logout" asp-controller="Auth" method="post" class="tl-nav__logout-form">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="tl-nav__signout">Sign out</button>
-                </form>
+                    <div class="tl-nav__dropdown-menu" id="userDropdownMenu">
+                        <div class="tl-nav__dropdown-header">
+                            <span class="tl-nav__dropdown-email">@userEmail</span>
+                        </div>
+
+                        <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                            </svg>
+                            Wallet
+                        </a>
+
+                        <a asp-controller="Orders" asp-action="MyPurchases" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Orders/MyPurchases", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                <path d="M1 2.5A1.5 1.5 0 012.5 1h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 01.44 1.061V13.5A1.5 1.5 0 018.5 15h-6A1.5 1.5 0 011 13.5v-11z" />
+                                <path d="M9 4.5V1a1 1 0 011-1h3.5a1.5 1.5 0 011.5 1.5v11a1.5 1.5 0 01-1.5 1.5h-4.5A1.5 1.5 0 019 13.5v-9z" />
+                            </svg>
+                            My Purchases
+                        </a>
+
+                        <div class="tl-nav__dropdown-divider"></div>
+
+                        <form asp-action="Logout" asp-controller="Auth" method="post" class="tl-nav__dropdown-form">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="tl-nav__dropdown-item tl-nav__dropdown-item--signout">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M2 2.75A2.75 2.75 0 014.75 0h5.5A2.75 2.75 0 0113 2.75v10.5A2.75 2.75 0 0110.25 16h-5.5A2.75 2.75 0 012 13.25v-10.5zM8.5 5a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0V5z" clip-rule="evenodd" />
+                                </svg>
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="tl-nav__auth">
+                    <a asp-controller="Auth" asp-action="Login" class="tl-nav__auth-link">Sign in</a>
+                    <a asp-controller="Auth" asp-action="Register" class="tl-nav__auth-link tl-nav__auth-link--primary">Sign up</a>
+                </div>
             }
         </div>
 
     </div>
 </nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdownToggle = document.getElementById('userDropdown');
+        const dropdownMenu = document.getElementById('userDropdownMenu');
+
+        if (dropdownToggle && dropdownMenu) {
+            dropdownToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', !isExpanded);
+                dropdownMenu.classList.toggle('show');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                    dropdownToggle.setAttribute('aria-expanded', 'false');
+                    dropdownMenu.classList.remove('show');
+                }
+            });
+        }
+    });
+</script>

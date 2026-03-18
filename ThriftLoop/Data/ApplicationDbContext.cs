@@ -14,6 +14,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
 
     // ── Model Configuration ──────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -84,7 +87,6 @@ public class ApplicationDbContext : DbContext
                   .HasColumnType("datetime2")
                   .HasDefaultValueSql("SYSUTCDATETIME()");
 
-            // ── Stealable listing columns ────────────────────────────────
             entity.Property(i => i.ListingType)
                   .IsRequired()
                   .HasDefaultValue(ListingType.Standard);
@@ -103,11 +105,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.CurrentWinnerId)
                   .IsRequired(false);
 
-            // Computed helpers have no backing columns.
             entity.Ignore(i => i.IsInFinalizeWindow);
             entity.Ignore(i => i.FinalizeDeadline);
 
-            // ── Relationship: Item → User (seller) ───────────────────────
             entity.HasOne(i => i.User)
                   .WithMany()
                   .HasForeignKey(i => i.UserId)
@@ -135,26 +135,150 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasDefaultValue(OrderStatus.Pending);
 
-            // ── Relationship: Order → Item ───────────────────────────────
-            // NoAction: we keep order history even if the item row is ever
-            // removed from the marketplace.
+            // ── New: payment method + COD flag ───────────────────────────
+            entity.Property(o => o.PaymentMethod)
+                  .IsRequired()
+                  .HasDefaultValue(PaymentMethod.Wallet);
+
+            entity.Property(o => o.CashCollectedByRider)
+                  .IsRequired()
+                  .HasDefaultValue(false);
+
             entity.HasOne(o => o.Item)
                   .WithMany()
                   .HasForeignKey(o => o.ItemId)
                   .OnDelete(DeleteBehavior.NoAction);
 
-            // ── Relationship: Order → Buyer (User) ───────────────────────
-            // NoAction on both user FKs: SQL Server prohibits multiple cascade
-            // paths to the same table, so Cascade would raise a migration error.
             entity.HasOne(o => o.Buyer)
                   .WithMany()
                   .HasForeignKey(o => o.BuyerId)
                   .OnDelete(DeleteBehavior.NoAction);
 
-            // ── Relationship: Order → Seller (User) ──────────────────────
             entity.HasOne(o => o.Seller)
                   .WithMany()
                   .HasForeignKey(o => o.SellerId)
+                  .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ── Wallets ──────────────────────────────────────────────────────
+        modelBuilder.Entity<Wallet>(entity =>
+        {
+            entity.ToTable("Wallets");
+
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Id).ValueGeneratedOnAdd();
+
+            entity.Property(w => w.Balance)
+                  .IsRequired()
+                  .HasColumnType("decimal(12,2)")
+                  .HasDefaultValue(0m);
+
+            entity.Property(w => w.PendingBalance)
+                  .IsRequired()
+                  .HasColumnType("decimal(12,2)")
+                  .HasDefaultValue(0m);
+
+            entity.Property(w => w.UpdatedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // One wallet per user — enforced at DB level.
+            entity.HasIndex(w => w.UserId)
+                  .IsUnique()
+                  .HasDatabaseName("UQ_Wallets_UserId");
+
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Transactions ─────────────────────────────────────────────────
+        modelBuilder.Entity<Transaction>(entity =>
+        {
+            entity.ToTable("Transactions");
+
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Id).ValueGeneratedOnAdd();
+
+            entity.Property(t => t.Amount)
+                  .IsRequired()
+                  .HasColumnType("decimal(12,2)");
+
+            entity.Property(t => t.Type)
+                  .IsRequired();
+
+            entity.Property(t => t.Status)
+                  .IsRequired()
+                  .HasDefaultValue(TransactionStatus.Pending);
+
+            entity.Property(t => t.CreatedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(t => t.CompletedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(t => t.OrderId)
+                  .IsRequired(false);
+
+            // NoAction on all FKs — we want the audit trail to survive
+            // even if related rows are removed.
+            entity.HasOne(t => t.Order)
+                  .WithMany()
+                  .HasForeignKey(t => t.OrderId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(t => t.FromUser)
+                  .WithMany()
+                  .HasForeignKey(t => t.FromUserId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(t => t.ToUser)
+                  .WithMany()
+                  .HasForeignKey(t => t.ToUserId)
+                  .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ── Withdrawals ──────────────────────────────────────────────────
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.ToTable("Withdrawals");
+
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Id).ValueGeneratedOnAdd();
+
+            entity.Property(w => w.Amount)
+                  .IsRequired()
+                  .HasColumnType("decimal(12,2)");
+
+            entity.Property(w => w.Method)
+                  .IsRequired();
+
+            entity.Property(w => w.Status)
+                  .IsRequired()
+                  .HasDefaultValue(WithdrawalStatus.Requested);
+
+            entity.Property(w => w.RequestedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(w => w.CompletedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(w => w.Reference)
+                  .IsRequired(false)
+                  .HasMaxLength(200);
+
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
                   .OnDelete(DeleteBehavior.NoAction);
         });
     }

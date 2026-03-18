@@ -1,0 +1,308 @@
+﻿/* =============================================================
+   ThriftLoop — Navbar  (_Navbar.cshtml)
+   Place in: wwwroot/css/navbar.css
+   Link in _Layout.cshtml <head>:
+     <link rel="stylesheet" href="~/css/navbar.css" />
+   ============================================================= */
+
+/* ── Outer bar ──────────────────────────────────────────────── */
+.tl-nav {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    height: var(--nav-h, 56px);
+    background: #ffffff;
+    border-bottom: 1px solid var(--c-border, #e4e4ea);
+}
+
+.tl-nav__inner {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 36px;
+    gap: 0;
+}
+
+/* ── Logo ───────────────────────────────────────────────────── */
+.tl-nav__logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-primary, #2d1b69);
+    text-decoration: none;
+    flex-shrink: 0;
+    margin-right: auto;
+}
+
+/* ── Centre links ───────────────────────────────────────────── */
+.tl-nav__links {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.tl-nav__link {
+    display: block;
+    padding: 5px 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--c-muted, #6b6b80);
+    text-decoration: none;
+    border-radius: 20px;
+    white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+}
+
+    .tl-nav__link:hover {
+        color: var(--c-text, #111118);
+        background: var(--c-bg, #f2f2f5);
+    }
+
+.tl-nav__link--active {
+    color: var(--c-primary, #2d1b69);
+    font-weight: 600;
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 2px solid var(--c-primary, #2d1b69);
+    padding-bottom: 3px;
+}
+
+    .tl-nav__link--active:hover {
+        background: transparent;
+    }
+
+/* Dot dividers between links */
+.tl-nav__divider {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--c-border, #e4e4ea);
+    flex-shrink: 0;
+    margin: 0 2px;
+}
+
+/* ── Right: user area ───────────────────────────────────────── */
+.tl-nav__user {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── Dropdown wrapper ───────────────────────────────────────── */
+.tl-nav__dropdown {
+    position: relative;
+}
+
+.tl-nav__dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 24px;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+
+    .tl-nav__dropdown-toggle:hover {
+        background: var(--c-bg, #f2f2f5);
+    }
+
+/* Avatar circle */
+.tl-nav__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--c-primary, #2d1b69);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.tl-nav__name {
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--c-text, #111118);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tl-nav__dropdown-chevron {
+    color: var(--c-muted, #6b6b80);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.tl-nav__dropdown-toggle[aria-expanded="true"] .tl-nav__dropdown-chevron {
+    transform: rotate(180deg);
+}
+
+/* ── Dropdown menu ──────────────────────────────────────────── */
+.tl-nav__dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    background: #ffffff;
+    border: 1px solid var(--c-border, #e4e4ea);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    z-index: 300;
+}
+
+    .tl-nav__dropdown-menu.show {
+        display: block;
+    }
+
+/* Header row inside dropdown — shows email */
+.tl-nav__dropdown-header {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--c-border, #e4e4ea);
+}
+
+.tl-nav__dropdown-email {
+    font-size: 0.72rem;
+    color: var(--c-muted, #6b6b80);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Dropdown items (links + sign-out button) */
+.tl-nav__dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--c-text, #111118);
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+}
+
+    .tl-nav__dropdown-item:hover {
+        background: var(--c-bg, #f2f2f5);
+    }
+
+    .tl-nav__dropdown-item.active {
+        color: var(--c-primary, #2d1b69);
+        font-weight: 600;
+    }
+
+    .tl-nav__dropdown-item svg {
+        color: var(--c-muted, #6b6b80);
+        flex-shrink: 0;
+    }
+
+/* Sign out — red tint on hover */
+.tl-nav__dropdown-item--signout {
+    color: var(--c-muted, #6b6b80);
+}
+
+    .tl-nav__dropdown-item--signout:hover {
+        background: #fff1f1;
+        color: #c0392b;
+    }
+
+        .tl-nav__dropdown-item--signout:hover svg {
+            color: #c0392b;
+        }
+
+.tl-nav__dropdown-form {
+    margin: 0;
+    padding: 0;
+}
+
+/* Divider line inside dropdown */
+.tl-nav__dropdown-divider {
+    height: 1px;
+    background: var(--c-border, #e4e4ea);
+    margin: 4px 0;
+}
+
+/* ── Unauthenticated — Sign in / Sign up ────────────────────── */
+.tl-nav__auth {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tl-nav__auth-link {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--c-muted, #6b6b80);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+
+    .tl-nav__auth-link:hover {
+        color: var(--c-text, #111118);
+        background: var(--c-bg, #f2f2f5);
+    }
+
+.tl-nav__auth-link--primary {
+    background: var(--c-primary, #2d1b69);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+    .tl-nav__auth-link--primary:hover {
+        background: var(--c-primary-light, #3d2880);
+        color: #ffffff;
+    }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .tl-nav__inner {
+        padding: 0 16px;
+    }
+
+    .tl-nav__links {
+        gap: 0;
+    }
+
+    .tl-nav__link {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+    }
+
+    .tl-nav__name {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .tl-nav__links {
+        display: none;
+    }
+}

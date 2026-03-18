@@ -19,7 +19,6 @@ public class OrderRepository : IOrderRepository
     {
         await _context.Orders.AddAsync(order);
         await _context.SaveChangesAsync();
-        // EF Core back-fills order.Id with the database-generated identity value.
     }
 
     /// <inheritdoc />
@@ -46,4 +45,20 @@ public class OrderRepository : IOrderRepository
         => await _context.Orders
                          .AsNoTracking()
                          .FirstOrDefaultAsync(o => o.ItemId == itemId);
+
+    /// <inheritdoc />
+    public async Task UpdateAsync(Order order)
+    {
+        _context.Orders.Update(order);
+        await _context.SaveChangesAsync();
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteAsync(int orderId)
+    {
+        var order = await _context.Orders.FindAsync(orderId);
+        if (order is null) return;
+        _context.Orders.Remove(order);
+        await _context.SaveChangesAsync();
+    }
 }

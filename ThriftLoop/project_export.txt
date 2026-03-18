@@ -1,14 +1,15 @@
 ﻿Project Structure: C:\Users\LENOVO\source\repos\ThriftLoop\ThriftLoop
 Project Export
-Filters (Path or Content): \
-Excludes: .css
+Filters (Path or Content): .cshtml, site.css
 
 =========================================
 
 |-- Controllers
 |   |-- AuthController.cs
 |   |-- HomeController.cs
-|   +-- ItemController.cs
+|   |-- ItemController.cs
+|   |-- OrdersController.cs
+|   +-- WalletController.cs
 |-- Data
 |   +-- ApplicationDbContext.cs
 |-- DTOs
@@ -17,23 +18,39 @@ Excludes: .css
 |-- Models
 |   |-- ErrorViewModel.cs
 |   |-- Item.cs
-|   +-- User.cs
+|   |-- Order.cs
+|   |-- Transaction.cs
+|   |-- User.cs
+|   |-- Wallet.cs
+|   +-- Withdrawal.cs
 |-- Repositories
 |   |-- Implementation
 |   |   |-- ItemRepository.cs
-|   |   +-- UserRepository.cs
+|   |   |-- OrderRepository.cs
+|   |   |-- TransactionRepository.cs
+|   |   |-- UserRepository.cs
+|   |   |-- WalletRepository.cs
+|   |   +-- WithdrawalRepository.cs
 |   +-- Interface
 |       |-- IItemRepository.cs
-|       +-- IUserRepository.cs
+|       |-- IOrderRepository.cs
+|       |-- ITransactionRepository.cs
+|       |-- IUserRepository.cs
+|       |-- IWalletRepository.cs
+|       +-- IWithdrawalRepository.cs
 |-- Services
 |   |-- Implementation
-|   |   +-- AuthService.cs
+|   |   |-- AuthService.cs
+|   |   +-- WalletService.cs
 |   +-- Interface
-|       +-- IAuthService.cs
+|       |-- IAuthService.cs
+|       +-- IWalletService.cs
 |-- ViewModels
+|   |-- CheckOutViewModel.cs
 |   |-- HomeIndexViewModel.cs
 |   |-- ItemCreateViewModel.cs
-|   +-- ItemEditViewModel.cs
+|   |-- ItemEditViewModel.cs
+|   +-- WalletViewModels.cs
 |-- Views
 |   |-- Auth
 |   |   |-- Login.cshtml
@@ -54,6 +71,10 @@ Excludes: .css
 |   |   |-- Edit.cshtml.cs
 |   |   |-- Index.cshtml
 |   |   +-- Index.cshtml.cs
+|   |-- Orders
+|   |   |-- Checkout.cshtml
+|   |   |-- MyPurchases.cshtml
+|   |   +-- MyPurchases.cshtml.cs
 |   |-- Shared
 |   |   |-- _Layout.cshtml
 |   |   |-- _Layout.cshtml.css
@@ -61,10 +82,18 @@ Excludes: .css
 |   |   |-- _Navbar.cshtml.cs
 |   |   |-- _ValidationScriptsPartial.cshtml
 |   |   +-- Error.cshtml
+|   |-- Wallet
+|   |   |-- AddFunds.cshtml
+|   |   |-- AddFunds.cshtml.cs
+|   |   |-- Index.cshtml
+|   |   |-- Index.cshtml.cs
+|   |   |-- Withdraw.cshtml
+|   |   +-- Withdraw.cshtml.cs
 |   |-- _ViewImports.cshtml
 |   +-- _ViewStart.cshtml
 |-- wwwroot
 |   |-- css
+|   |   |-- navbar.css
 |   |   +-- site.css
 |   |-- js
 |   |   +-- site.js
@@ -82,1364 +111,6 @@ Excludes: .css
 FILE CONTENTS
 =========================================
 
-
-
---- Controllers/AuthController.cs ---
-
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Services.Auth.Interface;
-
-namespace ThriftLoop.Controllers;
-
-public class AuthController : Controller
-{
-    private readonly IAuthService _authService;
-    private readonly ILogger<AuthController> _logger;
-
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
-    {
-        _authService = authService;
-        _logger = logger;
-    }
-
-    // ─────────────────────────────────────────
-    //  REGISTER
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult Register()
-    {
-        if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction("Index", "Home");
-
-        return View();
-    }
-
-    [HttpPost]
-    [AllowAnonymous]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(RegisterDTO dto)
-    {
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var user = await _authService.RegisterAsync(dto);
-
-        if (user is null)
-        {
-            ModelState.AddModelError(nameof(dto.Email), "An account with this email already exists.");
-            return View(dto);
-        }
-
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
-
-        _logger.LogInformation("User {UserId} registered and signed in.", user.Id);
-        return RedirectToAction("Index", "Home");
-    }
-
-    // ─────────────────────────────────────────
-    //  LOGIN
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null)
-    {
-        if (User.Identity?.IsAuthenticated == true)
-            return RedirectToLocal(returnUrl);
-
-        ViewData["ReturnUrl"] = returnUrl;
-        return View();
-    }
-
-    [HttpPost]
-    [AllowAnonymous]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginDTO dto, string? returnUrl = null)
-    {
-        ViewData["ReturnUrl"] = returnUrl;
-
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var user = await _authService.ValidateCredentialsAsync(dto);
-
-        if (user is null)
-        {
-            ModelState.AddModelError(string.Empty, "Invalid email or password.");
-            return View(dto);
-        }
-
-        await SignInUserAsync(user.Id, user.Email, dto.RememberMe);
-
-        _logger.LogInformation("User {UserId} logged in.", user.Id);
-        return RedirectToLocal(returnUrl);
-    }
-
-    // ─────────────────────────────────────────
-    //  GOOGLE OAUTH
-    // ─────────────────────────────────────────
-
-    [HttpGet]
-    [AllowAnonymous]
-    public IActionResult GoogleLogin(string? returnUrl = null)
-    {
-        // After Google posts back to /signin-google the middleware will redirect
-        // to ExternalLoginCallback, carrying returnUrl through.
-        var redirectUrl = Url.Action(
-            nameof(ExternalLoginCallback), "Auth", new { returnUrl });
-
-        var properties = new AuthenticationProperties
-        {
-            RedirectUri = redirectUrl
-        };
-
-        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
-    }
-
-    [HttpGet]
-    [AllowAnonymous]
-    public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null)
-    {
-        // Read the identity the Google middleware stored in the external cookie.
-        var externalResult = await HttpContext.AuthenticateAsync("ExternalCookie");
-
-        if (!externalResult.Succeeded || externalResult.Principal is null)
-        {
-            _logger.LogWarning("External authentication failed or was cancelled.");
-            TempData["ExternalAuthError"] = "Google sign-in failed. Please try again.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        var email = externalResult.Principal.FindFirstValue(ClaimTypes.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            _logger.LogWarning("Google did not return an email address.");
-            TempData["ExternalAuthError"] = "Google did not provide an email address. Please try again.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        // Discard the short-lived external cookie — it is no longer needed.
-        await HttpContext.SignOutAsync("ExternalCookie");
-
-        // Find the existing user or auto-provision a new password-less account.
-        var user = await _authService.FindOrCreateGoogleUserAsync(email);
-
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
-
-        _logger.LogInformation("User {UserId} signed in via Google.", user.Id);
-        return RedirectToLocal(returnUrl);
-    }
-
-    // ─────────────────────────────────────────
-    //  LOGOUT
-    // ─────────────────────────────────────────
-
-    [HttpPost]
-    [Authorize]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Logout()
-    {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        _logger.LogInformation("User signed out.");
-        return RedirectToAction(nameof(Login));
-    }
-
-    // ─────────────────────────────────────────
-    //  HELPERS
-    // ─────────────────────────────────────────
-
-    private async Task SignInUserAsync(int userId, string email, bool rememberMe)
-    {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Email, email),
-            new(ClaimTypes.Name, email)
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        var authProperties = new AuthenticationProperties
-        {
-            IsPersistent = rememberMe,
-            ExpiresUtc = rememberMe
-                ? DateTimeOffset.UtcNow.AddDays(30)
-                : DateTimeOffset.UtcNow.AddHours(2)
-        };
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            authProperties);
-    }
-
-    private IActionResult RedirectToLocal(string? returnUrl)
-    {
-        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
-            return Redirect(returnUrl);
-
-        return RedirectToAction("Index", "Home");
-    }
-}
-
-
---- Controllers/HomeController.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.ViewModels;
-
-namespace ThriftLoop.Controllers;
-
-public class HomeController : Controller
-{
-    private readonly IItemRepository _itemRepository;
-    private readonly ILogger<HomeController> _logger;
-
-    public HomeController(IItemRepository itemRepository, ILogger<HomeController> logger)
-    {
-        _itemRepository = itemRepository;
-        _logger = logger;
-    }
-
-    // â”€â”€ For You feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-    /// <summary>
-    /// GET / â€” public feed showing all listed items.
-    /// Authenticated users see ownership state per card (no buy buttons on own items).
-    /// Anonymous visitors see buy buttons on every card.
-    /// </summary>
-    public async Task<IActionResult> Index()
-    {
-        // Resolve the current user's ID â€” null for anonymous visitors.
-        int? currentUserId = null;
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (int.TryParse(rawId, out int parsedId))
-            currentUserId = parsedId;
-
-        var items = await _itemRepository.GetAllAsync();
-
-        var viewModel = new HomeIndexViewModel
-        {
-            Items = items,
-            CurrentUserId = currentUserId
-        };
-
-        return View(viewModel);
-    }
-
-    public IActionResult Privacy() => View();
-
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error() => View(new ThriftLoop.Models.ErrorViewModel
-    {
-        RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier
-    });
-}
-
-
---- Controllers/ItemController.cs ---
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.ViewModels;
-
-namespace ThriftLoop.Controllers;
-
-[Authorize]   // Every action in this controller requires an authenticated user.
-public class ItemsController : Controller
-{
-    private readonly IItemRepository _itemRepository;
-    private readonly ILogger<ItemsController> _logger;
-    private readonly IWebHostEnvironment _env;
-
-    public ItemsController(
-        IItemRepository itemRepository,
-        IWebHostEnvironment env,
-        ILogger<ItemsController> logger)
-    {
-        _itemRepository = itemRepository;
-        _env = env;
-        _logger = logger;
-    }
-
-    // ── INDEX (My Listings) ────────────────────────────────────────────────
-
-    /// <summary>GET /Items — shows all listings posted by the current user.</summary>
-    [HttpGet]
-    public async Task<IActionResult> Index()
-    {
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(rawId, out int userId))
-            return Unauthorized();
-
-        var items = await _itemRepository.GetItemsByUserIdAsync(userId);
-
-        _logger.LogInformation(
-            "User {UserId} viewed My Listings ({Count} items).", userId, items.Count);
-
-        return View(items);
-    }
-
-    // ── DETAILS ────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// GET /Items/Details/{id} — public detail page for a single listing.
-    /// Loads the seller (User) via eager loading so the view can display
-    /// who posted the item. Ownership is surfaced via ViewBag.
-    /// </summary>
-    [HttpGet]
-    [AllowAnonymous]
-    public async Task<IActionResult> Details(int id)
-    {
-        var item = await _itemRepository.GetByIdWithUserAsync(id);
-        if (item is null)
-            return NotFound();
-
-        // Resolve current user — null when the visitor is anonymous.
-        int? currentUserId = null;
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (int.TryParse(rawId, out int parsedId))
-            currentUserId = parsedId;
-
-        ViewBag.IsOwner = currentUserId.HasValue && item.UserId == currentUserId.Value;
-        ViewBag.IsAnonymous = !currentUserId.HasValue;
-        ViewBag.CurrentUserId = currentUserId;
-
-        _logger.LogInformation(
-            "Item {ItemId} details viewed by user {UserId}.",
-            item.Id,
-            currentUserId?.ToString() ?? "anonymous");
-
-        return View(item);
-    }
-
-    // ── CREATE ─────────────────────────────────────────────────────────────
-
-    /// <summary>GET /Items/Create — renders the empty Create form.</summary>
-    [HttpGet]
-    public IActionResult Create()
-    {
-        return View(new ItemCreateViewModel());
-    }
-
-    /// <summary>POST /Items/Create — validates, maps ViewModel → Model, saves.</summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(ItemCreateViewModel viewModel)
-    {
-        if (!ModelState.IsValid)
-            return View(viewModel);
-
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(rawId, out int userId))
-            return Unauthorized();
-
-        string? imageUrl = null;
-
-        if (viewModel.Image is not null && viewModel.Image.Length > 0)
-        {
-            var (saved, error) = await SaveImageAsync(viewModel.Image);
-            if (error is not null)
-            {
-                ModelState.AddModelError(nameof(viewModel.Image), error);
-                return View(viewModel);
-            }
-            imageUrl = saved;
-        }
-
-        var item = new Item
-        {
-            Title = viewModel.Title,
-            Description = viewModel.Description,
-            Price = viewModel.Price,
-            Category = viewModel.Category,
-            Condition = viewModel.Condition,
-            Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size,
-            ImageUrl = imageUrl,
-            CreatedAt = DateTime.UtcNow,
-            UserId = userId
-        };
-
-        await _itemRepository.AddAsync(item);
-        _logger.LogInformation("User {UserId} created Item {ItemId}.", userId, item.Id);
-
-        TempData["SuccessMessage"] = $"'{item.Title}' was listed successfully!";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ── EDIT ───────────────────────────────────────────────────────────────
-
-    /// <summary>GET /Items/Edit/{id} — renders the pre-populated Edit form.</summary>
-    [HttpGet]
-    public async Task<IActionResult> Edit(int id)
-    {
-        var (item, actionResult) = await GetOwnedItemAsync(id);
-        if (actionResult is not null) return actionResult;
-
-        var viewModel = MapToEditViewModel(item!);
-        return View(viewModel);
-    }
-
-    /// <summary>POST /Items/Edit/{id} — validates and saves changes.</summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, ItemEditViewModel viewModel)
-    {
-        if (id != viewModel.Id)
-            return BadRequest();
-
-        if (!ModelState.IsValid)
-            return View(viewModel);
-
-        var (item, actionResult) = await GetOwnedItemAsync(id);
-        if (actionResult is not null) return actionResult;
-
-        string? imageUrl = item!.ImageUrl;
-
-        if (viewModel.RemoveImage)
-        {
-            DeleteImageFile(imageUrl);
-            imageUrl = null;
-        }
-        else if (viewModel.Image is not null && viewModel.Image.Length > 0)
-        {
-            var (saved, error) = await SaveImageAsync(viewModel.Image);
-            if (error is not null)
-            {
-                ModelState.AddModelError(nameof(viewModel.Image), error);
-                return View(viewModel);
-            }
-            DeleteImageFile(imageUrl);
-            imageUrl = saved;
-        }
-
-        item.Title = viewModel.Title;
-        item.Description = viewModel.Description;
-        item.Price = viewModel.Price;
-        item.Category = viewModel.Category;
-        item.Condition = viewModel.Condition;
-        item.Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size;
-        item.ImageUrl = imageUrl;
-        // item.UserId and item.CreatedAt are intentionally not touched.
-
-        await _itemRepository.UpdateAsync(item);
-        _logger.LogInformation("User {UserId} updated Item {ItemId}.", item.UserId, item.Id);
-
-        TempData["SuccessMessage"] = $"'{item.Title}' was updated successfully!";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ── DELETE ─────────────────────────────────────────────────────────────
-
-    /// <summary>GET /Items/Delete/{id} — renders the Delete confirmation page.</summary>
-    [HttpGet]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var (item, actionResult) = await GetOwnedItemAsync(id);
-        if (actionResult is not null) return actionResult;
-
-        return View(item);
-    }
-
-    /// <summary>POST /Items/Delete/{id} — performs the deletion after confirmation.</summary>
-    [HttpPost, ActionName("Delete")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteConfirmed(int id)
-    {
-        var (item, actionResult) = await GetOwnedItemAsync(id);
-        if (actionResult is not null) return actionResult;
-
-        DeleteImageFile(item!.ImageUrl);
-        await _itemRepository.DeleteAsync(id);
-
-        _logger.LogInformation("User {UserId} deleted Item {ItemId}.", item.UserId, item.Id);
-
-        TempData["SuccessMessage"] = $"'{item.Title}' was deleted.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ── Private helpers ────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Fetches an item by id and verifies ownership against the current user.
-    /// Returns (item, null) on success or (null, actionResult) to short-circuit.
-    /// </summary>
-    private async Task<(Item? item, IActionResult? actionResult)> GetOwnedItemAsync(int id)
-    {
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(rawId, out int userId))
-            return (null, Unauthorized());
-
-        var item = await _itemRepository.GetByIdAsync(id);
-        if (item is null)
-            return (null, NotFound());
-
-        if (item.UserId != userId)
-            return (null, Forbid());
-
-        return (item, null);
-    }
-
-    /// <summary>
-    /// Validates and saves an uploaded image file to wwwroot/uploads/items/.
-    /// Returns the relative URL on success, or an error message string on failure.
-    /// </summary>
-    private async Task<(string? url, string? error)> SaveImageAsync(IFormFile file)
-    {
-        var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
-        if (!allowed.Contains(file.ContentType))
-            return (null, "Only JPEG, PNG, or WebP images are accepted.");
-
-        if (file.Length > 5 * 1024 * 1024)
-            return (null, "Image must be smaller than 5 MB.");
-
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var fileName = $"{Guid.NewGuid()}{ext}";
-        var folder = Path.Combine(_env.WebRootPath, "uploads", "items");
-
-        Directory.CreateDirectory(folder);
-
-        var fullPath = Path.Combine(folder, fileName);
-        await using var stream = System.IO.File.Create(fullPath);
-        await file.CopyToAsync(stream);
-
-        return ($"/uploads/items/{fileName}", null);
-    }
-
-    /// <summary>
-    /// Deletes an image file from disk given its relative URL.
-    /// Silently no-ops if the URL is null/empty or the file does not exist.
-    /// </summary>
-    private void DeleteImageFile(string? imageUrl)
-    {
-        if (string.IsNullOrEmpty(imageUrl)) return;
-
-        var fileName = Path.GetFileName(imageUrl);
-        var fullPath = Path.Combine(_env.WebRootPath, "uploads", "items", fileName);
-
-        if (System.IO.File.Exists(fullPath))
-            System.IO.File.Delete(fullPath);
-    }
-
-    /// <summary>Maps a domain Item to an ItemEditViewModel.</summary>
-    private static ItemEditViewModel MapToEditViewModel(Item item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Description = item.Description,
-        Price = item.Price,
-        Category = item.Category,
-        Condition = item.Condition,
-        Size = item.Size,
-        ExistingImageUrl = item.ImageUrl
-    };
-}
-
-
---- Data/ApplicationDbContext.cs ---
-
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Data;
-
-public class ApplicationDbContext : DbContext
-{
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-        : base(options)
-    {
-    }
-
-    // ── DbSets ───────────────────────────────────────────────────────────────
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Item> Items => Set<Item>();
-
-    // ── Model Configuration ──────────────────────────────────────────────────
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-
-        // ── Users ────────────────────────────────────────────────────────
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.ToTable("Users");
-            entity.HasKey(u => u.Id);
-            entity.Property(u => u.Id).ValueGeneratedOnAdd();
-            entity.Property(u => u.Email)
-                  .IsRequired()
-                  .HasMaxLength(256)
-                  .IsUnicode(false);
-            entity.HasIndex(u => u.Email)
-                  .IsUnique()
-                  .HasDatabaseName("UQ_Users_Email");
-            entity.Property(u => u.PasswordHash)
-                  .IsRequired(false)
-                  .HasMaxLength(512)
-                  .IsUnicode(false);
-            entity.Property(u => u.CreatedAt)
-                  .IsRequired()
-                  .HasColumnType("datetime2")
-                  .HasDefaultValueSql("SYSUTCDATETIME()");
-        });
-
-        // ── Items ────────────────────────────────────────────────────────
-        modelBuilder.Entity<Item>(entity =>
-        {
-            entity.ToTable("Items");
-
-            entity.HasKey(i => i.Id);
-
-            entity.Property(i => i.Id)
-                  .ValueGeneratedOnAdd();
-
-            entity.Property(i => i.Title)
-                  .IsRequired()
-                  .HasMaxLength(100);
-
-            entity.Property(i => i.Description)
-                  .IsRequired()
-                  .HasMaxLength(1000);
-
-            entity.Property(i => i.Price)
-                  .IsRequired()
-                  .HasColumnType("decimal(10,2)");
-
-            entity.Property(i => i.Category)
-                  .IsRequired()
-                  .HasMaxLength(50);
-
-            entity.Property(i => i.Condition)
-                  .IsRequired()
-                  .HasMaxLength(50);
-
-            // Nullable — not all item types carry a standard clothing size.
-            entity.Property(i => i.Size)
-                  .IsRequired(false)
-                  .HasMaxLength(10);
-
-            entity.Property(i => i.ImageUrl)
-                  .IsRequired(false)
-                  .HasMaxLength(500);
-
-            entity.Property(i => i.CreatedAt)
-                  .IsRequired()
-                  .HasColumnType("datetime2")
-                  .HasDefaultValueSql("SYSUTCDATETIME()");
-
-            // ── Relationship: Item → User (many-to-one) ──────────────────
-            entity.HasOne(i => i.User)
-                  .WithMany()
-                  .HasForeignKey(i => i.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
-    }
-}
-
-
---- DTOs/LoginDto.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.DTOs.Auth;
-
-public class LoginDTO
-{
-    [Required(ErrorMessage = "Email is required.")]
-    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
-    [Display(Name = "Email Address")]
-    public string Email { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Password is required.")]
-    [DataType(DataType.Password)]
-    [Display(Name = "Password")]
-    public string Password { get; set; } = string.Empty;
-
-    [Display(Name = "Remember me")]
-    public bool RememberMe { get; set; }
-}
-
-
---- DTOs/RegisterDto.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.DTOs.Auth;
-
-public class RegisterDTO
-{
-    [Required(ErrorMessage = "Email is required.")]
-    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
-    [Display(Name = "Email Address")]
-    public string Email { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Password is required.")]
-    [DataType(DataType.Password)]
-    [MinLength(8, ErrorMessage = "Password must be at least 8 characters long.")]
-    [Display(Name = "Password")]
-    public string Password { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Please confirm your password.")]
-    [DataType(DataType.Password)]
-    [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
-    [Display(Name = "Confirm Password")]
-    public string ConfirmPassword { get; set; } = string.Empty;
-}
-
-
---- Models/ErrorViewModel.cs ---
-
-namespace ThriftLoop.Models
-{
-    public class ErrorViewModel
-    {
-        public string? RequestId { get; set; }
-
-        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
-    }
-}
-
-
-
---- Models/Item.cs ---
-
-namespace ThriftLoop.Models;
-
-/// <summary>
-/// Domain model — mirrors the Items database table.
-/// Keep this class free of UI concerns (no [Required], no display annotations).
-/// All validation annotations belong in ItemCreateViewModel.
-/// </summary>
-public class Item
-{
-    public int Id { get; set; }
-
-    public string Title { get; set; } = string.Empty;
-
-    public string Description { get; set; } = string.Empty;
-
-    public decimal Price { get; set; }
-
-    public string Category { get; set; } = string.Empty;
-
-    public string Condition { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Standard clothing size (XS / S / M / L / XL / XXL / XXXL).
-    /// Nullable — not all item types carry a standard size (e.g. bags, accessories).
-    /// </summary>
-    public string? Size { get; set; }
-
-    /// <summary>Relative or absolute URL to the uploaded image.</summary>
-    public string? ImageUrl { get; set; }
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // ── Relationships ──────────────────────────────────────────────────────
-
-    /// <summary>FK → Users.Id</summary>
-    public int UserId { get; set; }
-
-    /// <summary>Navigation property — not loaded by default (use .Include() when needed).</summary>
-    public User? User { get; set; }
-}
-
-
---- Models/User.cs ---
-
-namespace ThriftLoop.Models;
-
-public class User
-{
-    public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Null for users who registered exclusively via an external provider (e.g. Google).
-    /// </summary>
-    public string? PasswordHash { get; set; }
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-
---- Repositories/Implementation/ItemRepository.cs ---
-
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-
-namespace ThriftLoop.Repositories.Implementation;
-
-public class ItemRepository : IItemRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public ItemRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    /// <inheritdoc />
-    public async Task AddAsync(Item item)
-    {
-        await _context.Items.AddAsync(item);
-        await _context.SaveChangesAsync();
-        // After SaveChangesAsync, EF Core back-fills item.Id with the
-        // database-generated identity value.
-    }
-
-    /// <inheritdoc />
-    public async Task<Item?> GetByIdAsync(int id)
-        => await _context.Items
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(i => i.Id == id);
-
-    /// <inheritdoc />
-    public async Task<Item?> GetByIdWithUserAsync(int id)
-        => await _context.Items
-                         .AsNoTracking()
-                         .Include(i => i.User)
-                         .FirstOrDefaultAsync(i => i.Id == id);
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<Item>> GetAllAsync()
-        => await _context.Items
-                         .AsNoTracking()
-                         .OrderByDescending(i => i.CreatedAt)
-                         .ToListAsync();
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId)
-        => await _context.Items
-                         .AsNoTracking()
-                         .Where(i => i.UserId == userId)
-                         .OrderByDescending(i => i.CreatedAt)
-                         .ToListAsync();
-
-    /// <inheritdoc />
-    public async Task UpdateAsync(Item item)
-    {
-        // Attach the detached entity and mark it as modified so EF issues
-        // a full UPDATE statement. Immutable fields (UserId, CreatedAt) are
-        // preserved by the caller before this method is invoked.
-        _context.Items.Update(item);
-        await _context.SaveChangesAsync();
-    }
-
-    /// <inheritdoc />
-    public async Task DeleteAsync(int id)
-    {
-        var item = await _context.Items.FindAsync(id);
-        if (item is null) return;
-
-        _context.Items.Remove(item);
-        await _context.SaveChangesAsync();
-    }
-}
-
-
---- Repositories/Implementation/UserRepository.cs ---
-
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-
-namespace ThriftLoop.Repositories.Implementation;
-
-public class UserRepository : IUserRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<User?> GetByEmailAsync(string email)
-        => await _context.Users
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(u => u.Email == email);
-
-    public async Task<User?> GetByIdAsync(int id)
-        => await _context.Users
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(u => u.Id == id);
-
-    public async Task<bool> EmailExistsAsync(string email)
-        => await _context.Users
-                         .AsNoTracking()
-                         .AnyAsync(u => u.Email == email);
-
-    public async Task<int> CreateAsync(User user)
-    {
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-        return user.Id;
-    }
-}
-
-
---- Repositories/Interface/IItemRepository.cs ---
-
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Repositories.Interface;
-
-public interface IItemRepository
-{
-    /// <summary>Persists a new Item row and populates item.Id via EF Core.</summary>
-    Task AddAsync(Item item);
-
-    /// <summary>
-    /// Returns a single item by primary key, or null if not found.
-    /// Result is not change-tracked. Does NOT load the User navigation property.
-    /// </summary>
-    Task<Item?> GetByIdAsync(int id);
-
-    /// <summary>
-    /// Returns a single item by primary key with the related User (seller)
-    /// eagerly loaded, or null if not found.
-    /// Used by the Details page.
-    /// </summary>
-    Task<Item?> GetByIdWithUserAsync(int id);
-
-    /// <summary>
-    /// Returns every item across all users, ordered by most-recently created first.
-    /// Used by the public "For You" feed.
-    /// </summary>
-    Task<IReadOnlyList<Item>> GetAllAsync();
-
-    /// <summary>
-    /// Returns all items belonging to the specified user,
-    /// ordered by most-recently created first.
-    /// </summary>
-    Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId);
-
-    /// <summary>
-    /// Persists all changes to an existing Item row.
-    /// The caller is responsible for preserving immutable fields
-    /// (UserId, CreatedAt) on the entity before calling this method.
-    /// </summary>
-    Task UpdateAsync(Item item);
-
-    /// <summary>Removes the Item row with the given primary key (no-op if not found).</summary>
-    Task DeleteAsync(int id);
-}
-
-
---- Repositories/Interface/IUserRepository.cs ---
-
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Repositories.Interface;
-
-public interface IUserRepository
-{
-    Task<User?> GetByEmailAsync(string email);
-    Task<User?> GetByIdAsync(int id);
-    Task<bool> EmailExistsAsync(string email);
-    Task<int> CreateAsync(User user);
-}
-
-
---- Services/Implementation/AuthService.cs ---
-
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.Services.Auth.Interface;
-
-namespace ThriftLoop.Services.Auth.Implementation;
-
-public class AuthService : IAuthService
-{
-    private readonly IUserRepository _userRepository;
-    private readonly ILogger<AuthService> _logger;
-
-    private const int BcryptWorkFactor = 12;
-
-    public AuthService(IUserRepository userRepository, ILogger<AuthService> logger)
-    {
-        _userRepository = userRepository;
-        _logger = logger;
-    }
-
-    // ── Password registration ─────────────────────────────────────────────────
-
-    public async Task<User?> RegisterAsync(RegisterDTO dto)
-    {
-        if (await _userRepository.EmailExistsAsync(dto.Email))
-        {
-            _logger.LogWarning("Registration failed: email '{Email}' is already in use.", dto.Email);
-            return null;
-        }
-
-        var user = new User
-        {
-            Email = dto.Email.Trim().ToLowerInvariant(),
-            PasswordHash = HashPassword(dto.Password),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.Id = await _userRepository.CreateAsync(user);
-
-        _logger.LogInformation("New user registered with ID {UserId}.", user.Id);
-        return user;
-    }
-
-    // ── Credential validation ─────────────────────────────────────────────────
-
-    public async Task<User?> ValidateCredentialsAsync(LoginDTO dto)
-    {
-        var user = await _userRepository.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant());
-
-        if (user is null)
-        {
-            // Constant-time dummy verify to prevent timing attacks.
-            BCrypt.Net.BCrypt.Verify(dto.Password, BCrypt.Net.BCrypt.HashPassword("dummy"));
-            return null;
-        }
-
-        // A Google-only account has no password — refuse credential login.
-        if (string.IsNullOrEmpty(user.PasswordHash))
-        {
-            _logger.LogWarning(
-                "Credential login attempted on Google-only account '{Email}'.", dto.Email);
-            return null;
-        }
-
-        if (!VerifyPassword(dto.Password, user.PasswordHash))
-        {
-            _logger.LogWarning("Failed login attempt for email '{Email}'.", dto.Email);
-            return null;
-        }
-
-        return user;
-    }
-
-    // ── Google OAuth ──────────────────────────────────────────────────────────
-
-    public async Task<User> FindOrCreateGoogleUserAsync(string email)
-    {
-        var normalised = email.Trim().ToLowerInvariant();
-
-        var existing = await _userRepository.GetByEmailAsync(normalised);
-        if (existing is not null)
-        {
-            _logger.LogInformation(
-                "Google sign-in: returning existing user {UserId}.", existing.Id);
-            return existing;
-        }
-
-        // First-time Google sign-in — provision a password-less account.
-        var newUser = new User
-        {
-            Email = normalised,
-            PasswordHash = null,          // no password for external users
-            CreatedAt = DateTime.UtcNow
-        };
-
-        newUser.Id = await _userRepository.CreateAsync(newUser);
-
-        _logger.LogInformation(
-            "Google sign-in: created new user {UserId} for '{Email}'.", newUser.Id, normalised);
-
-        return newUser;
-    }
-
-    // ── Hashing helpers ───────────────────────────────────────────────────────
-
-    public string HashPassword(string plainTextPassword)
-        => BCrypt.Net.BCrypt.HashPassword(plainTextPassword, BcryptWorkFactor);
-
-    public bool VerifyPassword(string plainTextPassword, string passwordHash)
-        => BCrypt.Net.BCrypt.Verify(plainTextPassword, passwordHash);
-}
-
-
---- Services/Interface/IAuthService.cs ---
-
-using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Services.Auth.Interface;
-
-public interface IAuthService
-{
-    /// <summary>
-    /// Registers a new user. Returns the created User on success,
-    /// or null if the email is already taken.
-    /// </summary>
-    Task<User?> RegisterAsync(RegisterDTO dto);
-
-    /// <summary>
-    /// Validates credentials. Returns the matching User on success,
-    /// or null if invalid.
-    /// </summary>
-    Task<User?> ValidateCredentialsAsync(LoginDTO dto);
-
-    /// <summary>
-    /// Looks up an existing user by email, or creates a new password-less
-    /// account for first-time Google sign-in.
-    /// </summary>
-    Task<User> FindOrCreateGoogleUserAsync(string email);
-
-    /// <summary>Hashes a plain-text password using BCrypt.</summary>
-    string HashPassword(string plainTextPassword);
-
-    /// <summary>Verifies a plain-text password against a stored BCrypt hash.</summary>
-    bool VerifyPassword(string plainTextPassword, string passwordHash);
-}
-
-
---- ViewModels/HomeIndexViewModel.cs ---
-
-using ThriftLoop.Models;
-
-namespace ThriftLoop.ViewModels;
-
-/// <summary>
-/// ViewModel for the public "For You" home feed.
-/// CurrentUserId is null when the visitor is anonymous; the view uses it
-/// to suppress "Add to Cart" / "Buy Now" on items the viewer owns.
-/// </summary>
-public class HomeIndexViewModel
-{
-    public IReadOnlyList<Item> Items { get; init; } = [];
-
-    /// <summary>
-    /// The authenticated user's ID, or null if the request is anonymous.
-    /// </summary>
-    public int? CurrentUserId { get; init; }
-}
-
-
---- ViewModels/ItemCreateViewModel.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.ViewModels;
-
-/// <summary>
-/// ViewModel for the Create Item form.
-/// All user-facing validation annotations live here, keeping the domain
-/// model (Item.cs) focused purely on the database schema.
-/// </summary>
-public class ItemCreateViewModel
-{
-    // ── Core Fields ────────────────────────────────────────────────────────
-
-    [Required(ErrorMessage = "Title is required.")]
-    [StringLength(100, MinimumLength = 3,
-        ErrorMessage = "Title must be between 3 and 100 characters.")]
-    [Display(Name = "Title")]
-    public string Title { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Description is required.")]
-    [StringLength(1000, MinimumLength = 10,
-        ErrorMessage = "Description must be between 10 and 1 000 characters.")]
-    [Display(Name = "Description")]
-    public string Description { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Price is required.")]
-    [Range(0.01, 99_999.99,
-        ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
-    [DataType(DataType.Currency)]
-    [Display(Name = "Price (₱)")]
-    public decimal Price { get; set; }
-
-    [Required(ErrorMessage = "Please select a category.")]
-    [StringLength(50)]
-    [Display(Name = "Category")]
-    public string Category { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Please select a condition.")]
-    [StringLength(50)]
-    [Display(Name = "Condition")]
-    public string Condition { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Optional clothing size. Not required — some categories (bags, accessories)
-    /// do not have a standard size.
-    /// </summary>
-    [StringLength(10)]
-    [Display(Name = "Size (optional)")]
-    public string? Size { get; set; }
-
-    [Display(Name = "Item Photo (optional)")]
-    [DataType(DataType.Upload)]
-    public IFormFile? Image { get; set; }
-    public string? ImageUrl { get; set; }
-
-    // ── Select-List Options (used by the View to build chip/pill selectors) ─
-
-    public static readonly IReadOnlyList<string> Categories = new[]
-    {
-        "Tops",
-        "Bottoms",
-        "Dresses & Skirts",
-        "Outerwear",
-        "Footwear",
-        "Accessories",
-        "Vintage",
-        "Activewear",
-        "Bags",
-        "Other"
-    };
-
-    public static readonly IReadOnlyList<string> Conditions = new[]
-    {
-        "New",
-        "Like New",
-        "Good",
-        "Fair",
-        "Poor"
-    };
-
-    public static readonly IReadOnlyList<string> Sizes = new[]
-    {
-        "XS",
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL",
-        "XXXL"
-    };
-}
-
-
---- ViewModels/ItemEditViewModel.cs ---
-
-using System.ComponentModel.DataAnnotations;
-
-namespace ThriftLoop.ViewModels;
-
-/// <summary>
-/// ViewModel for the Edit Item form.
-/// Mirrors ItemCreateViewModel but also carries the item's primary key,
-/// its current image URL (so the view can display it and the controller
-/// can preserve it when no replacement is uploaded), and a RemoveImage flag.
-/// </summary>
-public class ItemEditViewModel
-{
-    // ── Identity ────────────────────────────────────────────────────────────
-
-    /// <summary>Primary key — rendered as a hidden field and used to route the POST.</summary>
-    public int Id { get; set; }
-
-    // ── Core Fields ─────────────────────────────────────────────────────────
-
-    [Required(ErrorMessage = "Title is required.")]
-    [StringLength(100, MinimumLength = 3,
-        ErrorMessage = "Title must be between 3 and 100 characters.")]
-    [Display(Name = "Title")]
-    public string Title { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Description is required.")]
-    [StringLength(1000, MinimumLength = 10,
-        ErrorMessage = "Description must be between 10 and 1 000 characters.")]
-    [Display(Name = "Description")]
-    public string Description { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Price is required.")]
-    [Range(0.01, 99_999.99,
-        ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
-    [DataType(DataType.Currency)]
-    [Display(Name = "Price (₱)")]
-    public decimal Price { get; set; }
-
-    [Required(ErrorMessage = "Please select a category.")]
-    [StringLength(50)]
-    [Display(Name = "Category")]
-    public string Category { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Please select a condition.")]
-    [StringLength(50)]
-    [Display(Name = "Condition")]
-    public string Condition { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Optional clothing size. Not required — some categories (bags, accessories)
-    /// do not have a standard size.
-    /// </summary>
-    [StringLength(10)]
-    [Display(Name = "Size (optional)")]
-    public string? Size { get; set; }
-
-    // ── Image ────────────────────────────────────────────────────────────────
-
-    /// <summary>Optional replacement image uploaded by the user.</summary>
-    [Display(Name = "Item Photo")]
-    [DataType(DataType.Upload)]
-    public IFormFile? Image { get; set; }
-
-    /// <summary>
-    /// The URL of the item's current image, populated from the database.
-    /// Passed back through the form as a hidden field so the controller
-    /// can keep it when no new image is uploaded.
-    /// </summary>
-    public string? ExistingImageUrl { get; set; }
-
-    /// <summary>
-    /// When true the controller will delete the existing image file and
-    /// set ImageUrl to null, even if no replacement is uploaded.
-    /// </summary>
-    public bool RemoveImage { get; set; }
-
-    // ── Select-List Options ──────────────────────────────────────────────────
-
-    public static readonly IReadOnlyList<string> Categories = new[]
-    {
-        "Tops",
-        "Bottoms",
-        "Dresses & Skirts",
-        "Outerwear",
-        "Footwear",
-        "Accessories",
-        "Vintage",
-        "Activewear",
-        "Bags",
-        "Other"
-    };
-
-    public static readonly IReadOnlyList<string> Conditions = new[]
-    {
-        "New",
-        "Like New",
-        "Good",
-        "Fair",
-        "Poor"
-    };
-
-    public static readonly IReadOnlyList<string> Sizes = new[]
-    {
-        "XS",
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL",
-        "XXXL"
-    };
-}
 
 
 --- Views/_ViewImports.cshtml ---
@@ -1793,6 +464,7 @@ namespace ThriftLoop.Views.Auth
 --- Views/Home/Index.cshtml ---
 
 @model ThriftLoop.ViewModels.HomeIndexViewModel
+@using ThriftLoop.Models
 @using ThriftLoop.ViewModels
 @{
     ViewData["Title"] = "For You";
@@ -1807,7 +479,7 @@ namespace ThriftLoop.Views.Auth
 
 <div class="fy-shell">
 
-    @* ── Left: sticky filter sidebar ────────────────────────────────────── *@
+    @* ── Left: sticky filter sidebar ──────────────────────────────────────── *@
     <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
 
         <div class="fy-sidebar__header">
@@ -1883,7 +555,7 @@ namespace ThriftLoop.Views.Auth
 
     </aside>
 
-    @* ── Right: feed ─────────────────────────────────────────────────────── *@
+    @* ── Right: feed ──────────────────────────────────────────────────────── *@
     <main class="fy-main" id="fyMain">
 
         <header class="fy-feed-header">
@@ -1932,17 +604,18 @@ namespace ThriftLoop.Views.Auth
             <div class="fy-grid" id="itemGrid">
                 @foreach (var item in Model.Items)
                 {
-                    var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                    var isOwner      = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                    var isStealable  = item.ListingType == ListingType.Stealable;
+                    var isReserved   = item.Status == ItemStatus.Reserved;
+                    var isSold       = item.Status == ItemStatus.Sold;
 
                     @*
                         The card uses a "stretched link" pattern:
                           - .fy-card has position:relative
                           - .fy-card__link::after fills the entire card (position:absolute, inset:0)
                           - .fy-card__actions has position:relative + z-index:1 to stay above the overlay
-                        This means clicking anywhere on the card (except the action buttons) navigates
-                        to the Details page — no JS needed for the navigation itself.
                     *@
-                    <article class="fy-card"
+                    <article class="fy-card @(isSold ? "fy-card--sold" : "")"
                              data-category="@item.Category"
                              data-condition="@item.Condition"
                              data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
@@ -1972,6 +645,38 @@ namespace ThriftLoop.Views.Auth
                             @* Condition chip overlaid on image *@
                             <span class="fy-card__condition-badge">@item.Condition</span>
 
+                            @* Stealable badge — top-right corner of the image *@
+                            @if (isStealable)
+                            {
+                                <span class="fy-card__stealable-badge"
+                                      aria-label="Stealable listing — @item.StealDurationHours hr window">
+                                    @if (isReserved)
+                                    {
+                                        @* Clock SVG — someone has already claimed it *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm.5 3.25a.5.5 0 00-1 0V7c0 .276.224.5.5.5h2.75a.5.5 0 000-1H7.5V4.25z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span>Reserved</span>
+                                    }
+                                    else if (isSold)
+                                    {
+                                        @* Checkmark — sold *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm2.97 4.47a.75.75 0 00-1.19-.94L6.5 7.28 5.28 6.06a.75.75 0 00-1.06 1.06l1.75 1.75a.75.75 0 001.12-.06l2.88-3.34z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span>Sold</span>
+                                    }
+                                    else
+                                    {
+                                        @* Lightning / competition icon — available to steal *@
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z"/>
+                                        </svg>
+                                        <span>Stealable</span>
+                                    }
+                                </span>
+                            }
+
                             @* Owner badge *@
                             @if (isOwner)
                             {
@@ -1987,14 +692,15 @@ namespace ThriftLoop.Views.Auth
                             </div>
 
                             <h2 class="fy-card__title">@item.Title</h2>
-                            <p class="fy-card__price">₱@item.Price.ToString("N2")</p>
+                            <p class="fy-card__price">
+                                ₱@item.Price.ToString("N2")
+                                @if (isStealable && item.Status == ItemStatus.Available)
+                                {
+                                    @* Small "+₱50 if stolen" hint on Available Stealable cards *@
+                                    <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                }
+                            </p>
 
-                            @*
-                                The anchor text is visually hidden — the ::after pseudo-element
-                                covers the whole card. The visible text above is still read by
-                                screen readers before this link, so the accessible name
-                                "View details for [Title]" is unambiguous.
-                            *@
                             <a asp-action="Details"
                                asp-controller="Items"
                                asp-route-id="@item.Id"
@@ -2006,7 +712,8 @@ namespace ThriftLoop.Views.Auth
                         @* Actions — z-index:1 keeps these above the stretched link overlay *@
                         @if (!isOwner)
                         {
-
+                            @* Non-owner buyer actions are handled on the Details page,
+                               not on the card — keeps the feed clean. *@
                         }
                         else
                         {
@@ -2030,11 +737,64 @@ namespace ThriftLoop.Views.Auth
 </div>
 
 @section Scripts {
+    <style>
+        /* ── Stealable badge on card images ─────────────────────────────── */
+        .fy-card__stealable-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 3px 7px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.18);
+            z-index: 2;
+            pointer-events: none; /* sits above the image, below the stretched link */
+        }
+
+        /* Reserved state — amber tint */
+        .fy-card__stealable-badge:has(> span:only-child + svg) {
+            background: #92400e;
+        }
+
+        /* Sold state — muted grey so it doesn't draw the eye */
+        .fy-card--sold .fy-card__stealable-badge {
+            background: #4b5563;
+        }
+
+        /* ── Steal hint text next to the price ───────────────────────────── */
+        .fy-card__steal-hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 500;
+            color: var(--color-primary, #2d5a27);
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        /* ── Sold card — subtle desaturation ─────────────────────────────── */
+        .fy-card--sold {
+            opacity: 0.7;
+            pointer-events: none; /* whole card grayed-out and non-interactive */
+        }
+
+        /* Re-enable pointer events for the manage button on owner's own sold cards *@@
+        /* (This is an edge case; sellers rarely need to interact with sold cards.) */
+        .fy-card--sold .fy-card__actions { pointer-events: auto; }
+    </style>
+
     <script>
         (function () {
             'use strict';
 
-            // ── Element references ───────────────────────────────────────────────
+            // ── Element references ─────────────────────────────────────────────
             var grid         = document.getElementById('itemGrid');
             var filterEmpty  = document.getElementById('filterEmpty');
             var visibleCount = document.getElementById('visibleCount');
@@ -2049,7 +809,7 @@ namespace ThriftLoop.Views.Auth
 
             var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
 
-            // ── Core filter function ─────────────────────────────────────────────
+            // ── Core filter function ───────────────────────────────────────────
             function applyFilters() {
                 var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
                 var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
@@ -2091,14 +851,14 @@ namespace ThriftLoop.Views.Auth
                 }
             }
 
-            // ── Wire up all controls — live, no submit needed ────────────────────
+            // ── Wire up all controls — live, no submit needed ──────────────────
             if (searchInput) searchInput.addEventListener('input',  applyFilters);
             if (priceMin)    priceMin.addEventListener('input',     applyFilters);
             if (priceMax)    priceMax.addEventListener('input',     applyFilters);
             catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
             condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
 
-            // ── Reset ────────────────────────────────────────────────────────────
+            // ── Reset ──────────────────────────────────────────────────────────
             function resetAll() {
                 if (searchInput) searchInput.value = '';
                 if (priceMin)    priceMin.value    = priceMin.min  || 0;
@@ -2113,7 +873,7 @@ namespace ThriftLoop.Views.Auth
             if (resetBtn)  resetBtn.addEventListener('click',  resetAll);
             if (resetBtn2) resetBtn2.addEventListener('click', resetAll);
 
-            // ── Mobile sidebar toggle ────────────────────────────────────────────
+            // ── Mobile sidebar toggle ──────────────────────────────────────────
             var toggleBtn = document.getElementById('fyFilterToggle');
             var sidebar   = document.getElementById('fySidebar');
             if (toggleBtn && sidebar) {
@@ -2144,6 +904,7 @@ namespace ThriftLoop.Views.Auth
 --- Views/Items/Create.cshtml ---
 
 @model ThriftLoop.ViewModels.ItemCreateViewModel
+@using ThriftLoop.Models
 @{
     ViewData["Title"] = "List an Item";
 }
@@ -2179,7 +940,7 @@ namespace ThriftLoop.Views.Auth
 
             <div class="create-grid">
 
-                @* Photo Column *@
+                @* ── Photo Column ──────────────────────────────────────────────── *@
                 <div class="create-photo-col">
                     <p class="create-section-label">Photo</p>
 
@@ -2226,7 +987,7 @@ namespace ThriftLoop.Views.Auth
                     </div>
                 </div>
 
-                @* Form Column *@
+                @* ── Form Column ───────────────────────────────────────────────── *@
                 <div class="create-form-col">
 
                     @* Title *@
@@ -2305,14 +1066,12 @@ namespace ThriftLoop.Views.Auth
                         <span asp-validation-for="Condition" class="field__error"></span>
                     </div>
 
-                    @* Size — optional, reuses the same chip pattern as Category *@
+                    @* Size — optional *@
                     <div class="create-field">
                         <div class="create-field__top">
                             <label class="create-field__label">Size</label>
                             <span class="create-field__optional">optional</span>
                         </div>
-
-                        @* Hidden select drives model binding — empty value = no size selected *@
                         <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
                             <option value=""></option>
                             @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
@@ -2320,7 +1079,6 @@ namespace ThriftLoop.Views.Auth
                                 <option value="@size">@size</option>
                             }
                         </select>
-
                         <div class="create-chips create-chips--size" id="sizeChips">
                             @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
                             {
@@ -2332,12 +1090,89 @@ namespace ThriftLoop.Views.Auth
                                 </button>
                             }
                         </div>
-
-                        @*
-                            Unlike Category/Condition, a second click on an already-active size chip
-                            deselects it (clears the size) — handled in the JS below.
-                        *@
                         <span asp-validation-for="Size" class="field__error"></span>
+                    </div>
+
+                    @* ── Stealable Listing Section ─────────────────────────────── *@
+                    <div class="create-field create-field--stealable">
+
+                        @* Section divider *@
+                        <div class="create-stealable-header">
+                            <div>
+                                <p class="create-field__label">Listing Type</p>
+                                <p class="create-stealable-header__sub">
+                                    Stealable listings let buyers compete — one claims it, another can steal it.
+                                </p>
+                            </div>
+                        </div>
+
+                        @* Toggle row *@
+                        <label class="stealable-toggle" for="IsStealable">
+                            <span class="stealable-toggle__track">
+                                <input asp-for="IsStealable"
+                                       id="IsStealable"
+                                       type="checkbox"
+                                       class="stealable-toggle__input" />
+                                <span class="stealable-toggle__thumb" aria-hidden="true"></span>
+                            </span>
+                            <span class="stealable-toggle__label-group">
+                                <span class="stealable-toggle__name">Make this a Stealable listing</span>
+                                <span class="stealable-toggle__badge" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                        <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
+                                    </svg>
+                                    NEW
+                                </span>
+                            </span>
+                        </label>
+
+                        @* Duration panel — hidden until checkbox is ticked *@
+                        <div class="stealable-duration-panel" id="stealDurationPanel"
+                             @(Model.IsStealable ? "" : "hidden")
+                             aria-live="polite">
+
+                            <div class="stealable-duration-inner">
+                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                                </svg>
+
+                                <div class="stealable-duration-body">
+                                    <label asp-for="StealDurationHours" class="create-field__label">
+                                        Steal Window Duration
+                                    </label>
+                                    <p class="stealable-duration-body__hint">
+                                        How long a buyer has before another can steal the item.
+                                        After the window closes, the original buyer gets a 2-hour grace period.
+                                    </p>
+
+                                    @* Chip-style duration selector driven by a hidden <select> *@
+                                    <select asp-for="StealDurationHours"
+                                            class="create-hidden-select"
+                                            id="stealDurationSelect">
+                                        <option value=""></option>
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <option value="@hours">@hours hours</option>
+                                        }
+                                    </select>
+
+                                    <div class="create-chips create-chips--duration" id="durationChips">
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <button type="button"
+                                                    class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
+                                                    data-value="@hours"
+                                                    data-target="stealDurationSelect">
+                                                @hours hr
+                                            </button>
+                                        }
+                                    </div>
+
+                                    <span asp-validation-for="StealDurationHours" class="field__error"></span>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                     @* Actions *@
@@ -2350,6 +1185,7 @@ namespace ThriftLoop.Views.Auth
                         </button>
                         <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
                     </div>
+
                 </div>
             </div>
         </form>
@@ -2361,18 +1197,169 @@ namespace ThriftLoop.Views.Auth
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 
+    <style>
+        /* ── Stealable toggle ──────────────────────────────────────────────── */
+        .create-field--stealable {
+            border-top: 1px solid var(--color-border, #e8e3da);
+            padding-top: 1.25rem;
+            margin-top: 0.25rem;
+        }
+
+        .create-stealable-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .create-stealable-header__sub {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0.2rem 0 0;
+            line-height: 1.5;
+        }
+
+        /* Toggle switch */
+        .stealable-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            user-select: none;
+            width: fit-content;
+        }
+
+        .stealable-toggle__track {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .stealable-toggle__input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .stealable-toggle__thumb {
+            position: absolute;
+            inset: 0;
+            background: var(--color-border, #d4cdc4);
+            border-radius: 99px;
+            transition: background 0.2s ease;
+        }
+
+            .stealable-toggle__thumb::after {
+                content: '';
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 18px;
+                height: 18px;
+                background: #fff;
+                border-radius: 50%;
+                transition: transform 0.2s ease;
+                box-shadow: 0 1px 3px rgba(0,0,0,.15);
+            }
+
+        .stealable-toggle__input:checked ~ .stealable-toggle__thumb {
+            background: var(--color-primary, #2d5a27);
+        }
+
+            .stealable-toggle__input:checked ~ .stealable-toggle__thumb::after {
+                transform: translateX(20px);
+            }
+
+        .stealable-toggle__input:focus-visible ~ .stealable-toggle__thumb {
+            outline: 2px solid var(--color-primary, #2d5a27);
+            outline-offset: 2px;
+        }
+
+        .stealable-toggle__label-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stealable-toggle__name {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: var(--color-text, #1a1814);
+        }
+
+        .stealable-toggle__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Duration panel */
+        .stealable-duration-panel {
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+            .stealable-duration-panel[hidden] {
+                display: none;
+            }
+
+        .stealable-duration-inner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: var(--color-surface-alt, #f5f1ea);
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            padding: 1rem 1.125rem;
+        }
+
+        .stealable-duration-icon {
+            color: var(--color-primary, #2d5a27);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .stealable-duration-body {
+            flex: 1;
+        }
+
+        .stealable-duration-body__hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0.25rem 0 0.875rem;
+            line-height: 1.55;
+        }
+
+        .create-chips--duration {
+            margin-top: 0.5rem;
+        }
+    </style>
+
     <script>
         (function() {
             'use strict';
 
-            // ── Character counters ───────────────────────────────────────────────
+            // ── Character counters ─────────────────────────────────────────────
             function initCounter(inputId, counterId, max) {
-                const input = document.getElementById(inputId);
-                const counter = document.getElementById(counterId);
+                var input   = document.getElementById(inputId);
+                var counter = document.getElementById(counterId);
                 if (!input || !counter) return;
 
-                const update = () => {
-                    const len = input.value.length;
+                var update = function() {
+                    var len = input.value.length;
                     counter.textContent = len + '/' + max;
                     counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
                 };
@@ -2386,22 +1373,20 @@ namespace ThriftLoop.Views.Auth
 
             // ── Category / Condition chips (required — click activates, cannot deselect) ──
             function initChips(containerId) {
-                const container = document.getElementById(containerId);
+                var container = document.getElementById(containerId);
                 if (!container) return;
 
-                container.addEventListener('click', (e) => {
-                    const btn = e.target.closest('[data-value]');
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
                     if (!btn) return;
 
-                    const select = document.getElementById(btn.dataset.target);
+                    var select = document.getElementById(btn.dataset.target);
                     if (!select) return;
 
-                    // Deactivate all
-                    container.querySelectorAll('[data-value]').forEach(b => {
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
                         b.classList.remove('create-chip--active', 'create-condition__pill--active');
                     });
 
-                    // Activate clicked
                     btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
                     select.value = btn.dataset.value;
 
@@ -2412,25 +1397,48 @@ namespace ThriftLoop.Views.Auth
             initChips('categoryChips');
             initChips('conditionPills');
 
-            // ── Size chips (optional — clicking an active chip deselects it) ────────
-            (function initSizeChips() {
-                const container = document.getElementById('sizeChips');
-                const select    = document.getElementById('sizeSelect');
+            // ── Duration chips (required when Stealable — same chip pattern) ───
+            function initDurationChips() {
+                var container = document.getElementById('durationChips');
+                var select    = document.getElementById('stealDurationSelect');
                 if (!container || !select) return;
 
-                container.addEventListener('click', (e) => {
-                    const btn = e.target.closest('[data-value]');
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
                     if (!btn) return;
 
-                    const alreadyActive = btn.classList.contains('create-chip--active');
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
+                        b.classList.remove('create-chip--active');
+                    });
 
-                    // Deactivate all size chips first
-                    container.querySelectorAll('[data-value]').forEach(b => {
+                    btn.classList.add('create-chip--active');
+                    select.value = btn.dataset.value;
+
+                    // Re-run unobtrusive validation on the hidden select so the
+                    // error span clears immediately when the user picks a value.
+                    if (window.$ && $.validator) $(select).valid();
+                });
+            }
+
+            initDurationChips();
+
+            // ── Size chips (optional — second click deselects) ─────────────────
+            (function initSizeChips() {
+                var container = document.getElementById('sizeChips');
+                var select    = document.getElementById('sizeSelect');
+                if (!container || !select) return;
+
+                container.addEventListener('click', function(e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+
+                    var alreadyActive = btn.classList.contains('create-chip--active');
+
+                    container.querySelectorAll('[data-value]').forEach(function(b) {
                         b.classList.remove('create-chip--active');
                     });
 
                     if (alreadyActive) {
-                        // Second click on same chip → clear selection
                         select.value = '';
                     } else {
                         btn.classList.add('create-chip--active');
@@ -2439,58 +1447,89 @@ namespace ThriftLoop.Views.Auth
                 });
             })();
 
-            // ── Photo dropzone ───────────────────────────────────────────────────
-            const dropzone = document.getElementById('photoDropzone');
-            const input = document.getElementById('photoInput');
-            const empty = document.getElementById('dropzoneEmpty');
-            const preview = document.getElementById('dropzonePreview');
-            const previewImg = document.getElementById('previewImg');
-            const removeBtn = document.getElementById('removePhoto');
-            const overlay = document.getElementById('dropzoneOverlay');
+            // ── Stealable toggle — show / hide the duration panel ─────────────
+            (function initStealableToggle() {
+                var checkbox      = document.getElementById('IsStealable');
+                var panel         = document.getElementById('stealDurationPanel');
+                var durationSelect = document.getElementById('stealDurationSelect');
+                if (!checkbox || !panel) return;
+
+                function syncPanel() {
+                    if (checkbox.checked) {
+                        panel.removeAttribute('hidden');
+                    } else {
+                        panel.setAttribute('hidden', '');
+
+                        // Clear the selection so the hidden field submits empty
+                        // and server-side validation does not complain.
+                        if (durationSelect) {
+                            durationSelect.value = '';
+                            document.querySelectorAll('#durationChips [data-value]').forEach(function(b) {
+                                b.classList.remove('create-chip--active');
+                            });
+                        }
+                    }
+                }
+
+                checkbox.addEventListener('change', syncPanel);
+                // Run once on load to restore state after a failed server POST.
+                syncPanel();
+            })();
+
+            // ── Photo dropzone ─────────────────────────────────────────────────
+            var dropzone   = document.getElementById('photoDropzone');
+            var input      = document.getElementById('photoInput');
+            var empty      = document.getElementById('dropzoneEmpty');
+            var preview    = document.getElementById('dropzonePreview');
+            var previewImg = document.getElementById('previewImg');
+            var removeBtn  = document.getElementById('removePhoto');
+            var overlay    = document.getElementById('dropzoneOverlay');
 
             if (dropzone && input) {
-                dropzone.addEventListener('click', (e) => {
-                    if (e.target === removeBtn || removeBtn?.contains(e.target)) return;
+                dropzone.addEventListener('click', function(e) {
+                    if (e.target === removeBtn || (removeBtn && removeBtn.contains(e.target))) return;
                     input.click();
                 });
 
-                input.addEventListener('change', () => {
-                    if (input.files?.[0]) showPreview(input.files[0]);
+                input.addEventListener('change', function() {
+                    if (input.files && input.files[0]) showPreview(input.files[0]);
                 });
 
-                removeBtn?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    clearPreview();
-                });
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        clearPreview();
+                    });
+                }
 
-                ['dragenter', 'dragover'].forEach(evt => {
-                    dropzone.addEventListener(evt, (e) => {
+                ['dragenter', 'dragover'].forEach(function(evt) {
+                    dropzone.addEventListener(evt, function(e) {
                         e.preventDefault();
-                        overlay.hidden = false;
+                        if (overlay) overlay.hidden = false;
                     });
                 });
 
-                ['dragleave', 'dragend', 'drop'].forEach(evt => {
-                    dropzone.addEventListener(evt, (e) => {
+                ['dragleave', 'dragend', 'drop'].forEach(function(evt) {
+                    dropzone.addEventListener(evt, function(e) {
                         e.preventDefault();
-                        overlay.hidden = true;
+                        if (overlay) overlay.hidden = true;
                     });
                 });
 
-                dropzone.addEventListener('drop', (e) => {
-                    const file = e.dataTransfer.files[0];
+                dropzone.addEventListener('drop', function(e) {
+                    var file = e.dataTransfer.files[0];
                     if (!file) return;
 
                     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                        showError('Only JPEG, PNG, or WebP images are accepted.');
+                        showDropzoneError('Only JPEG, PNG, or WebP images are accepted.');
                         return;
                     }
                     if (file.size > 5 * 1024 * 1024) {
-                        showError('Image must be smaller than 5 MB.');
+                        showDropzoneError('Image must be smaller than 5 MB.');
                         return;
                     }
 
-                    const dt = new DataTransfer();
+                    var dt = new DataTransfer();
                     dt.items.add(file);
                     input.files = dt.files;
                     showPreview(file);
@@ -2498,11 +1537,11 @@ namespace ThriftLoop.Views.Auth
             }
 
             function showPreview(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
+                var reader = new FileReader();
+                reader.onload = function(e) {
                     previewImg.src = e.target.result;
-                    empty.hidden = true;
-                    preview.hidden = false;
+                    if (empty)   empty.hidden   = true;
+                    if (preview) preview.hidden = false;
                 };
                 reader.readAsDataURL(file);
             }
@@ -2510,35 +1549,38 @@ namespace ThriftLoop.Views.Auth
             function clearPreview() {
                 input.value = '';
                 previewImg.src = '';
-                preview.hidden = true;
-                empty.hidden = false;
+                if (preview) preview.hidden = true;
+                if (empty)   empty.hidden   = false;
             }
 
-            function showError(msg) {
-                const errorSpan = document.querySelector('.create-photo-col .field__error');
+            function showDropzoneError(msg) {
+                var errorSpan = document.querySelector('.create-photo-col .field__error');
                 if (errorSpan) {
                     errorSpan.textContent = msg;
-                    setTimeout(() => errorSpan.textContent = '', 3000);
+                    setTimeout(function() { errorSpan.textContent = ''; }, 3000);
                 }
             }
 
-            // ── Submit loading state ─────────────────────────────────────────────
-            const form = document.getElementById('createForm');
-            const submitBtn = document.getElementById('submitBtn');
+            // ── Submit loading state ───────────────────────────────────────────
+            var form      = document.getElementById('createForm');
+            var submitBtn = document.getElementById('submitBtn');
 
-            form?.addEventListener('submit', () => {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
-            });
+            if (form && submitBtn) {
+                form.addEventListener('submit', function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
+                });
+            }
 
-            // ── Auto-dismiss toast ───────────────────────────────────────────────
-            const toast = document.querySelector('.create-toast');
+            // ── Auto-dismiss toast ─────────────────────────────────────────────
+            var toast = document.querySelector('.create-toast');
             if (toast) {
-                setTimeout(() => {
+                setTimeout(function() {
                     toast.style.opacity = '0';
-                    setTimeout(() => toast.remove(), 400);
+                    setTimeout(function() { toast.remove(); }, 400);
                 }, 4000);
             }
+
         })();
     </script>
 }
@@ -2652,12 +1694,20 @@ namespace ThriftLoop.Views.Items
 --- Views/Items/Details.cshtml ---
 
 @model ThriftLoop.Models.Item
+@using ThriftLoop.Models
 @{
     ViewData["Title"] = Model.Title;
     Layout = "~/Views/Shared/_Layout.cshtml";
 
     bool isOwner = (bool)(ViewBag.IsOwner ?? false);
     bool isAnonymous = (bool)(ViewBag.IsAnonymous ?? true);
+    bool isCurrentWinner = (bool)(ViewBag.IsCurrentWinner ?? false);
+
+    bool isStealable = Model.ListingType == ListingType.Stealable;
+    bool stealWindowOpen = isStealable
+                           && Model.Status == ItemStatus.Reserved
+                           && Model.StealEndsAt.HasValue
+                           && DateTime.UtcNow <= Model.StealEndsAt.Value;
 
     @* Derive a display name from the seller's email: take the part before '@' *@
     string sellerDisplay = Model.User is not null
@@ -2673,11 +1723,16 @@ namespace ThriftLoop.Views.Items
         "Fair" => "detail-condition--fair",
         _ => "detail-condition--poor"
     };
+
+    @* Price label changes for Stealable listings to reflect dynamic nature *@
+    string priceLabel = isStealable ? "Starting price" : "Fixed price";
+    if (isStealable && Model.Status == ItemStatus.Reserved)
+        priceLabel = "Current price";
 }
 
 <div class="detail-shell">
 
-    @* ── Back navigation ──────────────────────────────────────────────────── *@
+    @* ── Back navigation ────────────────────────────────────────────────────── *@
     <nav class="detail-breadcrumb" aria-label="Breadcrumb">
         <a asp-action="Index" asp-controller="Home" class="detail-breadcrumb__link">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -2687,12 +1742,12 @@ namespace ThriftLoop.Views.Items
         </a>
     </nav>
 
-    @* ── Two-column layout ────────────────────────────────────────────────── *@
+    @* ── Two-column layout ──────────────────────────────────────────────────── *@
     <div class="detail-grid">
 
-        @* ════════════════════════════════════════
+        @* ════════════════════════════════
            LEFT — Image
-           ════════════════════════════════════════ *@
+           ════════════════════════════════ *@
         <aside class="detail-img-col">
 
             <div class="detail-img-frame">
@@ -2714,6 +1769,17 @@ namespace ThriftLoop.Views.Items
                         <span>No photo</span>
                     </div>
                 }
+
+                @* Stealable badge overlaid on the image — visible on both columns *@
+                @if (isStealable)
+                {
+                    <span class="detail-stealable-badge" aria-label="Stealable listing">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true">
+                            <path d="M8.75 3.75a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" />
+                        </svg>
+                        Stealable
+                    </span>
+                }
             </div>
 
             @* Seller card — desktop: in the image column *@
@@ -2732,9 +1798,9 @@ namespace ThriftLoop.Views.Items
 
         </aside>
 
-        @* ════════════════════════════════════════
+        @* ════════════════════════════════
            RIGHT — Details
-           ════════════════════════════════════════ *@
+           ════════════════════════════════ *@
         <section class="detail-info-col">
 
             @* Category + condition + size badges *@
@@ -2745,16 +1811,81 @@ namespace ThriftLoop.Views.Items
                 {
                     <span class="detail-size">@Model.Size</span>
                 }
+                @if (isStealable)
+                {
+                    <span class="detail-listing-type-badge">
+                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                            <path d="M7 1a6 6 0 100 12A6 6 0 007 1zm.6 8.9H6.4V6.4h1.2v3.5zm0-4.6H6.4V4.1h1.2v1.2z" />
+                        </svg>
+                        Stealable
+                    </span>
+                }
             </div>
 
             @* Title *@
             <h1 class="detail-title">@Model.Title</h1>
 
-            @* Price — deliberately prominent *@
+            @* Price block *@
             <div class="detail-price-block">
                 <span class="detail-price">₱@Model.Price.ToString("N2")</span>
-                <span class="detail-price-label">Fixed price</span>
+                <span class="detail-price-label">@priceLabel</span>
+                @if (isStealable && Model.Status == ItemStatus.Available)
+                {
+                    <span class="detail-steal-note">+₱50 if stolen</span>
+                }
             </div>
+
+            @* ── Stealable countdown / status banner ────────────────────────── *@
+            @if (isStealable && Model.Status == ItemStatus.Reserved && Model.StealEndsAt.HasValue)
+            {
+                if (stealWindowOpen)
+                {
+                    <div class="steal-countdown-card" id="stealCountdownCard">
+                        <div class="steal-countdown-card__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="steal-countdown-card__body">
+                            <p class="steal-countdown-card__label">Steal window closes in</p>
+                            <p class="steal-countdown-card__timer"
+                               id="stealTimer"
+                               data-ends-at="@(DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O"))">
+                                ——:——:——
+                            </p>
+                        </div>
+                    </div>
+                }
+                else if (Model.IsInFinalizeWindow)
+                {
+                    <div class="steal-countdown-card steal-countdown-card--finalize">
+                        <div class="steal-countdown-card__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="steal-countdown-card__body">
+                            <p class="steal-countdown-card__label">Steal window closed — finalise window open</p>
+                            <p class="steal-countdown-card__timer"
+                               id="finalizeTimer"
+                               data-ends-at="@(DateTime.SpecifyKind(Model.FinalizeDeadline!.Value, DateTimeKind.Utc).ToString("O"))">
+                                ——:——:——
+                            </p>
+                        </div>
+                    </div>
+                }
+            }
+
+            @* Sold notice — shown for both Stealable and Standard sold items *@
+            @if (Model.Status == ItemStatus.Sold)
+            {
+                <div class="steal-sold-notice">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                    </svg>
+                    This item has been sold.
+                </div>
+            }
 
             <hr class="detail-divider" />
 
@@ -2781,6 +1912,13 @@ namespace ThriftLoop.Views.Items
                         <span class="detail-fact__value">@Model.Size</span>
                     </div>
                 }
+                @if (isStealable)
+                {
+                    <div class="detail-fact">
+                        <span class="detail-fact__label">Steal window</span>
+                        <span class="detail-fact__value">@Model.StealDurationHours hr</span>
+                    </div>
+                }
                 <div class="detail-fact">
                     <span class="detail-fact__label">Item ID</span>
                     <span class="detail-fact__value">#@Model.Id</span>
@@ -2803,7 +1941,9 @@ namespace ThriftLoop.Views.Items
 
             <hr class="detail-divider" />
 
-            @* ── Action buttons ─────────────────────────────────────────── *@
+            @* ── Action buttons ──────────────────────────────────────────────── *@
+
+            @* ── 1. Owner ──────────────────────────────────────────────── *@
             @if (isOwner)
             {
                 <div class="detail-actions">
@@ -2833,6 +1973,8 @@ namespace ThriftLoop.Views.Items
                     <a asp-action="Index" asp-controller="Items">View all your listings →</a>
                 </p>
             }
+
+            @* ── 2. Anonymous visitor ──────────────────────────────────── *@
             else if (isAnonymous)
             {
                 <div class="detail-actions">
@@ -2859,20 +2001,184 @@ namespace ThriftLoop.Views.Items
                     to purchase this item.
                 </p>
             }
+
+            @* ── 3. Authenticated buyer ────────────────────────────────── *@
             else
             {
-                <div class="detail-actions">
-                    <button type="button" class="detail-btn detail-btn--buy" disabled>
-                        Buy Now
-                    </button>
-                    <button type="button" class="detail-btn detail-btn--cart" disabled>
-                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
-                            <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
-                        </svg>
-                        Add to Cart
-                    </button>
-                </div>
+                @* ══════════════════════════════════
+                   3a. STANDARD listing
+                   ══════════════════════════════════ *@
+                @if (!isStealable)
+                {
+                    @* Item already sold — no purchase action available *@
+                    @if (Model.Status == ItemStatus.Sold)
+                    {
+                        @* Sold notice rendered above the divider already handles this;
+                           no additional button is needed here. *@
+                    }
+                    else
+                    {
+                        @* Available — route through BuyNow → Orders/Checkout *@
+                        <div class="detail-actions">
+                            <a asp-action="BuyNow"
+                               asp-controller="Items"
+                               asp-route-id="@Model.Id"
+                               class="detail-btn detail-btn--buy">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                </svg>
+                                Buy Now
+                            </a>
+                        </div>
+                    }
+                }
+
+                @* ══════════════════════════════════
+                   3b. STEALABLE — Available
+                   First buyer to click "Get" claims the base price and starts the timer.
+                   ══════════════════════════════════ *@
+                else if (Model.Status == ItemStatus.Available)
+                {
+                    <div class="detail-actions">
+                        <form asp-action="GetItem"
+                              asp-controller="Items"
+                              asp-route-id="@Model.Id"
+                              method="post">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="detail-btn detail-btn--get">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                </svg>
+                                Get this Item
+                            </button>
+                        </form>
+                    </div>
+                    <p class="detail-steal-explainer">
+                        Claiming this item reserves it at the base price. Another buyer can Steal it
+                        — adding ₱50 — within the @Model.StealDurationHours-hour window.
+                        If no one steals it, the item is yours to finalise.
+                    </p>
+                }
+
+                @* ══════════════════════════════════
+                   3c. STEALABLE — Reserved
+                   Subdivide by who the current user is relative to the reservation.
+                   ══════════════════════════════════ *@
+                else if (Model.Status == ItemStatus.Reserved)
+                {
+                    @* Current user holds the reservation *@
+                    @if (isCurrentWinner)
+                    {
+                        @if (Model.IsInFinalizeWindow)
+                        {
+                            @* Steal window has closed; winner can now finalise *@
+                            <div class="detail-actions">
+                                <a asp-action="Checkout"
+                                   asp-controller="Orders"
+                                   asp-route-itemId="@Model.Id"
+                                   class="detail-btn detail-btn--complete">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                    </svg>
+                                    Complete Purchase
+                                </a>
+                            </div>
+                            <p class="detail-steal-explainer detail-steal-explainer--winner">
+                                The steal window has closed — the item is yours! Finalise your
+                                purchase before your 2-hour grace period expires.
+                            </p>
+                        }
+                        else
+                        {
+                            @* Still inside the steal window — user can only wait *@
+                            <div class="detail-actions detail-actions--waiting">
+                                <div class="detail-winner-notice">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>You hold this item at <strong>₱@Model.Price.ToString("N2")</strong>. Watch the countdown — if no one steals it, you can finalise once the timer hits zero.</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @* Another buyer holds the reservation *@
+                        @if (stealWindowOpen)
+                        {
+                            @* Steal window still open — this buyer can steal *@
+                            <div class="detail-actions">
+                                <form asp-action="StealItem"
+                                      asp-controller="Items"
+                                      asp-route-id="@Model.Id"
+                                      method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="detail-btn detail-btn--steal">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                                        </svg>
+                                        Steal this Item
+                                        <span class="detail-btn__badge">+₱50</span>
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="detail-steal-explainer">
+                                Someone has already claimed this item. Steal it now — the price
+                                jumps by ₱50 and you'll be taken directly to checkout.
+                                This can only happen once.
+                            </p>
+                        }
+                        else if (Model.IsInFinalizeWindow)
+                        {
+                            @* Window expired and original winner is finalising — locked out *@
+                            <div class="detail-actions detail-actions--waiting">
+                                <div class="detail-locked-notice">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>The steal window has closed. The original buyer is finalising their purchase.</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            @* Reserved but in an indeterminate state — show disabled placeholder *@
+                            <div class="detail-actions">
+                                <button type="button" class="detail-btn detail-btn--buy" disabled>
+                                    Unavailable
+                                </button>
+                            </div>
+                        }
+                    }
+                }
+
+                @* ══════════════════════════════════
+                   3d. STEALABLE — Sold
+                   The steal winner's checkout redirect handles this normally.
+                   This branch covers anyone else viewing a sold Stealable item.
+                   ══════════════════════════════════ *@
+                else if (isStealable && Model.Status == ItemStatus.Sold)
+                {
+                    @* Sold notice already rendered above; no button needed *@
+                    @if (isCurrentWinner)
+                    {
+                        @* The stealer lands here before confirming — send them to checkout *@
+                        <div class="detail-actions">
+                            <a asp-action="Checkout"
+                               asp-controller="Orders"
+                               asp-route-itemId="@Model.Id"
+                               class="detail-btn detail-btn--complete">
+                                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                </svg>
+                                Complete Purchase
+                            </a>
+                        </div>
+                    }
+                }
             }
 
         </section>
@@ -2880,6 +2186,329 @@ namespace ThriftLoop.Views.Items
     </div>
 
 </div>
+
+@section Scripts {
+    <style>
+        /* ── Stealable badge on image ──────────────────────────────────────── */
+        .detail-img-frame {
+            position: relative;
+        }
+
+        .detail-stealable-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 4px 9px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.18);
+            z-index: 2;
+        }
+
+        /* ── Listing-type badge in meta row ───────────────────────────────── */
+        .detail-listing-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 12%, transparent);
+            color: var(--color-primary, #2d5a27);
+            border: 1px solid color-mix(in srgb, var(--color-primary, #2d5a27) 25%, transparent);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 3px 8px;
+            border-radius: 5px;
+        }
+
+        /* ── Steal note next to price ──────────────────────────────────────── */
+        .detail-steal-note {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-primary, #2d5a27);
+            font-weight: 500;
+            margin-left: 0.25rem;
+            align-self: flex-end;
+            padding-bottom: 2px;
+        }
+
+        /* ── Countdown card ───────────────────────────────────────────────── */
+        .steal-countdown-card {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 7%, transparent);
+            border: 1px solid color-mix(in srgb, var(--color-primary, #2d5a27) 20%, transparent);
+            border-radius: 10px;
+            padding: 0.875rem 1rem;
+            margin: 1rem 0;
+        }
+
+        .steal-countdown-card--finalize {
+            background: color-mix(in srgb, #b45309 7%, transparent);
+            border-color: color-mix(in srgb, #b45309 20%, transparent);
+        }
+
+            .steal-countdown-card--finalize .steal-countdown-card__icon {
+                color: #b45309;
+            }
+
+            .steal-countdown-card--finalize .steal-countdown-card__timer {
+                color: #b45309;
+            }
+
+        .steal-countdown-card__icon {
+            color: var(--color-primary, #2d5a27);
+            flex-shrink: 0;
+        }
+
+        .steal-countdown-card__body {
+            flex: 1;
+        }
+
+        .steal-countdown-card__label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            color: var(--color-muted, #6b6560);
+            margin: 0 0 2px;
+        }
+
+        .steal-countdown-card__timer {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            color: var(--color-primary, #2d5a27);
+            letter-spacing: 0.04em;
+            margin: 0;
+        }
+
+        /* ── Sold notice ──────────────────────────────────────────────────── */
+        .steal-sold-notice {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--color-muted, #6b6560);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.75rem 0;
+        }
+
+        /* ── Action button variants ───────────────────────────────────────── */
+
+        /* Get — forest green primary */
+        .detail-btn--get {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+            .detail-btn--get:hover {
+                background: color-mix(in srgb, var(--color-primary, #2d5a27) 85%, #000);
+            }
+
+            .detail-btn--get:active {
+                transform: scale(0.98);
+            }
+
+        /* Steal — rich amber/gold to signal competition */
+        .detail-btn--steal {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #92400e;
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+            .detail-btn--steal:hover {
+                background: #78350f;
+            }
+
+            .detail-btn--steal:active {
+                transform: scale(0.98);
+            }
+
+        .detail-btn__badge {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255,255,255,.2);
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 1px 6px;
+            margin-left: 2px;
+        }
+
+        /* Complete — deep forest, slightly different from Get for clear distinction */
+        .detail-btn--complete {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #1a3d16;
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+            .detail-btn--complete:hover {
+                background: #122b0f;
+            }
+
+            .detail-btn--complete:active {
+                transform: scale(0.98);
+            }
+
+        /* Inline explainer text below the action buttons */
+        .detail-steal-explainer {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-muted, #6b6560);
+            margin-top: 0.625rem;
+            line-height: 1.55;
+        }
+
+        .detail-steal-explainer--winner {
+            color: var(--color-primary, #2d5a27);
+        }
+
+        /* Winner / locked notice boxes */
+        .detail-winner-notice,
+        .detail-locked-notice {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .detail-winner-notice {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--color-primary, #2d5a27) 22%, transparent);
+            color: color-mix(in srgb, var(--color-primary, #2d5a27) 80%, #000);
+        }
+
+            .detail-winner-notice svg {
+                color: var(--color-primary, #2d5a27);
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+
+        .detail-locked-notice {
+            background: color-mix(in srgb, #6b7280 8%, transparent);
+            border: 1px solid color-mix(in srgb, #6b7280 22%, transparent);
+            color: #4b5563;
+        }
+
+            .detail-locked-notice svg {
+                color: #6b7280;
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+
+        .detail-actions--waiting {
+            margin-bottom: 0.25rem;
+        }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // ── Generic countdown helper ─────────────────────────────────────
+            // Accepts a <p> element with data-ends-at (ISO 8601 UTC string).
+            // Updates its text every second. Stops when the deadline passes.
+            function startCountdown(el) {
+                if (!el) return;
+
+                var endsAt = new Date(el.dataset.endsAt);
+
+                // If the deadline has already passed when the page loads, do
+                // nothing — the server-rendered Razor block already shows the
+                // correct post-expiry state (finalise window / locked notice).
+                // Without this guard a just-expired timer would call reload()
+                // on the very first tick and cause an infinite refresh loop.
+                if (endsAt <= new Date()) {
+                    el.textContent = '00:00:00';
+                    return;
+                }
+
+                var intervalId = null;
+
+                function tick() {
+                    var now    = new Date();
+                    var diffMs = endsAt - now;
+
+                    if (diffMs <= 0) {
+                        el.textContent = '00:00:00';
+                        // Stop ticking BEFORE reloading so the interval
+                        // cannot fire again if the reload takes a moment.
+                        clearInterval(intervalId);
+                        // One-shot reload — the page re-renders with the
+                        // correct Razor state for the new phase.
+                        window.location.reload();
+                        return;
+                    }
+
+                    var totalSecs = Math.floor(diffMs / 1000);
+                    var h = Math.floor(totalSecs / 3600);
+                    var m = Math.floor((totalSecs % 3600) / 60);
+                    var s = totalSecs % 60;
+
+                    el.textContent =
+                        String(h).padStart(2, '0') + ':' +
+                        String(m).padStart(2, '0') + ':' +
+                        String(s).padStart(2, '0');
+                }
+
+                tick();
+                intervalId = setInterval(tick, 1000);
+            }
+
+            // Start whichever timer is present on the page.
+            startCountdown(document.getElementById('stealTimer'));
+            startCountdown(document.getElementById('finalizeTimer'));
+
+        }());
+    </script>
+}
 
 
 
@@ -3567,6 +3196,714 @@ namespace ThriftLoop.Views.Items
 
 
 
+--- Views/Orders/Checkout.cshtml ---
+
+@model ThriftLoop.ViewModels.CheckoutViewModel
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "Confirm Purchase";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string condClass = Model.ItemCondition switch
+    {
+        "New" => "detail-condition--new",
+        "Like New" => "detail-condition--like-new",
+        "Good" => "detail-condition--good",
+        "Fair" => "detail-condition--fair",
+        _ => "detail-condition--poor"
+    };
+}
+
+<div class="co-shell">
+
+    @* ── Back navigation ────────────────────────────────────────────────────── *@
+    <nav class="co-breadcrumb" aria-label="Breadcrumb">
+        <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+           class="co-breadcrumb__link">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to listing
+        </a>
+    </nav>
+
+    <header class="co-header">
+        <h1 class="co-header__title">Confirm Your Purchase</h1>
+        <p class="co-header__subtitle">Review the details below before finalising.</p>
+    </header>
+
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="co-alert co-alert--error" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            @errMsg
+            @if (errMsg.Contains("wallet") || errMsg.Contains("balance"))
+            {
+                <a asp-action="AddFunds" asp-controller="Wallet" class="co-alert__link">Add funds →</a>
+            }
+        </div>
+    }
+
+    <div class="co-grid">
+
+        @* ════════════ LEFT — Item summary ════════════ *@
+        <div class="co-summary-col">
+
+            <div class="co-item-card">
+                <div class="co-item-card__img-wrap">
+                    @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+                    {
+                        <img src="@Model.ItemImageUrl" alt="Photo of @Model.ItemTitle"
+                             class="co-item-card__img" loading="eager" />
+                    }
+                    else
+                    {
+                        <div class="co-item-card__img co-item-card__img--placeholder" aria-hidden="true">
+                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                                <rect x="6" y="10" width="52" height="44" rx="6" />
+                                <circle cx="22" cy="26" r="6" />
+                                <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                    }
+                    @if (Model.IsStealable)
+                    {
+                        <span class="co-item-card__stealable-badge">
+                            <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                            </svg>
+                            @(Model.WasStolen ? "Stolen" : "Stealable")
+                        </span>
+                    }
+                </div>
+
+                <div class="co-item-card__body">
+                    <div class="co-item-card__meta">
+                        <span class="co-item-card__category">@Model.ItemCategory</span>
+                        <span class="co-item-card__condition @condClass">@Model.ItemCondition</span>
+                        @if (!string.IsNullOrEmpty(Model.ItemSize))
+                        {
+                            <span class="co-item-card__size">@Model.ItemSize</span>
+                        }
+                    </div>
+                    <h2 class="co-item-card__title">@Model.ItemTitle</h2>
+                    <div class="co-item-card__seller">
+                        <div class="co-item-card__seller-avatar" aria-hidden="true">
+                            @char.ToUpper(Model.SellerName.FirstOrDefault())
+                        </div>
+                        <div>
+                            <p class="co-item-card__seller-label">Sold by</p>
+                            <p class="co-item-card__seller-name">@Model.SellerName</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="co-p2p-notice" role="note">
+                <div class="co-p2p-notice__icon" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="co-p2p-notice__body">
+                    <p class="co-p2p-notice__heading">This is a P2P transaction</p>
+                    <p class="co-p2p-notice__text">
+                        ThriftLoop connects buyers and sellers directly. After confirming,
+                        coordinate with <strong>@Model.SellerName</strong> for pickup or shipping.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        @* ════════════ RIGHT — Price breakdown + confirm ════════════ *@
+        <div class="co-order-col">
+
+            <div class="co-breakdown">
+
+                <h2 class="co-breakdown__heading">Order Summary</h2>
+
+                <div class="co-breakdown__rows">
+                    <div class="co-breakdown__row">
+                        <span class="co-breakdown__label">
+                            @(Model.WasStolen ? "Base price" : Model.ItemTitle)
+                        </span>
+                        <span class="co-breakdown__value">₱@Model.BasePrice.ToString("N2")</span>
+                    </div>
+
+                    @if (Model.WasStolen)
+                    {
+                        <div class="co-breakdown__row co-breakdown__row--steal">
+                            <span class="co-breakdown__label">
+                                <svg viewBox="0 0 14 14" fill="currentColor" width="11" height="11"
+                                     aria-hidden="true" class="co-breakdown__steal-icon">
+                                    <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                                </svg>
+                                Steal premium
+                            </span>
+                            <span class="co-breakdown__value co-breakdown__value--steal">
+                                +₱@Model.StealPremium.ToString("N2")
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                <div class="co-breakdown__divider" aria-hidden="true"></div>
+
+                <div class="co-breakdown__total-row">
+                    <span class="co-breakdown__total-label">Total</span>
+                    <span class="co-breakdown__total-value">₱@Model.FinalPrice.ToString("N2")</span>
+                </div>
+
+                @* ── Payment method selector ──────────────────────────────── *@
+                <div class="co-pay-section">
+                    <h3 class="co-pay-section__heading">Payment method</h3>
+
+                    <div class="co-pay-options" id="payOptions">
+
+                        @* Wallet option *@
+                        <label class="co-pay-option @(Model.HasSufficientBalance ? "" : "co-pay-option--disabled")"
+                               id="payWalletLabel">
+                            <input type="radio"
+                                   name="__payMethod"
+                                   value="Wallet"
+                                   class="co-pay-radio"
+                                   id="payWallet"
+                                   @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                            <div class="co-pay-option__icon">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                    <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25zM3.75 7A.75.75 0 013 6.25v-.5A2.75 2.75 0 015.75 3h8.5A2.75 2.75 0 0117 5.75v.5a.75.75 0 01-.75.75h-12.5z" />
+                                    <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="co-pay-option__body">
+                                <p class="co-pay-option__name">ThriftLoop Wallet</p>
+                                <p class="co-pay-option__detail">
+                                    Balance: <strong>₱@Model.BuyerBalance.ToString("N2")</strong>
+                                    @if (!Model.HasSufficientBalance)
+                                    {
+                                        <span class="co-pay-option__insufficient">
+                                            — insufficient
+                                            (<a asp-action="AddFunds" asp-controller="Wallet">add funds</a>)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <text> · funds held in escrow until delivery</text>
+                                    }
+                                </p>
+                            </div>
+                        </label>
+
+                        @* Cash on Delivery option *@
+                        <label class="co-pay-option" id="payCodLabel">
+                            <input type="radio"
+                                   name="__payMethod"
+                                   value="Cash"
+                                   class="co-pay-radio"
+                                   id="payCod"
+                                   @(!Model.HasSufficientBalance ? "checked" : "") />
+                            <div class="co-pay-option__icon">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.798 7.45c.512-.67 1.135-.95 1.702-.95s1.19.28 1.702.95a.75.75 0 001.192-.91C12.637 5.55 11.596 5 10.5 5s-2.137.55-2.894 1.54A4.501 4.501 0 007 9.5c0 1.079.37 2.077 1 2.879V14a.75.75 0 001.5 0v-1.734c-.35-.588-.5-1.14-.5-1.766 0-.863.275-1.61.798-2.05zM10 14.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="co-pay-option__body">
+                                <p class="co-pay-option__name">Cash on Delivery</p>
+                                <p class="co-pay-option__detail">Pay cash when your item arrives</p>
+                            </div>
+                        </label>
+
+                    </div>
+                </div>
+
+                @* Confirm form — paymentMethod is injected by JS from the radio *@
+                <form asp-action="ConfirmOrder"
+                      asp-controller="Orders"
+                      method="post"
+                      id="confirmForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="itemId" value="@Model.ItemId" />
+                    <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                           value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+
+                    <button type="submit" class="co-confirm-btn" id="confirmBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                        </svg>
+                        Confirm Purchase
+                    </button>
+                </form>
+
+                <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+                   class="co-cancel-link">
+                    Cancel and go back
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <style>
+        .co-alert__link {
+            margin-left: 0.75rem;
+            font-weight: 600;
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        /* ── Payment method selector ───────────────────────────────────────── */
+        .co-pay-section {
+            margin-top: 1.25rem;
+        }
+
+        .co-pay-section__heading {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-muted, #8a8278);
+            margin: 0 0 0.75rem;
+        }
+
+        .co-pay-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+        }
+
+        .co-pay-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+            .co-pay-option:has(.co-pay-radio:checked) {
+                border-color: var(--color-primary, #2d5a27);
+                background: color-mix(in srgb, var(--color-primary, #2d5a27) 4%, transparent);
+            }
+
+        .co-pay-option--disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .co-pay-radio {
+            display: none;
+        }
+
+        .co-pay-option__icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+            color: var(--color-primary, #2d5a27);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .co-pay-option__name {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+            margin: 0 0 2px;
+        }
+
+        .co-pay-option__detail {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0;
+        }
+
+        .co-pay-option__insufficient {
+            color: #b91c1c;
+        }
+
+            .co-pay-option__insufficient a {
+                color: #b91c1c;
+                font-weight: 600;
+            }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var radios      = document.querySelectorAll('.co-pay-radio');
+            var hiddenInput = document.getElementById('paymentMethodInput');
+            var form        = document.getElementById('confirmForm');
+            var btn         = document.getElementById('confirmBtn');
+
+            // Keep hidden input in sync with radio selection.
+            radios.forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    if (hiddenInput) hiddenInput.value = radio.value;
+                });
+            });
+
+            // Disable the confirm button after first click.
+            if (form && btn) {
+                form.addEventListener('submit', function () {
+                    btn.disabled = true;
+                    btn.innerHTML =
+                        '<svg class="co-spin" viewBox="0 0 20 20" fill="currentColor" ' +
+                        'width="16" height="16" aria-hidden="true">' +
+                        '<path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".3"/>' +
+                        '<path d="M10 3a7 7 0 017 7h-1.5A5.5 5.5 0 0010 4.5V3z"/>' +
+                        '</svg> Confirming\u2026';
+                });
+            }
+
+        }());
+    </script>
+}
+
+
+
+--- Views/Orders/MyPurchases.cshtml ---
+
+@model IReadOnlyList<ThriftLoop.Models.Order>
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "My Purchases";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="mp-shell">
+
+    <header class="mp-header">
+        <div>
+            <h1 class="mp-header__title">My Purchases</h1>
+            <p class="mp-header__subtitle">
+                @Model.Count order@(Model.Count == 1 ? "" : "s") placed
+            </p>
+        </div>
+        <div class="mp-header__actions">
+            <a asp-action="Index" asp-controller="Wallet" class="btn btn--ghost mp-wallet-link">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15" aria-hidden="true">
+                    <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25z" />
+                    <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                </svg>
+                My Wallet
+            </a>
+            <a asp-action="Index" asp-controller="Home" class="btn btn--ghost mp-header__cta">
+                Browse listings
+            </a>
+        </div>
+    </header>
+
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mp-toast mp-toast--success" id="mpToast" role="status">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+            </svg>
+            @successMsg
+        </div>
+    }
+    @if (TempData["InfoMessage"] is string infoMsg)
+    {
+        <div class="mp-toast mp-toast--info" id="mpToast" role="status">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+            </svg>
+            @infoMsg
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="mp-toast mp-toast--error" id="mpToast" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            @errMsg
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="mp-empty">
+            <div class="mp-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <rect x="8" y="16" width="48" height="36" rx="6" />
+                    <path d="M22 16v-4a10 10 0 0120 0v4" stroke-linecap="round" />
+                    <path d="M24 36h16" stroke-linecap="round" />
+                </svg>
+            </div>
+            <h2 class="mp-empty__title">No purchases yet</h2>
+            <p class="mp-empty__body">Items you confirm will appear here.</p>
+            <a asp-action="Index" asp-controller="Home" class="btn btn--primary mp-empty__cta">
+                Browse listings
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="mp-list">
+            @foreach (var order in Model)
+            {
+                var sellerEmail = order.Seller?.Email ?? string.Empty;
+                var sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+
+                string statusClass = order.Status switch
+                {
+                    OrderStatus.Pending => "mp-status--pending",
+                    OrderStatus.Completed => "mp-status--completed",
+                    OrderStatus.Cancelled => "mp-status--cancelled",
+                    _ => ""
+                };
+
+                string statusLabel = order.Status switch
+                {
+                    OrderStatus.Pending => "Pending",
+                    OrderStatus.Completed => "Completed",
+                    OrderStatus.Cancelled => "Cancelled",
+                    _ => order.Status.ToString()
+                };
+
+                string payLabel = order.PaymentMethod switch
+                {
+                    PaymentMethod.Wallet => "Wallet (escrow)",
+                    PaymentMethod.Cash => "Cash on Delivery",
+                    _ => order.PaymentMethod.ToString()
+                };
+
+                bool canMarkDelivered = order.Status == OrderStatus.Pending;
+
+                <article class="mp-row">
+
+                    <div class="mp-row__img-wrap">
+                        @if (!string.IsNullOrEmpty(order.Item?.ImageUrl))
+                        {
+                            <img src="@order.Item.ImageUrl" alt="@order.Item?.Title"
+                                 class="mp-row__img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="mp-row__img mp-row__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4">
+                                    <rect x="3" y="5" width="26" height="22" rx="3" />
+                                    <circle cx="11" cy="13" r="3" />
+                                    <path d="M3 23l8-7 5 5 4-3 9 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mp-row__body">
+                        <div class="mp-row__top">
+                            <h3 class="mp-row__title">
+                                @(order.Item?.Title ?? "Item #" + order.ItemId)
+                            </h3>
+                            <span class="mp-status @statusClass">@statusLabel</span>
+                        </div>
+
+                        <p class="mp-row__seller">Seller: @sellerDisplay</p>
+
+                        @* Payment method pill *@
+                        <p class="mp-row__pay">
+                            <span class="mp-pay-pill mp-pay-pill--@(order.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
+                                @if (order.PaymentMethod == PaymentMethod.Wallet)
+                                {
+                                    <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M1 3.5A1.5 1.5 0 012.5 2h9A1.5 1.5 0 0113 3.5v7A1.5 1.5 0 0111.5 12h-9A1.5 1.5 0 011 10.5v-7zm10.5 2.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                        <path d="M7 1a6 6 0 100 12A6 6 0 007 1zm.6 8.9H6.4V6.4h1.2v3.5zm0-4.6H6.4V4.1h1.2v1.2z" />
+                                    </svg>
+                                }
+                                @payLabel
+                            </span>
+                        </p>
+
+                        <p class="mp-row__date">
+                            Ordered
+                            <time datetime="@order.OrderDate.ToString("yyyy-MM-ddTHH:mm:ssZ")">
+                                @order.OrderDate.ToString("MMMM d, yyyy · h:mm tt") UTC
+                            </time>
+                        </p>
+
+                        @* Mark Delivered — only visible on Pending orders *@
+                        @if (canMarkDelivered)
+                        {
+                            <form asp-action="MarkDelivered"
+                                  asp-controller="Orders"
+                                  asp-route-orderId="@order.Id"
+                                  method="post"
+                                  class="mp-deliver-form"
+                                  onsubmit="return confirm('Confirm delivery of this order? This will release payment to the seller.');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="mp-deliver-btn">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                    </svg>
+                                    I received this item
+                                </button>
+                            </form>
+                        }
+                    </div>
+
+                    <div class="mp-row__price-col">
+                        <span class="mp-row__price">₱@order.FinalPrice.ToString("N2")</span>
+                        <span class="mp-row__price-label">Final price</span>
+                    </div>
+
+                </article>
+            }
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+    <style>
+        .mp-header__actions {
+            display: flex;
+            gap: 0.625rem;
+            align-items: center;
+        }
+
+        .mp-wallet-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Toast variants */
+        .mp-toast {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.875rem 1.125rem;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 1.25rem;
+            transition: opacity 0.4s ease;
+        }
+
+        .mp-toast--success {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--color-primary, #2d5a27) 22%, transparent);
+            color: color-mix(in srgb, var(--color-primary, #2d5a27) 80%, #000);
+        }
+
+        .mp-toast--info {
+            background: color-mix(in srgb, #2563eb 8%, transparent);
+            border: 1px solid color-mix(in srgb, #2563eb 22%, transparent);
+            color: #1d4ed8;
+        }
+
+        .mp-toast--error {
+            background: color-mix(in srgb, #dc2626 8%, transparent);
+            border: 1px solid color-mix(in srgb, #dc2626 22%, transparent);
+            color: #b91c1c;
+        }
+
+        /* Payment method pill */
+        .mp-pay-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .mp-pay-pill--wallet {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .mp-pay-pill--cod {
+            background: color-mix(in srgb, #b45309 10%, transparent);
+            color: #92400e;
+        }
+
+        /* Deliver button */
+        .mp-deliver-form {
+            margin-top: 0.5rem;
+        }
+
+        .mp-deliver-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.45rem 0.875rem;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+            .mp-deliver-btn:hover {
+                background: color-mix(in srgb, var(--color-primary, #2d5a27) 85%, #000);
+            }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+            var toast = document.getElementById('mpToast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.opacity = '0';
+                    setTimeout(function () { toast.remove(); }, 400);
+                }, 5000);
+            }
+        }());
+    </script>
+}
+
+
+
+--- Views/Orders/MyPurchases.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Orders
+{
+    public class MyPurchasesModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+
 --- Views/Shared/Error.cshtml ---
 
 @model ErrorViewModel
@@ -3611,7 +3948,8 @@ namespace ThriftLoop.Views.Items
           rel="stylesheet">
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/ThriftLoop.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/navbar.css" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
 
@@ -3650,14 +3988,67 @@ namespace ThriftLoop.Views.Items
 
 
 
+--- Views/Shared/_Layout.cshtml.css ---
+
+/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+for details on configuring this project to bundle and minify static web assets. */
+
+a.navbar-brand {
+  white-space: normal;
+  text-align: center;
+  word-break: break-all;
+}
+
+a {
+  color: #0077cc;
+}
+
+.btn-primary {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.border-top {
+  border-top: 1px solid #e5e5e5;
+}
+.border-bottom {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.box-shadow {
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+}
+
+button.accept-policy {
+  font-size: 1rem;
+  line-height: inherit;
+}
+
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  white-space: nowrap;
+  line-height: 60px;
+}
+
+
+
 --- Views/Shared/_Navbar.cshtml ---
 
 @using System.Security.Claims
 
 @{
     var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
-                   ?? User.Identity?.Name
-                   ?? string.Empty;
+                      ?? User.Identity?.Name
+                      ?? string.Empty;
     var displayName = userEmail.Contains('@') ? userEmail.Split('@')[0] : userEmail;
     var currentPath = Context.Request.Path.Value ?? string.Empty;
 }
@@ -3673,10 +4064,9 @@ namespace ThriftLoop.Views.Items
             <li>
                 <a asp-controller="Home"
                    asp-action="Index"
-                   class="tl-nav__link @(currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                   class="tl-nav__link @(currentPath == "/" || currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
                     For You
                 </a>
-            </li>
             </li>
             <li class="tl-nav__divider" aria-hidden="true"></li>
             <li>
@@ -3694,23 +4084,90 @@ namespace ThriftLoop.Views.Items
             </li>
         </ul>
 
-        @* Right: user identity + sign-out *@
+        @* Right: user dropdown menu *@
         <div class="tl-nav__user">
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <span class="tl-nav__avatar" title="@userEmail">@char.ToUpper(displayName[0])</span>
-                <span class="tl-nav__name">@displayName</span>
+                <div class="tl-nav__dropdown">
+                    <button class="tl-nav__dropdown-toggle" id="userDropdown" aria-expanded="false">
+                        <span class="tl-nav__avatar" title="@userEmail">@char.ToUpper(displayName[0])</span>
+                        <span class="tl-nav__name">@displayName</span>
+                        <svg class="tl-nav__dropdown-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
 
-                <form asp-action="Logout" asp-controller="Auth" method="post" class="tl-nav__logout-form">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="tl-nav__signout">Sign out</button>
-                </form>
+                    <div class="tl-nav__dropdown-menu" id="userDropdownMenu">
+                        <div class="tl-nav__dropdown-header">
+                            <span class="tl-nav__dropdown-email">@userEmail</span>
+                        </div>
+
+                        <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                            </svg>
+                            Wallet
+                        </a>
+
+                        <a asp-controller="Orders" asp-action="MyPurchases" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Orders/MyPurchases", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                <path d="M1 2.5A1.5 1.5 0 012.5 1h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 01.44 1.061V13.5A1.5 1.5 0 018.5 15h-6A1.5 1.5 0 011 13.5v-11z" />
+                                <path d="M9 4.5V1a1 1 0 011-1h3.5a1.5 1.5 0 011.5 1.5v11a1.5 1.5 0 01-1.5 1.5h-4.5A1.5 1.5 0 019 13.5v-9z" />
+                            </svg>
+                            My Purchases
+                        </a>
+
+                        <div class="tl-nav__dropdown-divider"></div>
+
+                        <form asp-action="Logout" asp-controller="Auth" method="post" class="tl-nav__dropdown-form">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="tl-nav__dropdown-item tl-nav__dropdown-item--signout">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M2 2.75A2.75 2.75 0 014.75 0h5.5A2.75 2.75 0 0113 2.75v10.5A2.75 2.75 0 0110.25 16h-5.5A2.75 2.75 0 012 13.25v-10.5zM8.5 5a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0V5z" clip-rule="evenodd" />
+                                </svg>
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="tl-nav__auth">
+                    <a asp-controller="Auth" asp-action="Login" class="tl-nav__auth-link">Sign in</a>
+                    <a asp-controller="Auth" asp-action="Register" class="tl-nav__auth-link tl-nav__auth-link--primary">Sign up</a>
+                </div>
             }
         </div>
 
     </div>
 </nav>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdownToggle = document.getElementById('userDropdown');
+        const dropdownMenu = document.getElementById('userDropdownMenu');
+
+        if (dropdownToggle && dropdownMenu) {
+            dropdownToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', !isExpanded);
+                dropdownMenu.classList.toggle('show');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                    dropdownToggle.setAttribute('aria-expanded', 'false');
+                    dropdownMenu.classList.remove('show');
+                }
+            });
+        }
+    });
+</script>
 
 
 --- Views/Shared/_Navbar.cshtml.cs ---
@@ -3744,10 +4201,364 @@ namespace ThriftLoop.Views.Shared
 
 
 
---- wwwroot/js/site.js ---
+--- Views/Wallet/AddFunds.cshtml ---
 
-// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+@{
+    ViewData["Title"] = "Add Funds";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
 
-// Write your JavaScript code.
+<div class="addfunds-shell">
+
+    <nav class="detail-breadcrumb" aria-label="Breadcrumb">
+        <a asp-action="Index" asp-controller="Wallet" class="detail-breadcrumb__link">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to Wallet
+        </a>
+    </nav>
+
+    <div class="addfunds-card">
+
+        <div class="addfunds-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+            </svg>
+        </div>
+
+        <h1 class="addfunds-card__title">Add Funds</h1>
+        <p class="addfunds-card__subtitle">
+            Top up your ThriftLoop wallet to pay for items instantly with escrow protection.
+        </p>
+
+        @* ── Demo top-up (real gateway placeholder) ──────────────────────── *@
+        <div class="addfunds-demo-notice">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+            </svg>
+            <p>
+                <strong>Demo mode:</strong> This is a placeholder. In production this page will
+                integrate with GCash, Maya, or a bank transfer gateway. For now, entering an
+                amount will directly credit your wallet.
+            </p>
+        </div>
+
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div class="addfunds-alert" role="alert">@errMsg</div>
+        }
+
+        <form asp-action="AddFunds" method="post" class="addfunds-form" id="addFundsForm">
+            @Html.AntiForgeryToken()
+
+            <div class="addfunds-amount-wrap">
+                <span class="addfunds-amount-wrap__sym">₱</span>
+                <input type="number"
+                       name="amount"
+                       id="amountInput"
+                       class="addfunds-amount-input"
+                       placeholder="0.00"
+                       step="0.01"
+                       min="1"
+                       max="50000"
+                       required
+                       autocomplete="off" />
+            </div>
+
+            @* Quick-select amounts *@
+            <div class="addfunds-quick">
+                @foreach (var preset in new[] { 500, 1000, 2000, 5000 })
+                {
+                    <button type="button"
+                            class="addfunds-quick__btn"
+                            data-amount="@preset">
+                        ₱@preset.ToString("N0")
+                    </button>
+                }
+            </div>
+
+            <button type="submit" class="btn btn--primary addfunds-submit" id="addFundsBtn">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                </svg>
+                Add Funds to Wallet
+            </button>
+        </form>
+
+        @* ── Future gateway placeholders ──────────────────────────────────── *@
+        <div class="addfunds-methods">
+            <p class="addfunds-methods__label">Payment methods coming soon</p>
+            <div class="addfunds-methods__logos">
+                <span class="addfunds-method-pill">GCash</span>
+                <span class="addfunds-method-pill">Maya</span>
+                <span class="addfunds-method-pill">Bank Transfer</span>
+                <span class="addfunds-method-pill">Credit Card</span>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <style>
+        .addfunds-shell {
+            max-width: 480px;
+            margin: 2rem auto 4rem;
+        }
+
+        .addfunds-card {
+            background: var(--color-surface, #faf8f5);
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .addfunds-card__icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+            color: var(--color-primary, #2d5a27);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+        }
+
+        .addfunds-card__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.75rem;
+            color: var(--color-text, #1a1814);
+            margin: 0 0 0.5rem;
+        }
+
+        .addfunds-card__subtitle {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0 0 1.5rem;
+            line-height: 1.55;
+        }
+
+        .addfunds-demo-notice {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            background: color-mix(in srgb, #2563eb 8%, transparent);
+            border: 1px solid color-mix(in srgb, #2563eb 20%, transparent);
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            text-align: left;
+            margin-bottom: 1.5rem;
+            color: #1d4ed8;
+        }
+
+            .addfunds-demo-notice svg {
+                flex-shrink: 0;
+                margin-top: 2px;
+            }
+
+            .addfunds-demo-notice p {
+                font-family: 'DM Sans', sans-serif;
+                font-size: 0.8125rem;
+                margin: 0;
+                line-height: 1.55;
+                color: #1d4ed8;
+            }
+
+        .addfunds-alert {
+            background: color-mix(in srgb, #dc2626 8%, transparent);
+            border: 1px solid color-mix(in srgb, #dc2626 20%, transparent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            color: #b91c1c;
+            margin-bottom: 1rem;
+        }
+
+        .addfunds-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .addfunds-amount-wrap {
+            display: flex;
+            align-items: center;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            background: #fff;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+
+            .addfunds-amount-wrap:focus-within {
+                border-color: var(--color-primary, #2d5a27);
+            }
+
+        .addfunds-amount-wrap__sym {
+            padding: 0 0.875rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.1rem;
+            color: var(--color-muted, #8a8278);
+            border-right: 1.5px solid var(--color-border, #e2ddd6);
+        }
+
+        .addfunds-amount-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 0.875rem;
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            color: var(--color-text, #1a1814);
+            background: transparent;
+            width: 100%;
+        }
+
+        .addfunds-quick {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .addfunds-quick__btn {
+            padding: 0.4rem 0.875rem;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 6px;
+            background: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text, #1a1814);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+            .addfunds-quick__btn:hover,
+            .addfunds-quick__btn--active {
+                border-color: var(--color-primary, #2d5a27);
+                background: color-mix(in srgb, var(--color-primary, #2d5a27) 6%, transparent);
+                color: var(--color-primary, #2d5a27);
+            }
+
+        .addfunds-submit {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .addfunds-methods {
+            margin-top: 2rem;
+        }
+
+        .addfunds-methods__label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            color: var(--color-muted, #8a8278);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0 0 0.625rem;
+        }
+
+        .addfunds-methods__logos {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .addfunds-method-pill {
+            padding: 0.3rem 0.75rem;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 99px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            color: var(--color-muted, #8a8278);
+            opacity: 0.65;
+        }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var input   = document.getElementById('amountInput');
+            var form    = document.getElementById('addFundsForm');
+            var btn     = document.getElementById('addFundsBtn');
+            var presets = document.querySelectorAll('.addfunds-quick__btn');
+
+            presets.forEach(function (p) {
+                p.addEventListener('click', function () {
+                    if (!input) return;
+                    input.value = p.dataset.amount;
+                    presets.forEach(function (b) { b.classList.remove('addfunds-quick__btn--active'); });
+                    p.classList.add('addfunds-quick__btn--active');
+                });
+            });
+
+            if (input) {
+                input.addEventListener('input', function () {
+                    presets.forEach(function (b) { b.classList.remove('addfunds-quick__btn--active'); });
+                    presets.forEach(function (b) {
+                        if (b.dataset.amount === input.value) b.classList.add('addfunds-quick__btn--active');
+                    });
+                });
+            }
+
+            if (form && btn) {
+                form.addEventListener('submit', function () {
+                    btn.disabled = true;
+                    btn.textContent = 'Processing…';
+                });
+            }
+        }());
+    </script>
+}
+
+
+
+--- Views/Wallet/AddFunds.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Wallet
+{
+    public class AddFundsModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+
+--- Views/Wallet/Index.cshtml ---
+
+
+
+--- Views/Wallet/Index.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Wallet
+{
+    public class IndexModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+
+--- Views/Wallet/Withdraw.cshtml ---
 

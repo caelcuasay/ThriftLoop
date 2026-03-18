@@ -1,0 +1,453 @@
+﻿@model ThriftLoop.ViewModels.WithdrawViewModel
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "Withdraw Funds";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    decimal available = (decimal)(ViewBag.AvailableBalance ?? 0m);
+}
+
+<div class="wd-shell">
+
+    <nav class="detail-breadcrumb" aria-label="Breadcrumb">
+        <a asp-action="Index" asp-controller="Wallet" class="detail-breadcrumb__link">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to Wallet
+        </a>
+    </nav>
+
+    <div class="wd-card">
+
+        <div class="wd-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" />
+            </svg>
+        </div>
+
+        <h1 class="wd-card__title">Withdraw Funds</h1>
+        <p class="wd-card__subtitle">
+            Your available balance: <strong class="wd-card__balance">₱@available.ToString("N2")</strong>
+        </p>
+
+        <div class="wd-demo-notice">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+            </svg>
+            <p>
+                <strong>Demo mode:</strong> Withdrawal requests are queued for admin review.
+                In production, bank transfers will be processed automatically within 1–3 business days.
+            </p>
+        </div>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="wd-error-banner" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                <div asp-validation-summary="ModelOnly"></div>
+            </div>
+        }
+
+        <form asp-action="Withdraw" method="post" class="wd-form" id="wdForm">
+            @Html.AntiForgeryToken()
+
+            @* Amount *@
+            <div class="wd-field">
+                <label class="wd-field__label" for="amountInput">Amount (₱)</label>
+                <div class="wd-amount-wrap">
+                    <span class="wd-amount-wrap__sym">₱</span>
+                    <input asp-for="Amount"
+                           id="amountInput"
+                           class="wd-amount-input"
+                           type="number"
+                           step="0.01"
+                           min="1"
+                           max="@available"
+                           placeholder="0.00"
+                           autocomplete="off" />
+                </div>
+                <span asp-validation-for="Amount" class="wd-field__error"></span>
+
+                @* Withdraw all shortcut *@
+                @if (available > 0)
+                {
+                    <button type="button" class="wd-all-btn" id="withdrawAllBtn">
+                        Withdraw all (₱@available.ToString("N2"))
+                    </button>
+                }
+            </div>
+
+            @* Payout method *@
+            <div class="wd-field">
+                <p class="wd-field__label">Payout method</p>
+                <div class="wd-method-group">
+                    <label class="wd-method-option @(Model.Method == WithdrawalMethod.BankTransfer ? "wd-method-option--active" : "")">
+                        <input asp-for="Method"
+                               type="radio"
+                               value="@((int)WithdrawalMethod.BankTransfer)"
+                               class="wd-method-radio"
+                               checked="@(Model.Method == WithdrawalMethod.BankTransfer)" />
+                        <div class="wd-method-option__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 012.43 8.326 13.019 13.019 0 012 5V3.5z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="wd-method-option__name">Bank Transfer</p>
+                            <p class="wd-method-option__hint">1–3 business days</p>
+                        </div>
+                    </label>
+
+                    <label class="wd-method-option @(Model.Method == WithdrawalMethod.PickupLocation ? "wd-method-option--active" : "")">
+                        <input asp-for="Method"
+                               type="radio"
+                               value="@((int)WithdrawalMethod.PickupLocation)"
+                               class="wd-method-radio"
+                               checked="@(Model.Method == WithdrawalMethod.PickupLocation)" />
+                        <div class="wd-method-option__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="wd-method-option__name">Pickup Location</p>
+                            <p class="wd-method-option__hint">Same or next business day</p>
+                        </div>
+                    </label>
+                </div>
+                <span asp-validation-for="Method" class="wd-field__error"></span>
+            </div>
+
+            @* Reference *@
+            <div class="wd-field">
+                <label asp-for="Reference" class="wd-field__label">
+                    Reference
+                    <span class="wd-field__optional">optional</span>
+                </label>
+                <input asp-for="Reference"
+                       class="wd-field__input"
+                       placeholder="Bank account number or pickup ID…"
+                       maxlength="200" />
+                <span class="wd-field__hint" id="referenceHint">
+                    Your bank account number or preferred pickup reference.
+                </span>
+                <span asp-validation-for="Reference" class="wd-field__error"></span>
+            </div>
+
+            <button type="submit"
+                    class="btn btn--primary wd-submit"
+                    id="wdSubmitBtn"
+                    @(available <= 0 ? "disabled" : "")>
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
+                </svg>
+                Request Withdrawal
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <style>
+        .wd-shell {
+            max-width: 480px;
+            margin: 2rem auto 4rem;
+        }
+
+        .wd-card {
+            background: var(--color-surface, #faf8f5);
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .wd-card__icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+            color: var(--color-primary, #2d5a27);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+        }
+
+        .wd-card__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.75rem;
+            color: var(--color-text, #1a1814);
+            margin: 0 0 0.4rem;
+        }
+
+        .wd-card__subtitle {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0 0 1.5rem;
+        }
+
+        .wd-card__balance {
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .wd-demo-notice {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            background: color-mix(in srgb, #2563eb 8%, transparent);
+            border: 1px solid color-mix(in srgb, #2563eb 20%, transparent);
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            text-align: left;
+            margin-bottom: 1.5rem;
+            color: #1d4ed8;
+        }
+
+            .wd-demo-notice svg {
+                flex-shrink: 0;
+                margin-top: 2px;
+            }
+
+            .wd-demo-notice p {
+                font-family: 'DM Sans', sans-serif;
+                font-size: 0.8125rem;
+                margin: 0;
+                line-height: 1.55;
+                color: #1d4ed8;
+            }
+
+        .wd-error-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            background: color-mix(in srgb, #dc2626 8%, transparent);
+            border: 1px solid color-mix(in srgb, #dc2626 20%, transparent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            color: #b91c1c;
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        .wd-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            text-align: left;
+        }
+
+        .wd-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        .wd-field__label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+        }
+
+        .wd-field__optional {
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--color-muted, #8a8278);
+            margin-left: 0.375rem;
+        }
+
+        .wd-field__input {
+            padding: 0.75rem 0.875rem;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--color-text, #1a1814);
+            background: #fff;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+            .wd-field__input:focus {
+                border-color: var(--color-primary, #2d5a27);
+            }
+
+        .wd-field__hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            color: var(--color-muted, #8a8278);
+        }
+
+        .wd-field__error {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            color: #dc2626;
+        }
+
+        .wd-amount-wrap {
+            display: flex;
+            align-items: center;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            background: #fff;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+
+            .wd-amount-wrap:focus-within {
+                border-color: var(--color-primary, #2d5a27);
+            }
+
+        .wd-amount-wrap__sym {
+            padding: 0 0.875rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.1rem;
+            color: var(--color-muted, #8a8278);
+            border-right: 1.5px solid var(--color-border, #e2ddd6);
+        }
+
+        .wd-amount-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 0.875rem;
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            color: var(--color-text, #1a1814);
+            background: transparent;
+            width: 100%;
+        }
+
+        .wd-all-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8125rem;
+            color: var(--color-primary, #2d5a27);
+            cursor: pointer;
+            text-decoration: underline;
+            text-align: left;
+        }
+
+        .wd-method-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+        }
+
+        .wd-method-option {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            padding: 0.875rem 1rem;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+            .wd-method-option:hover,
+            .wd-method-option--active {
+                border-color: var(--color-primary, #2d5a27);
+                background: color-mix(in srgb, var(--color-primary, #2d5a27) 4%, transparent);
+            }
+
+        .wd-method-radio {
+            display: none;
+        }
+
+        .wd-method-option__icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+            color: var(--color-primary, #2d5a27);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .wd-method-option__name {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+            margin: 0 0 1px;
+        }
+
+        .wd-method-option__hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0;
+        }
+
+        .wd-submit {
+            width: 100%;
+            justify-content: center;
+        }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var amountInput = document.getElementById('amountInput');
+            var allBtn      = document.getElementById('withdrawAllBtn');
+            var wdForm      = document.getElementById('wdForm');
+            var wdSubmitBtn = document.getElementById('wdSubmitBtn');
+            var methodRadios = document.querySelectorAll('.wd-method-radio');
+            var methodLabels = document.querySelectorAll('.wd-method-option');
+
+            // "Withdraw all" shortcut
+            if (allBtn && amountInput) {
+                allBtn.addEventListener('click', function () {
+                    amountInput.value = amountInput.max;
+                });
+            }
+
+            // Sync method option visual state with radio selection
+            methodRadios.forEach(function (radio, i) {
+                radio.addEventListener('change', function () {
+                    methodLabels.forEach(function (lbl) { lbl.classList.remove('wd-method-option--active'); });
+                    if (radio.checked) methodLabels[i].classList.add('wd-method-option--active');
+                });
+            });
+
+            // Update reference hint based on method
+            var referenceHint = document.getElementById('referenceHint');
+            methodRadios.forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    if (!referenceHint) return;
+                    referenceHint.textContent = radio.value === '1'
+                        ? 'Your preferred pickup location or reference code.'
+                        : 'Your bank account number or preferred pickup reference.';
+                });
+            });
+
+            // Disable submit while in-flight
+            if (wdForm && wdSubmitBtn) {
+                wdForm.addEventListener('submit', function () {
+                    wdSubmitBtn.disabled = true;
+                    wdSubmitBtn.textContent = 'Submitting…';
+                });
+            }
+        }());
+    </script>
+}
