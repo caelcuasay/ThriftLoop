@@ -1,4 +1,6 @@
-﻿namespace ThriftLoop.Models;
+﻿using ThriftLoop.Enums;
+
+namespace ThriftLoop.Models;
 
 public class User
 {
@@ -22,4 +24,23 @@ public class User
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ── Role ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The account's current role. Defaults to User on registration.
+    /// Elevated to Seller only after an admin approves their SellerProfile application.
+    /// Role is stamped into the auth cookie claims on login so controllers can gate
+    /// access with a simple role check without hitting the database.
+    /// </summary>
+    public UserRole Role { get; set; } = UserRole.User;
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Populated only if this user has submitted or been approved as a Seller.
+    /// Null for regular Users and Riders. Use this to access shop branding data
+    /// and application status without joining through Items.
+    /// </summary>
+    public SellerProfile? SellerProfile { get; set; }
 }

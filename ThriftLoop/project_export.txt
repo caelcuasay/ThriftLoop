@@ -1,5 +1,6 @@
 ﻿Project Structure: C:\Users\LENOVO\source\repos\ThriftLoop\ThriftLoop
 Project Export
+Excludes: .css
 
 =========================================
 
@@ -8,6 +9,7 @@ Project Export
 |   +-- WalletConstants.cs
 |-- Controllers
 |   |-- AuthController.cs
+|   |-- BaseController.cs
 |   |-- HomeController.cs
 |   |-- ItemController.cs
 |   |-- OrdersController.cs
@@ -51,10 +53,12 @@ Project Export
 |   |-- Implementation
 |   |   |-- AuthService.cs
 |   |   |-- EmailService.cs
+|   |   |-- OrderService.cs
 |   |   +-- WalletService.cs
 |   +-- Interface
 |       |-- IAuthService.cs
 |       |-- IEmailService.cs
+|       |-- IOrderService.cs
 |       +-- IWalletService.cs
 |-- ViewModels
 |   |-- CheckOutViewModel.cs
@@ -338,6 +342,12 @@ public static class WalletConstants
 
     /// <summary>Minimum amount a seller can request in a single withdrawal.</summary>
     public const decimal MinWithdrawalAmount = 50m;
+
+    /// <summary>Maximum amount a user can top up in a single transaction.</summary>
+    public const decimal MaxTopUpAmount = 50_000m;
+
+    /// <summary>How many recent transactions to show on the Wallet dashboard.</summary>
+    public const int RecentTransactionCount = 30;
 }
 
 
@@ -626,16 +636,48 @@ public class AuthController : Controller
 }
 
 
---- Controllers/HomeController.cs ---
+--- Controllers/BaseController.cs ---
 
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+
+namespace ThriftLoop.Controllers;
+
+/// <summary>
+/// Shared base for all ThriftLoop controllers.
+/// Centralises cross-cutting helpers so they are never duplicated.
+/// </summary>
+public abstract class BaseController : Controller
+{
+    /// <summary>
+    /// Returns the authenticated user's ID parsed from the NameIdentifier claim,
+    /// or <c>null</c> for anonymous requests.
+    /// </summary>
+    protected int? ResolveUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(raw, out int id) ? id : null;
+    }
+
+    /// <summary>
+    /// Returns the authenticated user's ID, or throws <see cref="UnauthorizedAccessException"/>
+    /// if the claim is missing. Use in [Authorize] actions where null is never expected.
+    /// </summary>
+    protected int RequireUserId()
+        => ResolveUserId() ?? throw new UnauthorizedAccessException("User is not authenticated.");
+}
+
+
+--- Controllers/HomeController.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
 
 namespace ThriftLoop.Controllers;
 
-public class HomeController : Controller
+public class HomeController : BaseController
 {
     private readonly IItemRepository _itemRepository;
     private readonly ILogger<HomeController> _logger;
@@ -655,18 +697,10 @@ public class HomeController : Controller
     /// </summary>
     public async Task<IActionResult> Index()
     {
-        // Resolve the current user's ID â€” null for anonymous visitors.
-        int? currentUserId = null;
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (int.TryParse(rawId, out int parsedId))
-            currentUserId = parsedId;
-
-        var items = await _itemRepository.GetAllAsync();
-
         var viewModel = new HomeIndexViewModel
         {
-            Items = items,
-            CurrentUserId = currentUserId
+            Items = await _itemRepository.GetAllAsync(),
+            CurrentUserId = ResolveUserId()
         };
 
         return View(viewModel);
@@ -675,7 +709,7 @@ public class HomeController : Controller
     public IActionResult Privacy() => View();
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error() => View(new ThriftLoop.Models.ErrorViewModel
+    public IActionResult Error() => View(new ErrorViewModel
     {
         RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier
     });
@@ -1194,33 +1228,36 @@ public class ItemsController : Controller
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using ThriftLoop.Constants;
+using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
+using ThriftLoop.Services.OrderManagement.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
 using ThriftLoop.ViewModels;
-using ThriftLoop.Enums;
+
 namespace ThriftLoop.Controllers;
 
 [Authorize]
-public class OrdersController : Controller
+public class OrdersController : BaseController
 {
     private readonly IItemRepository _itemRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly IWalletService _walletService;
+    private readonly IOrderService _orderService;
     private readonly ILogger<OrdersController> _logger;
-
-    private const decimal StealPremium = 50m;
 
     public OrdersController(
         IItemRepository itemRepository,
         IOrderRepository orderRepository,
         IWalletService walletService,
+        IOrderService orderService,
         ILogger<OrdersController> logger)
     {
         _itemRepository = itemRepository;
         _orderRepository = orderRepository;
         _walletService = walletService;
+        _orderService = orderService;
         _logger = logger;
     }
 
@@ -1241,7 +1278,7 @@ public class OrdersController : Controller
             return RedirectToAction("Details", "Items", new { id = itemId });
         }
 
-        var (allowed, reason) = IsBuyerAllowedToCheckout(item, buyerId.Value);
+        var (allowed, reason) = _orderService.CanBuyerCheckout(item, buyerId.Value);
         if (!allowed)
         {
             TempData["ErrorMessage"] = reason;
@@ -1259,8 +1296,7 @@ public class OrdersController : Controller
         }
 
         var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
-        var viewModel = BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance);
-        return View(viewModel);
+        return View(BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance));
     }
 
     // ── CONFIRM ORDER ──────────────────────────────────────────────────────
@@ -1278,7 +1314,7 @@ public class OrdersController : Controller
         if (item.UserId == buyerId.Value)
             return Forbid();
 
-        var (allowed, reason) = IsBuyerAllowedToCheckout(item, buyerId.Value);
+        var (allowed, reason) = _orderService.CanBuyerCheckout(item, buyerId.Value);
         if (!allowed)
         {
             TempData["ErrorMessage"] = reason;
@@ -1313,20 +1349,17 @@ public class OrdersController : Controller
             if (!held)
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
-
                 TempData["ErrorMessage"] =
                     $"Insufficient wallet balance. You need ₱{finalPrice:N2} but your available balance is too low. " +
                     "Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
-            // Mark Sold now that the order is confirmed and funds are held.
             item.Status = ItemStatus.Sold;
             await _itemRepository.UpdateAsync(item);
 
             _logger.LogInformation(
-                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, " +
-                "Seller {SellerId}, ₱{FinalPrice}.",
+                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
                 tempOrder.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
 
             TempData["SuccessMessage"] =
@@ -1351,13 +1384,11 @@ public class OrdersController : Controller
 
         await _orderRepository.AddAsync(order);
 
-        // Mark Sold now that the order is confirmed.
         item.Status = ItemStatus.Sold;
         await _itemRepository.UpdateAsync(item);
 
         _logger.LogInformation(
-            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, " +
-            "Seller {SellerId}, ₱{FinalPrice}.",
+            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
             order.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
 
         TempData["SuccessMessage"] =
@@ -1434,69 +1465,20 @@ public class OrdersController : Controller
 
     // ── Private helpers ────────────────────────────────────────────────────
 
-    private int? ResolveUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(raw, out int id) ? id : null;
-    }
-
-    private static (bool allowed, string reason) IsBuyerAllowedToCheckout(Item item, int buyerId)
-    {
-        if (item.ListingType == ListingType.Stealable)
-        {
-            // ── Steal pending checkout ─────────────────────────────────────
-            // Stealer has bumped the price and needs to complete the order.
-            // Allow immediately — no finalize window required.
-            if (item.Status == ItemStatus.StolenPendingCheckout)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the buyer for this stolen item.");
-                return (true, string.Empty);
-            }
-
-            // ── Already sold (order exists) ────────────────────────────────
-            if (item.Status == ItemStatus.Sold)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the buyer for this item.");
-                return (true, string.Empty);
-            }
-
-            // ── Reserved — original getter in finalize window ──────────────
-            if (item.Status == ItemStatus.Reserved)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the current winner of this item.");
-                if (!item.IsInFinalizeWindow)
-                    return (false, "The purchase window for this item has not opened yet, or has expired.");
-                return (true, string.Empty);
-            }
-
-            return (false, "This item is not ready for checkout. Please claim it first.");
-        }
-
-        // ── Standard listing ───────────────────────────────────────────────
-        if (item.Status == ItemStatus.Sold)
-            return (false, "This item has already been sold.");
-        if (item.Status == ItemStatus.Reserved)
-            return (false, "This item is currently reserved by another buyer.");
-
-        return (true, string.Empty);
-    }
-
     private static CheckoutViewModel BuildCheckoutViewModel(Item item, int buyerId, decimal buyerBalance)
     {
-        // wasStolen: the buyer is checking out a steal — item is StolenPendingCheckout
-        // and they are the current winner who applied the ₱50 premium.
         bool wasStolen = item.ListingType == ListingType.Stealable
                       && item.Status == ItemStatus.StolenPendingCheckout
                       && item.CurrentWinnerId == buyerId;
 
-        decimal basePrice = wasStolen ? item.Price - StealPremium : item.Price;
-        decimal stealPremium = wasStolen ? StealPremium : 0m;
+        decimal basePrice = wasStolen
+            ? item.Price - ItemConstants.StealPremium
+            : item.Price;
 
         string sellerEmail = item.User?.Email ?? string.Empty;
-        string sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+        string sellerDisplay = sellerEmail.Contains('@')
+            ? sellerEmail.Split('@')[0]
+            : sellerEmail;
 
         return new CheckoutViewModel
         {
@@ -1509,7 +1491,6 @@ public class OrdersController : Controller
             SellerName = sellerDisplay,
             SellerEmail = sellerEmail,
             BasePrice = basePrice,
-            StealPremium = stealPremium,
             WasStolen = wasStolen,
             IsStealable = item.ListingType == ListingType.Stealable,
             BuyerBalance = buyerBalance
@@ -1522,8 +1503,7 @@ public class OrdersController : Controller
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.Models;
+using ThriftLoop.Constants;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
 using ThriftLoop.ViewModels;
@@ -1531,7 +1511,7 @@ using ThriftLoop.ViewModels;
 namespace ThriftLoop.Controllers;
 
 [Authorize]
-public class WalletController : Controller
+public class WalletController : BaseController
 {
     private readonly IWalletService _walletService;
     private readonly ITransactionRepository _txRepo;
@@ -1559,7 +1539,7 @@ public class WalletController : Controller
         if (userId is null) return Unauthorized();
 
         var wallet = await _walletService.GetOrCreateWalletAsync(userId.Value);
-        var transactions = await _txRepo.GetByUserIdAsync(userId.Value, take: 30);
+        var transactions = await _txRepo.GetByUserIdAsync(userId.Value, take: WalletConstants.RecentTransactionCount);
         var withdrawals = await _withdrawalRepo.GetByUserIdAsync(userId.Value);
 
         var vm = new WalletIndexViewModel
@@ -1574,7 +1554,7 @@ public class WalletController : Controller
         return View(vm);
     }
 
-    // ── ADD FUNDS (placeholder) ────────────────────────────────────────────
+    // ── ADD FUNDS (demo top-up) ────────────────────────────────────────────
 
     [HttpGet]
     public IActionResult AddFunds() => View();
@@ -1586,15 +1566,17 @@ public class WalletController : Controller
         var userId = ResolveUserId();
         if (userId is null) return Unauthorized();
 
-        if (amount <= 0 || amount > 50_000m)
+        if (amount <= 0 || amount > WalletConstants.MaxTopUpAmount)
         {
-            TempData["ErrorMessage"] = "Please enter an amount between ₱1 and ₱50,000.";
+            TempData["ErrorMessage"] =
+                $"Please enter an amount between ₱1 and ₱{WalletConstants.MaxTopUpAmount:N0}.";
             return View();
         }
 
         await _walletService.TopUpAsync(userId.Value, amount);
 
-        _logger.LogInformation("User {UserId} added ₱{Amount} to wallet (demo).", userId.Value, amount);
+        _logger.LogInformation(
+            "User {UserId} added ₱{Amount} to wallet (demo).", userId.Value, amount);
 
         TempData["SuccessMessage"] = $"₱{amount:N2} has been added to your wallet.";
         return RedirectToAction(nameof(Index));
@@ -1627,12 +1609,17 @@ public class WalletController : Controller
         if (!ModelState.IsValid)
             return View(vm);
 
-        if (vm.Amount <= 0 || vm.Amount > wallet.Balance)
+        if (vm.Amount < WalletConstants.MinWithdrawalAmount)
         {
             ModelState.AddModelError(nameof(vm.Amount),
-                vm.Amount <= 0
-                    ? "Amount must be greater than ₱0."
-                    : $"Insufficient balance. Your available balance is ₱{wallet.Balance:N2}.");
+                $"Minimum withdrawal amount is ₱{WalletConstants.MinWithdrawalAmount:N0}.");
+            return View(vm);
+        }
+
+        if (vm.Amount > wallet.Balance)
+        {
+            ModelState.AddModelError(nameof(vm.Amount),
+                $"Insufficient balance. Your available balance is ₱{wallet.Balance:N2}.");
             return View(vm);
         }
 
@@ -1652,14 +1639,6 @@ public class WalletController : Controller
         TempData["SuccessMessage"] =
             $"Withdrawal of ₱{vm.Amount:N2} requested. We'll process it within 1–3 business days.";
         return RedirectToAction(nameof(Index));
-    }
-
-    // ── Private ────────────────────────────────────────────────────────────
-
-    private int? ResolveUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(raw, out int id) ? id : null;
     }
 }
 
@@ -3172,6 +3151,74 @@ public class EmailService : IEmailService
 }
 
 
+--- Services/Implementation/OrderService.cs ---
+
+using ThriftLoop.Enums;
+using ThriftLoop.Models;
+using ThriftLoop.Services.OrderManagement.Interface;
+
+namespace ThriftLoop.Services.OrderManagement.Implementation;
+
+/// <inheritdoc />
+public class OrderService : IOrderService
+{
+    /// <inheritdoc />
+    public (bool allowed, string reason) CanBuyerCheckout(Item item, int buyerId)
+    {
+        if (item.ListingType == ListingType.Stealable)
+            return CheckStealableListing(item, buyerId);
+
+        return CheckStandardListing(item);
+    }
+
+    // ── Private helpers ────────────────────────────────────────────────────
+
+    private static (bool allowed, string reason) CheckStealableListing(Item item, int buyerId)
+    {
+        return item.Status switch
+        {
+            // Stealer has bumped the price and must complete checkout immediately.
+            ItemStatus.StolenPendingCheckout =>
+                item.CurrentWinnerId == buyerId
+                    ? (true, string.Empty)
+                    : (false, "You are not the buyer for this stolen item."),
+
+            // Order already exists — only the winner can re-enter checkout.
+            ItemStatus.Sold =>
+                item.CurrentWinnerId == buyerId
+                    ? (true, string.Empty)
+                    : (false, "You are not the buyer for this item."),
+
+            // Original getter is in (or waiting for) their finalize window.
+            ItemStatus.Reserved => CheckReservedStealable(item, buyerId),
+
+            _ => (false, "This item is not ready for checkout. Please claim it first.")
+        };
+    }
+
+    private static (bool allowed, string reason) CheckReservedStealable(Item item, int buyerId)
+    {
+        if (item.CurrentWinnerId != buyerId)
+            return (false, "You are not the current winner of this item.");
+
+        if (!item.IsInFinalizeWindow)
+            return (false, "The purchase window for this item has not opened yet, or has expired.");
+
+        return (true, string.Empty);
+    }
+
+    private static (bool allowed, string reason) CheckStandardListing(Item item)
+    {
+        return item.Status switch
+        {
+            ItemStatus.Sold => (false, "This item has already been sold."),
+            ItemStatus.Reserved => (false, "This item is currently reserved by another buyer."),
+            _ => (true, string.Empty)
+        };
+    }
+}
+
+
 --- Services/Implementation/WalletService.cs ---
 
 using ThriftLoop.Models;
@@ -3497,6 +3544,32 @@ public interface IEmailService
     /// Sends a password-reset email containing <paramref name="resetLink"/> to the user.
     /// </summary>
     Task SendPasswordResetEmailAsync(string toEmail, string resetLink);
+}
+
+
+--- Services/Interface/IOrderService.cs ---
+
+using ThriftLoop.Models;
+
+namespace ThriftLoop.Services.OrderManagement.Interface;
+
+/// <summary>
+/// Encapsulates business rules for order eligibility and checkout validation.
+/// </summary>
+public interface IOrderService
+{
+    /// <summary>
+    /// Determines whether a buyer is allowed to proceed to checkout for a given item.
+    /// Handles both Standard and Stealable listing rules, including finalize windows
+    /// and stolen-pending-checkout states.
+    /// </summary>
+    /// <param name="item">The item being purchased. Must have navigation properties loaded if needed.</param>
+    /// <param name="buyerId">The authenticated buyer's user ID.</param>
+    /// <returns>
+    /// A tuple where <c>allowed</c> is <c>true</c> if checkout can proceed,
+    /// and <c>reason</c> contains the user-facing error message if not.
+    /// </returns>
+    (bool allowed, string reason) CanBuyerCheckout(Item item, int buyerId);
 }
 
 
@@ -4546,6 +4619,1272 @@ namespace ThriftLoop.Views.Auth
         }
     }
 }
+
+
+
+--- Views/Home/Index.cshtml ---
+
+@model ThriftLoop.ViewModels.HomeIndexViewModel
+@using ThriftLoop.Models
+@using ThriftLoop.ViewModels
+@using System.Text.Json
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "For You";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var categories = ItemCreateViewModel.Categories;
+    var conditions = ItemCreateViewModel.Conditions;
+
+    @* Derive global price bounds from the item set for the range slider *@
+    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
+}
+
+<div class="fy-shell">
+
+    @* ── Left: sticky filter sidebar ──────────────────────────────────────── *@
+    <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
+
+        <div class="fy-sidebar__header">
+            <span class="fy-sidebar__title">Filters</span>
+            <button type="button" class="fy-sidebar__reset" id="resetFilters">Clear all</button>
+        </div>
+
+        @* Search *@
+        <div class="fy-filter-group">
+            <label class="fy-filter-group__label" for="searchInput">Search</label>
+            <div class="fy-search-wrap">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="5.5" />
+                    <path d="M13.5 13.5L18 18" stroke-linecap="round" />
+                </svg>
+                <input type="search"
+                       id="searchInput"
+                       class="fy-search-input"
+                       placeholder="Title or description…"
+                       autocomplete="off" />
+            </div>
+        </div>
+
+        @* Price range *@
+        <div class="fy-filter-group">
+            <label class="fy-filter-group__label">Price</label>
+            <div class="fy-price-row">
+                <div class="fy-price-field">
+                    <span class="fy-price-field__sym">₱</span>
+                    <input type="number" id="priceMin" class="fy-price-input" placeholder="0" min="0" max="@maxPrice" value="0" />
+                </div>
+                <span class="fy-price-sep">–</span>
+                <div class="fy-price-field">
+                    <span class="fy-price-field__sym">₱</span>
+                    <input type="number" id="priceMax" class="fy-price-input" placeholder="@maxPrice" min="0" max="@maxPrice" value="@maxPrice" />
+                </div>
+            </div>
+        </div>
+
+        @* Category *@
+        <div class="fy-filter-group">
+            <p class="fy-filter-group__label">Category</p>
+            <ul class="fy-check-list" id="catFilters">
+                @foreach (var cat in categories)
+                {
+                    <li>
+                        <label class="fy-check-label">
+                            <input type="checkbox" class="fy-check" value="@cat" />
+                            <span class="fy-check-box"></span>
+                            <span class="fy-check-text">@cat</span>
+                        </label>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @* Condition *@
+        <div class="fy-filter-group">
+            <p class="fy-filter-group__label">Condition</p>
+            <ul class="fy-check-list" id="condFilters">
+                @foreach (var cond in conditions)
+                {
+                    <li>
+                        <label class="fy-check-label">
+                            <input type="checkbox" class="fy-check" value="@cond" />
+                            <span class="fy-check-box"></span>
+                            <span class="fy-check-text">@cond</span>
+                        </label>
+                    </li>
+                }
+            </ul>
+        </div>
+
+    </aside>
+
+    @* ── Right: feed ──────────────────────────────────────────────────────── *@
+    <main class="fy-main" id="fyMain">
+
+        <header class="fy-feed-header">
+            <h1 class="fy-feed-title">For You</h1>
+            <p class="fy-feed-meta" id="feedMeta">
+                <span id="visibleCount">@Model.Items.Count</span>&nbsp;listings
+            </p>
+        </header>
+
+        @if (!Model.Items.Any())
+        {
+            @* Global empty state — no items at all in the database *@
+            <div class="fy-empty" id="globalEmpty">
+                <div class="fy-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="8" y="14" width="48" height="36" rx="6" />
+                        <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                        <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h2 class="fy-empty__title">Nothing listed yet</h2>
+                <p class="fy-empty__body">Be the first to post an item.</p>
+                <a asp-action="Create" asp-controller="Items" class="btn btn--primary fy-empty__cta">
+                    Post an item
+                </a>
+            </div>
+        }
+        else
+        {
+            @* Filter empty state — shown by JS when all cards are filtered out *@
+            <div class="fy-empty fy-empty--hidden" id="filterEmpty" aria-live="polite">
+                <div class="fy-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <circle cx="28" cy="28" r="18" />
+                        <path d="M42 42l14 14" stroke-linecap="round" />
+                        <path d="M22 28h12M28 22v12" stroke-linecap="round" />
+                        <path d="M37 19l4-4M19 37l-4 4" stroke-linecap="round" opacity=".4" />
+                    </svg>
+                </div>
+                <h2 class="fy-empty__title">No matches</h2>
+                <p class="fy-empty__body">Try adjusting or clearing your filters.</p>
+                <button type="button" class="fy-empty__reset-btn" id="resetFilters2">Clear filters</button>
+            </div>
+
+            @* Item grid *@
+            <div class="fy-grid" id="itemGrid">
+                @foreach (var item in Model.Items)
+                {
+                    var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                    var isStealable = item.ListingType == ListingType.Stealable;
+                    var isReserved = item.Status == ItemStatus.Reserved;
+                    var isSold = item.Status == ItemStatus.Sold;
+
+                    @* Serialise the full image list for JS hover cycling *@
+                    var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
+
+                    <article class="fy-card @(isSold ? "fy-card--sold" : "")"
+                             data-category="@item.Category"
+                             data-condition="@item.Condition"
+                             data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                             data-title="@item.Title.ToLower()"
+                             data-desc="@item.Description.ToLower()">
+
+                        @* ── Image wrap — houses the cycling image + all overlays ── *@
+                        <div class="fy-card__img-wrap" data-images="@imagesJson">
+
+                            @if (item.ImageUrls.Count > 0)
+                            {
+                                <img src="@item.ImageUrls[0]"
+                                     alt="@item.Title"
+                                     class="fy-card__img"
+                                     loading="lazy" />
+
+                                @* Progress dots — only shown when there are multiple images *@
+                                @if (item.ImageUrls.Count > 1)
+                                {
+                                    <div class="fy-card__dots" aria-hidden="true">
+                                        @for (int d = 0; d < item.ImageUrls.Count; d++)
+                                        {
+                                            <span class="fy-card__dot @(d == 0 ? "fy-card__dot--active" : "")"></span>
+                                        }
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="fy-card__img fy-card__img--placeholder" aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                        <rect x="4" y="8" width="40" height="32" rx="4" />
+                                        <circle cx="17" cy="20" r="4" />
+                                        <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                            }
+
+                            @* Condition chip overlaid on image *@
+                            <span class="fy-card__condition-badge">@item.Condition</span>
+
+                            @* Stealable badge *@
+                            @if (isStealable)
+                            {
+                                <span class="fy-card__stealable-badge"
+                                      aria-label="Stealable listing — @item.StealDurationHours hr window">
+                                    @if (isReserved)
+                                    {
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm.5 3.25a.5.5 0 00-1 0V7c0 .276.224.5.5.5h2.75a.5.5 0 000-1H7.5V4.25z" clip-rule="evenodd" />
+                                        </svg>
+                                        <span>Reserved</span>
+                                    }
+                                    else if (isSold)
+                                    {
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm2.97 4.47a.75.75 0 00-1.19-.94L6.5 7.28 5.28 6.06a.75.75 0 00-1.06 1.06l1.75 1.75a.75.75 0 001.12-.06l2.88-3.34z" clip-rule="evenodd" />
+                                        </svg>
+                                        <span>Sold</span>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                                        </svg>
+                                        <span>Stealable</span>
+                                    }
+                                </span>
+                            }
+
+                            @* Owner badge *@
+                            @if (isOwner)
+                            {
+                                <span class="fy-card__owner-badge" aria-label="Your listing">Your listing</span>
+                            }
+                        </div>
+
+                        @* Body *@
+                        <div class="fy-card__body">
+                            <div class="fy-card__top">
+                                <span class="fy-card__category">@item.Category</span>
+                                <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
+                            </div>
+
+                            <h2 class="fy-card__title">@item.Title</h2>
+                            <p class="fy-card__price">
+                                ₱@item.Price.ToString("N2")
+                                @if (isStealable && item.Status == ItemStatus.Available)
+                                {
+                                    <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                }
+                            </p>
+
+                            <a asp-action="Details"
+                               asp-controller="Items"
+                               asp-route-id="@item.Id"
+                               class="fy-card__link"
+                               aria-label="View details for @item.Title">
+                            </a>
+                        </div>
+
+                        @if (isOwner)
+                        {
+                            <div class="fy-card__actions fy-card__actions--owner">
+                                <a asp-action="Edit"
+                                   asp-controller="Items"
+                                   asp-route-id="@item.Id"
+                                   class="fy-btn fy-btn--manage">
+                                    Manage listing
+                                </a>
+                            </div>
+                        }
+
+                    </article>
+                }
+            </div>
+        }
+
+    </main>
+
+</div>
+
+@section Scripts {
+    <style>
+        /* ── Stealable badge on card images ─────────────────────────────── */
+        .fy-card__stealable-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--color-primary, #2d5a27);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 3px 7px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.18);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .fy-card--sold .fy-card__stealable-badge {
+            background: #4b5563;
+        }
+
+        /* ── Steal hint text next to price ───────────────────────────── */
+        .fy-card__steal-hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 500;
+            color: var(--color-primary, #2d5a27);
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        /* ── Sold card — desaturation ─────────────────────────────── */
+        .fy-card--sold {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+            .fy-card--sold .fy-card__actions {
+                pointer-events: auto;
+            }
+
+        /* ── Multi-image cycling ─────────────────────────────────────────── */
+
+        /* The img inside the wrap gets a cross-fade transition */
+        .fy-card__img-wrap .fy-card__img {
+            transition: opacity 0.25s ease;
+        }
+
+            .fy-card__img-wrap .fy-card__img.fy-img--fading {
+                opacity: 0;
+            }
+
+        /* Progress dots — appear at the bottom of the image on hover */
+        .fy-card__dots {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 4px;
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        .fy-card:hover .fy-card__dots {
+            opacity: 1;
+        }
+
+        .fy-card__dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .fy-card__dot--active {
+            background: #fff;
+            transform: scale(1.3);
+        }
+    </style>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // ── Element references ─────────────────────────────────────────────
+            var grid         = document.getElementById('itemGrid');
+            var filterEmpty  = document.getElementById('filterEmpty');
+            var visibleCount = document.getElementById('visibleCount');
+            var searchInput  = document.getElementById('searchInput');
+            var priceMin     = document.getElementById('priceMin');
+            var priceMax     = document.getElementById('priceMax');
+            var catChecks    = document.querySelectorAll('#catFilters .fy-check');
+            var condChecks   = document.querySelectorAll('#condFilters .fy-check');
+
+            if (!grid) return;
+
+            var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
+
+            // ── Multi-image hover cycling ──────────────────────────────────────
+            cards.forEach(function (card) {
+                var wrap   = card.querySelector('.fy-card__img-wrap');
+                var img    = card.querySelector('.fy-card__img');
+                var dotsEl = card.querySelector('.fy-card__dots');
+
+                if (!wrap || !img) return;
+
+                var raw = wrap.getAttribute('data-images');
+                var images = [];
+                try { images = JSON.parse(raw); } catch(e) {}
+
+                // Nothing to cycle if 0 or 1 image
+                if (images.length < 2) return;
+
+                var dots     = dotsEl ? Array.prototype.slice.call(dotsEl.querySelectorAll('.fy-card__dot')) : [];
+                var current  = 0;
+                var timer    = null;
+                var INTERVAL = 900; // ms between image switches
+
+                function goTo(idx) {
+                    // Cross-fade: fade out → swap src → fade in
+                    img.classList.add('fy-img--fading');
+                    setTimeout(function () {
+                        img.src = images[idx];
+                        img.classList.remove('fy-img--fading');
+                    }, 220);
+
+                    // Update dots
+                    dots.forEach(function (d, i) {
+                        d.classList.toggle('fy-card__dot--active', i === idx);
+                    });
+
+                    current = idx;
+                }
+
+                function startCycle() {
+                    if (timer) return;
+                    timer = setInterval(function () {
+                        var next = (current + 1) % images.length;
+                        goTo(next);
+                    }, INTERVAL);
+                }
+
+                function stopCycle() {
+                    if (timer) { clearInterval(timer); timer = null; }
+                    // Smoothly reset to first image
+                    if (current !== 0) goTo(0);
+                }
+
+                card.addEventListener('mouseenter', startCycle);
+                card.addEventListener('mouseleave', stopCycle);
+                // Touch support: tap cycles forward
+                card.addEventListener('touchstart', function (e) {
+                    // Only cycle — don't hijack the tap-to-navigate link
+                    if (images.length > 1) {
+                        var next = (current + 1) % images.length;
+                        goTo(next);
+                    }
+                }, { passive: true });
+            });
+
+            // ── Core filter function ───────────────────────────────────────────
+            function applyFilters() {
+                var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
+                var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
+                var maxVal = priceMax    ? parseFloat(priceMax.value) || Infinity : Infinity;
+
+                var activeCats = [];
+                catChecks.forEach(function (cb) { if (cb.checked) activeCats.push(cb.value); });
+
+                var activeConds = [];
+                condChecks.forEach(function (cb) { if (cb.checked) activeConds.push(cb.value); });
+
+                var shown = 0;
+
+                cards.forEach(function (card) {
+                    var cat   = card.dataset.category;
+                    var cond  = card.dataset.condition;
+                    var price = parseFloat(card.dataset.price);
+                    var title = card.dataset.title || '';
+                    var desc  = card.dataset.desc  || '';
+
+                    var catOk   = activeCats.length  === 0 || activeCats.indexOf(cat)   !== -1;
+                    var condOk  = activeConds.length === 0 || activeConds.indexOf(cond) !== -1;
+                    var priceOk = price >= minVal && price <= maxVal;
+                    var textOk  = !query || title.indexOf(query) !== -1 || desc.indexOf(query) !== -1;
+
+                    var visible = catOk && condOk && priceOk && textOk;
+                    card.classList.toggle('fy-card--hidden', !visible);
+                    if (visible) shown++;
+                });
+
+                if (visibleCount) visibleCount.textContent = shown;
+                if (filterEmpty)  filterEmpty.classList.toggle('fy-empty--hidden', shown > 0);
+            }
+
+            // ── Wire up all controls ───────────────────────────────────────────
+            if (searchInput) searchInput.addEventListener('input',  applyFilters);
+            if (priceMin)    priceMin.addEventListener('input',     applyFilters);
+            if (priceMax)    priceMax.addEventListener('input',     applyFilters);
+            catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
+            condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
+
+            // ── Reset ──────────────────────────────────────────────────────────
+            function resetAll() {
+                if (searchInput) searchInput.value = '';
+                if (priceMin)    priceMin.value    = priceMin.min  || 0;
+                if (priceMax)    priceMax.value    = priceMax.max  || 100000;
+                catChecks.forEach(function (cb)  { cb.checked = false; });
+                condChecks.forEach(function (cb) { cb.checked = false; });
+                applyFilters();
+            }
+
+            var resetBtn  = document.getElementById('resetFilters');
+            var resetBtn2 = document.getElementById('resetFilters2');
+            if (resetBtn)  resetBtn.addEventListener('click',  resetAll);
+            if (resetBtn2) resetBtn2.addEventListener('click', resetAll);
+
+            // ── Mobile sidebar toggle ──────────────────────────────────────────
+            var toggleBtn = document.getElementById('fyFilterToggle');
+            var sidebar   = document.getElementById('fySidebar');
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('fy-sidebar--open');
+                    toggleBtn.setAttribute('aria-expanded',
+                        sidebar.classList.contains('fy-sidebar--open').toString());
+                });
+            }
+
+        }());
+    </script>
+}
+
+
+
+--- Views/Home/Privacy.cshtml ---
+
+@{
+    ViewData["Title"] = "Privacy Policy";
+}
+<h1>@ViewData["Title"]</h1>
+
+<p>Use this page to detail your site's privacy policy.</p>
+
+
+
+--- Views/Items/Create.cshtml ---
+
+@model ThriftLoop.ViewModels.ItemCreateViewModel
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "List an Item";
+}
+
+<div class="container">
+    <div class="create-page">
+
+        <div class="create-header">
+            <a asp-controller="Home" asp-action="Index" class="create-header__back">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Back
+            </a>
+            <div>
+                <h1 class="create-header__title">List a new item</h1>
+                <p class="create-header__subtitle">Fill in the details below</p>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div class="create-toast">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
+                @successMsg
+            </div>
+        }
+
+        <!-- Client-side validation error banner (hidden until JS shows it) -->
+        <div class="create-error-banner" id="validationBanner" style="display:none">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+            <span id="validationBannerText">Please fix the highlighted fields before posting.</span>
+        </div>
+
+        <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
+            @Html.AntiForgeryToken()
+
+            <div class="create-grid">
+
+                @* ── Photo Column ─────────────────────────────────────────── *@
+                <div class="create-photo-col">
+                    <p class="create-section-label">
+                        Photos <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.6rem">(up to 5)</span>
+                    </p>
+
+                    <!-- Thumbnail grid - populated by JS -->
+                    <div id="photoThumbs" class="photo-thumbs"></div>
+
+                    <!-- Compact add zone -->
+                    <div class="photo-add-zone" id="photoAddZone">
+                        <input type="file" id="photosInput" name="Images" multiple
+                               accept="image/jpeg,image/png,image/webp" style="display:none" />
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" style="opacity:.5">
+                            <path d="M3 16.5v-9A1.5 1.5 0 014.5 6h1l1-2h7l1 2h1A1.5 1.5 0 0117 7.5v9A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5z" stroke-linecap="round" stroke-linejoin="round" />
+                            <circle cx="10" cy="12" r="2.5" stroke-linecap="round" />
+                        </svg>
+                        <span class="photo-add-zone__cta">Click or drag to add photos</span>
+                        <span class="photo-add-zone__hint">JPEG · PNG · max 5 MB each</span>
+                    </div>
+                    <span class="field__error" id="photoErr"></span>
+
+                    <div class="create-tips">
+                        <p class="create-tips__heading">Quick tips</p>
+                        <ul class="create-tips__list">
+                            <li>First photo is the cover shown on cards</li>
+                            <li>Use natural light for best results</li>
+                            <li>Show any wear honestly</li>
+                        </ul>
+                    </div>
+                </div>
+
+                @* ── Form Column ──────────────────────────────────────────── *@
+                <div class="create-form-col">
+
+                    @* Title *@
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Title" class="create-field__label">Title</label>
+                            <span class="create-field__counter" id="titleCounter">0/100</span>
+                        </div>
+                        <input asp-for="Title" class="create-field__input" id="titleInput"
+                               placeholder="e.g. Vintage Levi's 501" maxlength="100" />
+                        <span class="field__error" id="titleErr"></span>
+                    </div>
+
+                    @* Description *@
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label asp-for="Description" class="create-field__label">Description</label>
+                            <span class="create-field__counter" id="descCounter">0/1000</span>
+                        </div>
+                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
+                                  id="descInput" rows="3" maxlength="1000"
+                                  placeholder="Describe the item — colour, fit, any flaws…"></textarea>
+                        <span class="field__error" id="descErr"></span>
+                    </div>
+
+                    @* Price *@
+                    <div class="create-field">
+                        <label asp-for="Price" class="create-field__label">Price</label>
+                        <div class="create-price-wrap" id="priceWrap">
+                            <span class="create-price-wrap__symbol">₱</span>
+                            <input asp-for="Price" id="priceInput"
+                                   class="create-field__input create-price-wrap__input"
+                                   type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
+                        </div>
+                        <span class="field__error" id="priceErr"></span>
+                    </div>
+
+                    @* Category *@
+                    <div class="create-field">
+                        <label class="create-field__label">Category</label>
+                        <select asp-for="Category" class="create-hidden-select" id="categorySelect">
+                            <option value=""></option>
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                            {
+                                <option value="@cat">@cat</option>
+                            }
+                        </select>
+                        <div class="create-chips" id="categoryChips">
+                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                            {
+                                <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
+                                        data-value="@cat" data-target="categorySelect">
+                                    @cat
+                                </button>
+                            }
+                        </div>
+                        <span class="field__error" id="categoryErr"></span>
+                    </div>
+
+                    @* Condition *@
+                    <div class="create-field">
+                        <label class="create-field__label">Condition</label>
+                        <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
+                            <option value=""></option>
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                            {
+                                <option value="@cond">@cond</option>
+                            }
+                        </select>
+                        <div class="create-condition" id="conditionPills">
+                            @{
+                                var icons = new[] { "✦", "★", "◆", "▲", "●" };
+                                var idx = 0;
+                            }
+                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                            {
+                                <button type="button"
+                                        class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
+                                        data-value="@cond" data-target="conditionSelect">
+                                    <span>@icons[idx]</span> <span>@cond</span>
+                                </button>
+                                idx++;
+                            }
+                        </div>
+                        <span class="field__error" id="conditionErr"></span>
+                    </div>
+
+                    @* Size — optional *@
+                    <div class="create-field">
+                        <div class="create-field__top">
+                            <label class="create-field__label">Size</label>
+                            <span class="create-field__optional">optional</span>
+                        </div>
+                        <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
+                            <option value=""></option>
+                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                            {
+                                <option value="@size">@size</option>
+                            }
+                        </select>
+                        <div class="create-chips" id="sizeChips">
+                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                            {
+                                <button type="button"
+                                        class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
+                                        data-value="@size" data-target="sizeSelect">
+                                    @size
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* ── Stealable Listing Section ─────────────────────────── *@
+                    <div class="create-field create-field--stealable">
+                        <div class="create-stealable-header">
+                            <div>
+                                <p class="create-field__label">Listing Type</p>
+                                <p class="create-stealable-header__sub">
+                                    Stealable listings let buyers compete — one claims it, another can steal it.
+                                </p>
+                            </div>
+                        </div>
+
+                        <label class="stealable-toggle" for="IsStealable">
+                            <span class="stealable-toggle__track">
+                                <input asp-for="IsStealable" id="IsStealable" type="checkbox"
+                                       class="stealable-toggle__input" />
+                                <span class="stealable-toggle__thumb" aria-hidden="true"></span>
+                            </span>
+                            <span class="stealable-toggle__label-group">
+                                <span class="stealable-toggle__name">Make this a Stealable listing</span>
+                                <span class="stealable-toggle__badge" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                        <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
+                                    </svg>
+                                    NEW
+                                </span>
+                            </span>
+                        </label>
+
+                        <div class="stealable-duration-panel" id="stealDurationPanel"
+                             @(Model.IsStealable ? "" : "hidden") aria-live="polite">
+                            <div class="stealable-duration-inner">
+                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                                </svg>
+                                <div class="stealable-duration-body">
+                                    <label asp-for="StealDurationHours" class="create-field__label">Steal Window Duration</label>
+                                    <p class="stealable-duration-body__hint">
+                                        How long a buyer has before another can steal the item.
+                                        After the window closes, the original buyer gets a 2-hour grace period.
+                                    </p>
+                                    <select asp-for="StealDurationHours" class="create-hidden-select" id="stealDurationSelect">
+                                        <option value=""></option>
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <option value="@hours">@hours hours</option>
+                                        }
+                                    </select>
+                                    <div class="create-chips" id="durationChips">
+                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                        {
+                                            <button type="button"
+                                                    class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
+                                                    data-value="@hours" data-target="stealDurationSelect">
+                                                @hours hr
+                                            </button>
+                                        }
+                                    </div>
+                                    <span class="field__error" id="durationErr"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Actions *@
+                    <div class="create-actions">
+                        <button type="submit" class="btn btn--primary" id="submitBtn">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
+                            </svg>
+                            Post Listing
+                        </button>
+                        <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
+                    </div>
+
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        (function () {
+            'use strict';
+
+            var MAX_PHOTOS = 5;
+            var fileList   = new DataTransfer(); // virtual file list maintained by JS
+
+            // ── DOM refs ─────────────────────────────────────────────────────────
+            var addZone    = document.getElementById('photoAddZone');
+            var photosInput = document.getElementById('photosInput');
+            var thumbsEl   = document.getElementById('photoThumbs');
+            var photoErr   = document.getElementById('photoErr');
+            var form       = document.getElementById('createForm');
+            var submitBtn  = document.getElementById('submitBtn');
+            var banner     = document.getElementById('validationBanner');
+            var bannerText = document.getElementById('validationBannerText');
+
+            // ── Photo: add zone click / drag ──────────────────────────────────────
+            addZone.addEventListener('click', function () { photosInput.click(); });
+
+            addZone.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                addZone.classList.add('photo-add-zone--drag');
+            });
+            addZone.addEventListener('dragleave', function () {
+                addZone.classList.remove('photo-add-zone--drag');
+            });
+            addZone.addEventListener('drop', function (e) {
+                e.preventDefault();
+                addZone.classList.remove('photo-add-zone--drag');
+                addFiles(Array.from(e.dataTransfer.files));
+            });
+
+            photosInput.addEventListener('change', function () {
+                var selectedFiles = Array.from(photosInput.files); // capture BEFORE clearing
+                photosInput.value = '';                            // reset native picker
+                addFiles(selectedFiles);                           // syncInput runs last → files stay
+            });
+
+            function addFiles(files) {
+                var errors = [];
+                for (var i = 0; i < files.length; i++) {
+                    if (fileList.files.length >= MAX_PHOTOS) break;
+                    var f = files[i];
+                    if (!['image/jpeg','image/png','image/webp'].includes(f.type)) {
+                        errors.push('Only JPEG, PNG, or WebP images are accepted.');
+                        continue;
+                    }
+                    if (f.size > 5 * 1024 * 1024) {
+                        errors.push(f.name + ' exceeds 5 MB.');
+                        continue;
+                    }
+                    fileList.items.add(f);
+                }
+                if (errors.length) photoErr.textContent = errors[0];
+                syncInput();
+                renderThumbs();
+            }
+
+            function removeFile(idx) {
+                var newDt = new DataTransfer();
+                Array.from(fileList.files).forEach(function (f, i) {
+                    if (i !== idx) newDt.items.add(f);
+                });
+                fileList = newDt;
+                syncInput();
+                renderThumbs();
+            }
+
+            function syncInput() {
+                photosInput.files = fileList.files;
+            }
+
+            function renderThumbs() {
+                thumbsEl.innerHTML = '';
+                var files = Array.from(fileList.files);
+                files.forEach(function (file, i) {
+                    var div = document.createElement('div');
+                    div.className = 'photo-thumb';
+
+                    var img = document.createElement('img');
+                    img.alt = 'Photo ' + (i + 1);
+                    var reader = new FileReader();
+                    reader.onload = function (e) { img.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                    div.appendChild(img);
+
+                    if (i === 0) {
+                        var badge = document.createElement('span');
+                        badge.className = 'photo-thumb__badge';
+                        badge.textContent = 'Cover';
+                        div.appendChild(badge);
+                    }
+
+                    var rm = document.createElement('button');
+                    rm.type = 'button';
+                    rm.className = 'photo-thumb__remove';
+                    rm.innerHTML = '×';
+                    rm.setAttribute('aria-label', 'Remove photo');
+                    (function (idx) {
+                        rm.addEventListener('click', function () { removeFile(idx); });
+                    }(i));
+                    div.appendChild(rm);
+
+                    thumbsEl.appendChild(div);
+                });
+
+                // Show/hide add zone
+                if (files.length >= MAX_PHOTOS) {
+                    addZone.classList.add('photo-add-zone--hidden');
+                } else {
+                    addZone.classList.remove('photo-add-zone--hidden');
+                }
+
+                // Clear photo error when thumbs are present
+                if (files.length > 0) photoErr.textContent = '';
+            }
+
+            // ── Character counters ────────────────────────────────────────────────
+            function initCounter(inputId, counterId, max) {
+                var input   = document.getElementById(inputId);
+                var counter = document.getElementById(counterId);
+                if (!input || !counter) return;
+                var update = function () {
+                    var len = input.value.length;
+                    counter.textContent = len + '/' + max;
+                    counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
+                };
+                input.addEventListener('input', update);
+                update();
+            }
+            initCounter('titleInput', 'titleCounter', 100);
+            initCounter('descInput',  'descCounter',  1000);
+
+            // ── Required chips (category, condition) ──────────────────────────────
+            function initChips(containerId) {
+                var container = document.getElementById(containerId);
+                if (!container) return;
+                container.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+                    var select = document.getElementById(btn.dataset.target);
+                    if (!select) return;
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active','create-condition__pill--active');
+                    });
+                    btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
+                    select.value = btn.dataset.value;
+                    // Clear the error for this field
+                    var errId = containerId === 'categoryChips' ? 'categoryErr' : 'conditionErr';
+                    var errEl = document.getElementById(errId);
+                    if (errEl) errEl.textContent = '';
+                    container.classList.remove('chips-error');
+                });
+            }
+            initChips('categoryChips');
+            initChips('conditionPills');
+
+            // ── Optional chips (size) — second click deselects ────────────────────
+            (function () {
+                var container = document.getElementById('sizeChips');
+                var select    = document.getElementById('sizeSelect');
+                if (!container || !select) return;
+                container.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+                    var already = btn.classList.contains('create-chip--active');
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active');
+                    });
+                    if (already) { select.value = ''; }
+                    else { btn.classList.add('create-chip--active'); select.value = btn.dataset.value; }
+                });
+            }());
+
+            // ── Duration chips ────────────────────────────────────────────────────
+            (function () {
+                var container = document.getElementById('durationChips');
+                var select    = document.getElementById('stealDurationSelect');
+                if (!container || !select) return;
+                container.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active');
+                    });
+                    btn.classList.add('create-chip--active');
+                    select.value = btn.dataset.value;
+                    var errEl = document.getElementById('durationErr');
+                    if (errEl) errEl.textContent = '';
+                    container.classList.remove('chips-error');
+                });
+            }());
+
+            // ── Stealable toggle ──────────────────────────────────────────────────
+            (function () {
+                var checkbox = document.getElementById('IsStealable');
+                var panel    = document.getElementById('stealDurationPanel');
+                var durSel   = document.getElementById('stealDurationSelect');
+                if (!checkbox || !panel) return;
+                function sync() {
+                    if (checkbox.checked) {
+                        panel.removeAttribute('hidden');
+                    } else {
+                        panel.setAttribute('hidden', '');
+                        if (durSel) { durSel.value = ''; }
+                        document.querySelectorAll('#durationChips [data-value]').forEach(function (b) {
+                            b.classList.remove('create-chip--active');
+                        });
+                    }
+                }
+                checkbox.addEventListener('change', sync);
+                sync();
+            }());
+
+            // ── Auto-clear input errors on change ────────────────────────────────
+            function bindClearError(inputId, errId, wrapId) {
+                var el = document.getElementById(inputId);
+                if (!el) return;
+                el.addEventListener('input', function () {
+                    el.classList.remove('input-error');
+                    if (wrapId) document.getElementById(wrapId) && document.getElementById(wrapId).classList.remove('input-error');
+                    var errEl = document.getElementById(errId);
+                    if (errEl) errEl.textContent = '';
+                    if (banner.style.display !== 'none') {
+                        // Re-check if any errors remain
+                        var anyErr = document.querySelectorAll('.input-error, .chips-error, .field__error:not(:empty)').length;
+                        if (!anyErr) banner.style.display = 'none';
+                    }
+                });
+            }
+            bindClearError('titleInput', 'titleErr');
+            bindClearError('descInput',  'descErr');
+            bindClearError('priceInput', 'priceErr', 'priceWrap');
+
+            // ── Client-side form validation ───────────────────────────────────────
+            function showErr(errId, msg) {
+                var el = document.getElementById(errId);
+                if (el) el.textContent = msg;
+            }
+            function markInputErr(inputId, wrapId) {
+                var el = document.getElementById(inputId);
+                if (el) el.classList.add('input-error');
+                if (wrapId) { var w = document.getElementById(wrapId); if (w) w.classList.add('input-error'); }
+                return el;
+            }
+            function markChipsErr(containerId) {
+                var el = document.getElementById(containerId);
+                if (el) el.classList.add('chips-error');
+                return el;
+            }
+
+            function validate() {
+                var firstErrEl = null;
+                var ok = true;
+
+                // Clear previous
+                ['titleErr','descErr','priceErr','categoryErr','conditionErr','durationErr','photoErr'].forEach(function (id) {
+                    var el = document.getElementById(id); if (el) el.textContent = '';
+                });
+                document.querySelectorAll('.input-error').forEach(function (el) { el.classList.remove('input-error'); });
+                document.querySelectorAll('.chips-error').forEach(function (el) { el.classList.remove('chips-error'); });
+
+                // Title
+                var titleEl = document.getElementById('titleInput');
+                var titleLen = titleEl ? titleEl.value.trim().length : 0;
+                if (titleLen < 3 || titleLen > 100) {
+                    showErr('titleErr', 'Title must be between 3 and 100 characters.');
+                    firstErrEl = firstErrEl || markInputErr('titleInput');
+                    ok = false;
+                }
+
+                // Description
+                var descEl = document.getElementById('descInput');
+                var descLen = descEl ? descEl.value.trim().length : 0;
+                if (descLen < 10 || descLen > 1000) {
+                    showErr('descErr', 'Description must be between 10 and 1 000 characters.');
+                    firstErrEl = firstErrEl || markInputErr('descInput');
+                    ok = false;
+                }
+
+                // Price
+                var priceEl = document.getElementById('priceInput');
+                var priceVal = priceEl ? parseFloat(priceEl.value) : NaN;
+                if (!priceEl || !priceEl.value || isNaN(priceVal) || priceVal < 0.01 || priceVal > 99999.99) {
+                    showErr('priceErr', 'Price must be between ₱0.01 and ₱99,999.99.');
+                    firstErrEl = firstErrEl || markInputErr('priceInput', 'priceWrap');
+                    ok = false;
+                }
+
+                // Category
+                var catSel = document.getElementById('categorySelect');
+                if (!catSel || !catSel.value) {
+                    showErr('categoryErr', 'Please select a category.');
+                    firstErrEl = firstErrEl || markChipsErr('categoryChips');
+                    ok = false;
+                }
+
+                // Condition
+                var condSel = document.getElementById('conditionSelect');
+                if (!condSel || !condSel.value) {
+                    showErr('conditionErr', 'Please select a condition.');
+                    firstErrEl = firstErrEl || markChipsErr('conditionPills');
+                    ok = false;
+                }
+
+                // Steal duration
+                var stealChk = document.getElementById('IsStealable');
+                if (stealChk && stealChk.checked) {
+                    var durSel = document.getElementById('stealDurationSelect');
+                    if (!durSel || !durSel.value) {
+                        showErr('durationErr', 'Please select a Steal window duration.');
+                        firstErrEl = firstErrEl || markChipsErr('durationChips');
+                        ok = false;
+                    }
+                }
+
+                if (!ok) {
+                    banner.style.display = 'flex';
+                    if (firstErrEl) firstErrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    banner.style.display = 'none';
+                }
+
+                return ok;
+            }
+
+            // ── Submit handler ────────────────────────────────────────────────────
+            form.addEventListener('submit', function (e) {
+                e.preventDefault(); // Always prevent — let our validate() decide
+                if (!validate()) return;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".25"/></svg> Posting…';
+                form.submit(); // Programmatic submit bypasses event listeners
+            });
+
+            // ── Auto-dismiss toast ────────────────────────────────────────────────
+            var toast = document.querySelector('.create-toast');
+            if (toast) {
+                setTimeout(function () {
+                    toast.style.opacity = '0';
+                    setTimeout(function () { toast.remove(); }, 400);
+                }, 4000);
+            }
+
+        }());
+    </script>
+}
+
+
+--- Views/Items/Create.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Items
+{
+    public class CreateModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+
+--- Views/Items/Delete.cshtml ---
+
+@model ThriftLoop.Models.Item
+@{
+    ViewData["Title"] = "Delete Listing";
+}
+
+<div class="container">
+    <div class="confirm-shell">
+        <div class="confirm-card">
+
+            <div class="confirm-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+            </div>
+
+            <h1 class="confirm-card__title">Delete this listing?</h1>
+            <p class="confirm-card__body">
+                This action is permanent and cannot be undone.
+            </p>
+
+            <div class="confirm-item">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" alt="@Model.Title" class="confirm-item__img" />
+                }
+                else
+                {
+                    <div class="confirm-item__img confirm-item__img--placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                        </svg>
+                    </div>
+                }
+                <div>
+                    <p class="confirm-item__title">@Model.Title</p>
+                    <p class="confirm-item__price">₱@Model.Price.ToString("N2")</p>
+                </div>
+            </div>
+
+            <div class="confirm-actions">
+                <a asp-action="Index" class="btn btn--ghost">Cancel</a>
+                <form asp-action="Delete" asp-route-id="@Model.Id" method="post" id="deleteForm">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn--danger" id="deleteBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                        </svg>
+                        Yes, Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('deleteForm')?.addEventListener('submit', function() {
+            const btn = document.getElementById('deleteBtn');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+        });
+    </script>
+}
+
+
+--- Views/Items/Delete.cshtml.cs ---
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace ThriftLoop.Views.Items
+{
+    public class DeleteModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+
+--- Views/Items/Details.cshtml ---
 
 @model ThriftLoop.Models.Item
 @using ThriftLoop.Models
@@ -7303,59 +8642,6 @@ namespace ThriftLoop.Views.Orders
 
 
 
---- Views/Shared/_Layout.cshtml.css ---
-
-/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-for details on configuring this project to bundle and minify static web assets. */
-
-a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
-}
-
-a {
-  color: #0077cc;
-}
-
-.btn-primary {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
-}
-
-.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
-}
-
-.border-top {
-  border-top: 1px solid #e5e5e5;
-}
-.border-bottom {
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
-}
-
-button.accept-policy {
-  font-size: 1rem;
-  line-height: inherit;
-}
-
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
-}
-
-
-
 --- Views/Shared/_Navbar.cshtml ---
 
 @using System.Security.Claims
@@ -8999,4057 +10285,6 @@ namespace ThriftLoop.Views.Wallet
         public void OnGet()
         {
         }
-    }
-}
-
-
-
---- wwwroot/css/navbar.css ---
-
-/* =============================================================
-   ThriftLoop — Navbar  (_Navbar.cshtml)
-   Place in: wwwroot/css/navbar.css
-   Link in _Layout.cshtml <head>:
-     <link rel="stylesheet" href="~/css/navbar.css" />
-   ============================================================= */
-
-/* ── Outer bar ──────────────────────────────────────────────── */
-.tl-nav {
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    height: var(--nav-h, 56px);
-    background: #ffffff;
-    border-bottom: 1px solid var(--c-border, #e4e4ea);
-}
-
-.tl-nav__inner {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 36px;
-    gap: 0;
-}
-
-/* ── Logo ───────────────────────────────────────────────────── */
-.tl-nav__logo {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--c-primary, #2d1b69);
-    text-decoration: none;
-    flex-shrink: 0;
-    margin-right: auto;
-}
-
-/* ── Centre links ───────────────────────────────────────────── */
-.tl-nav__links {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.tl-nav__link {
-    display: block;
-    padding: 5px 14px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--c-muted, #6b6b80);
-    text-decoration: none;
-    border-radius: 20px;
-    white-space: nowrap;
-    transition: color 0.15s, background 0.15s;
-}
-
-    .tl-nav__link:hover {
-        color: var(--c-text, #111118);
-        background: var(--c-bg, #f2f2f5);
-    }
-
-.tl-nav__link--active {
-    color: var(--c-primary, #2d1b69);
-    font-weight: 600;
-    background: transparent;
-    border-radius: 0;
-    border-bottom: 2px solid var(--c-primary, #2d1b69);
-    padding-bottom: 3px;
-}
-
-    .tl-nav__link--active:hover {
-        background: transparent;
-    }
-
-/* Dot dividers between links */
-.tl-nav__divider {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--c-border, #e4e4ea);
-    flex-shrink: 0;
-    margin: 0 2px;
-}
-
-/* ── Right: user area ───────────────────────────────────────── */
-.tl-nav__user {
-    display: flex;
-    align-items: center;
-    margin-left: auto;
-    flex-shrink: 0;
-}
-
-/* ── Dropdown wrapper ───────────────────────────────────────── */
-.tl-nav__dropdown {
-    position: relative;
-}
-
-.tl-nav__dropdown-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 24px;
-    font-family: inherit;
-    transition: background 0.15s;
-}
-
-    .tl-nav__dropdown-toggle:hover {
-        background: var(--c-bg, #f2f2f5);
-    }
-
-/* Avatar circle */
-.tl-nav__avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--c-primary, #2d1b69);
-    color: #fff;
-    font-size: 0.78rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    user-select: none;
-}
-
-.tl-nav__name {
-    font-size: 0.83rem;
-    font-weight: 500;
-    color: var(--c-text, #111118);
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tl-nav__dropdown-chevron {
-    color: var(--c-muted, #6b6b80);
-    transition: transform 0.2s;
-    flex-shrink: 0;
-}
-
-.tl-nav__dropdown-toggle[aria-expanded="true"] .tl-nav__dropdown-chevron {
-    transform: rotate(180deg);
-}
-
-/* ── Dropdown menu ──────────────────────────────────────────── */
-.tl-nav__dropdown-menu {
-    display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 200px;
-    background: #ffffff;
-    border: 1px solid var(--c-border, #e4e4ea);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
-    overflow: hidden;
-    z-index: 300;
-}
-
-    .tl-nav__dropdown-menu.show {
-        display: block;
-    }
-
-/* Header row inside dropdown — shows email */
-.tl-nav__dropdown-header {
-    padding: 10px 14px 8px;
-    border-bottom: 1px solid var(--c-border, #e4e4ea);
-}
-
-.tl-nav__dropdown-email {
-    font-size: 0.72rem;
-    color: var(--c-muted, #6b6b80);
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Dropdown items (links + sign-out button) */
-.tl-nav__dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    width: 100%;
-    padding: 9px 14px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--c-text, #111118);
-    text-decoration: none;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    text-align: left;
-    transition: background 0.12s, color 0.12s;
-}
-
-    .tl-nav__dropdown-item:hover {
-        background: var(--c-bg, #f2f2f5);
-    }
-
-    .tl-nav__dropdown-item.active {
-        color: var(--c-primary, #2d1b69);
-        font-weight: 600;
-    }
-
-    .tl-nav__dropdown-item svg {
-        color: var(--c-muted, #6b6b80);
-        flex-shrink: 0;
-    }
-
-/* Sign out — red tint on hover */
-.tl-nav__dropdown-item--signout {
-    color: var(--c-muted, #6b6b80);
-}
-
-    .tl-nav__dropdown-item--signout:hover {
-        background: #fff1f1;
-        color: #c0392b;
-    }
-
-        .tl-nav__dropdown-item--signout:hover svg {
-            color: #c0392b;
-        }
-
-.tl-nav__dropdown-form {
-    margin: 0;
-    padding: 0;
-}
-
-/* Divider line inside dropdown */
-.tl-nav__dropdown-divider {
-    height: 1px;
-    background: var(--c-border, #e4e4ea);
-    margin: 4px 0;
-}
-
-/* ── Unauthenticated — Sign in / Sign up ────────────────────── */
-.tl-nav__auth {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.tl-nav__auth-link {
-    padding: 6px 14px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--c-muted, #6b6b80);
-    text-decoration: none;
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-}
-
-    .tl-nav__auth-link:hover {
-        color: var(--c-text, #111118);
-        background: var(--c-bg, #f2f2f5);
-    }
-
-.tl-nav__auth-link--primary {
-    background: var(--c-primary, #2d1b69);
-    color: #ffffff;
-    font-weight: 600;
-}
-
-    .tl-nav__auth-link--primary:hover {
-        background: var(--c-primary-light, #3d2880);
-        color: #ffffff;
-    }
-
-/* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    .tl-nav__inner {
-        padding: 0 16px;
-    }
-
-    .tl-nav__links {
-        gap: 0;
-    }
-
-    .tl-nav__link {
-        padding: 5px 10px;
-        font-size: 0.8rem;
-    }
-
-    .tl-nav__name {
-        display: none;
-    }
-}
-
-@media (max-width: 520px) {
-    .tl-nav__links {
-        display: none;
-    }
-}
-
-
-
---- wwwroot/css/site.css ---
-
-/* --------------------------------------------- */
-/* ThriftLoop - Master Stylesheet                */
-/* Design System: compact, accessible, consistent */
-/* --------------------------------------------- */
-
-:root {
-    /* Colors - high contrast for accessibility */
-    --c-primary: #2d1b69; /* deep purple - WCAG AA compliant on white */
-    --c-primary-light: #3d2880; /* hover state */
-    --c-primary-soft: #e9e5f5; /* background tint */
-    --c-bg: #f2f2f5; /* page background */
-    --c-surface: #ffffff; /* cards, panels */
-    --c-border: #e4e4ea; /* borders and dividers */
-    --c-text: #111118; /* main body - high contrast */
-    --c-muted: #4b4b63; /* secondary text - improved contrast */
-    --c-muted-light: #8f8fa3; /* placeholder text */
-    --c-badge-bg: #ece8f8; /* badge background */
-    --c-badge-txt: #2d1b69; /* badge text */
-    /* Semantic colors - accessible */
-    --c-success: #0e6245; /* dark green - good contrast */
-    --c-success-bg: #e8f3ef; /* success background */
-    --c-error: #b91c1c; /* dark red - good contrast */
-    --c-error-bg: #fee9e9; /* error background */
-    --c-warning: #b45309; /* dark amber - good contrast */
-    --c-warning-bg: #feedd5; /* warning background */
-    --c-info: #1e40af; /* dark blue - good contrast */
-    --c-info-bg: #e0edff; /* info background */
-    /* Condition colors */
-    --c-new: #0e6245;
-    --c-like-new: #1e40af;
-    --c-good: #b45309;
-    --c-fair: #b91c6f;
-    --c-poor: #4b5563;
-}
-
-/* --------------------------------- */
-/* Base & Reset                      */
-/* --------------------------------- */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: var(--c-bg);
-    color: var(--c-text);
-    line-height: 1.5;
-    font-size: 0.85rem;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 32px 48px;
-}
-
-/* --------------------------------- */
-/* Typography                        */
-/* --------------------------------- */
-h1, h2, h3, h4, h5, h6 {
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--c-text);
-}
-
-h1 {
-    font-size: 1.5rem;
-}
-
-h2 {
-    font-size: 1.2rem;
-}
-
-h3 {
-    font-size: 1rem;
-}
-
-/* --------------------------------- */
-/* Buttons - consistent, accessible  */
-/* --------------------------------- */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    line-height: 1;
-}
-
-    .btn svg {
-        width: 18px;
-        height: 18px;
-        fill: currentColor;
-    }
-
-.btn--primary {
-    background: var(--c-primary);
-    color: white;
-}
-
-    .btn--primary:hover {
-        background: var(--c-primary-light);
-        transform: translateY(-1px);
-    }
-
-    .btn--primary:active {
-        transform: translateY(0);
-    }
-
-.btn--secondary {
-    background: var(--c-surface);
-    color: var(--c-primary);
-    border: 1px solid var(--c-border);
-}
-
-    .btn--secondary:hover {
-        background: var(--c-bg);
-        border-color: var(--c-primary);
-    }
-
-.btn--ghost {
-    background: transparent;
-    color: var(--c-muted);
-    border: 1px solid var(--c-border);
-}
-
-    .btn--ghost:hover {
-        background: var(--c-bg);
-        color: var(--c-text);
-    }
-
-.btn--danger {
-    background: var(--c-error);
-    color: white;
-}
-
-    .btn--danger:hover {
-        background: #991b1b;
-    }
-
-.btn--success {
-    background: var(--c-success);
-    color: white;
-}
-
-    .btn--success:hover {
-        background: #0b5339;
-    }
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-/* Google button */
-.btn--google {
-    background: var(--c-surface);
-    color: var(--c-text);
-    border: 1px solid var(--c-border);
-}
-
-    .btn--google:hover {
-        background: var(--c-bg);
-    }
-
-/* --------------------------------- */
-/* Cards & Surfaces                   */
-/* --------------------------------- */
-.card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,.05);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 18px rgba(0,0,0,.11);
-    }
-
-/* --------------------------------- */
-/* Form Fields                        */
-/* --------------------------------- */
-.field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.field__label {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    font-weight: 600;
-}
-
-.field__input {
-    width: 100%;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    color: var(--c-text);
-    transition: all 0.2s ease;
-}
-
-    .field__input:focus {
-        outline: none;
-        border-color: var(--c-primary);
-        box-shadow: 0 0 0 3px rgba(45,27,105,.15);
-    }
-
-    .field__input::placeholder {
-        color: var(--c-muted-light);
-    }
-
-.field__error {
-    font-size: 0.68rem;
-    color: var(--c-error);
-}
-
-.field__input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-/* Password toggle */
-.toggle-password {
-    position: absolute;
-    right: 8px;
-    background: none;
-    border: none;
-    padding: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--c-muted);
-}
-
-    .toggle-password:hover {
-        color: var(--c-primary);
-    }
-
-/* Checkbox */
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.checkbox-input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.checkbox-custom {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 4px;
-    position: relative;
-}
-
-.checkbox-input:checked + .checkbox-custom {
-    background: var(--c-primary);
-    border-color: var(--c-primary);
-}
-
-    .checkbox-input:checked + .checkbox-custom::after {
-        content: '';
-        position: absolute;
-        left: 4px;
-        top: 1px;
-        width: 5px;
-        height: 9px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-    }
-
-.checkbox-input:focus + .checkbox-custom {
-    box-shadow: 0 0 0 3px rgba(45,27,105,.15);
-}
-
-/* --------------------------------- */
-/* Badges & Pills                     */
-/* --------------------------------- */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 20px;
-    text-transform: capitalize;
-}
-
-.badge--new {
-    background: var(--c-new);
-    color: white;
-}
-
-.badge--like-new {
-    background: var(--c-like-new);
-    color: white;
-}
-
-.badge--good {
-    background: var(--c-good);
-    color: white;
-}
-
-.badge--fair {
-    background: var(--c-fair);
-    color: white;
-}
-
-.badge--poor {
-    background: var(--c-poor);
-    color: white;
-}
-
-/* --------------------------------- */
-/* Alerts & Toasts                    */
-/* --------------------------------- */
-.alert {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-radius: 6px;
-    padding: 10px 14px;
-    font-size: 0.8rem;
-    margin-bottom: 20px;
-}
-
-    .alert svg {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-    }
-
-.alert--error {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-}
-
-.alert--success {
-    background: var(--c-success-bg);
-    color: var(--c-success);
-    border: 1px solid #a7f3d0;
-}
-
-.alert--info {
-    background: var(--c-info-bg);
-    color: var(--c-info);
-    border: 1px solid #b9d5ff;
-}
-
-/* --------------------------------- */
-/* Empty States                       */
-/* --------------------------------- */
-.empty-state {
-    text-align: center;
-    padding: 64px 24px;
-}
-
-.empty-state__icon {
-    color: #c0b8e0;
-    margin-bottom: 20px;
-}
-
-    .empty-state__icon svg {
-        width: 64px;
-        height: 64px;
-    }
-
-.empty-state__title {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
-
-.empty-state__body {
-    font-size: 0.82rem;
-    color: var(--c-muted);
-    margin-bottom: 20px;
-}
-
-/* --------------------------------------------- */
-/* AUTH PAGES (Login/Register)                    */
-/* --------------------------------------------- */
-.auth-shell {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    min-height: 100vh;
-}
-
-.auth-panel--brand {
-    background: var(--c-primary);
-    color: white;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 48px 40px;
-    overflow: hidden;
-}
-
-.brand-wordmark {
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 12px;
-    position: relative;
-    z-index: 2;
-}
-
-.brand-tagline {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    line-height: 1.4;
-    position: relative;
-    z-index: 2;
-}
-
-.brand-decoration {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    pointer-events: none;
-}
-
-.deco-ring {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.05);
-}
-
-.deco-ring--lg {
-    width: 400px;
-    height: 400px;
-    top: -100px;
-    right: -100px;
-}
-
-.deco-ring--md {
-    width: 300px;
-    height: 300px;
-    bottom: -120px;
-    left: -80px;
-}
-
-.deco-ring--sm {
-    width: 200px;
-    height: 200px;
-    bottom: 20px;
-    right: 30px;
-}
-
-.auth-panel--form {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 32px;
-    background: var(--c-bg);
-}
-
-.form-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,.05);
-    width: 100%;
-    max-width: 380px;
-    padding: 24px;
-}
-
-.form-card__header {
-    margin-bottom: 24px;
-    text-align: center;
-}
-
-.form-card__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 0 0 4px;
-}
-
-.form-card__subtitle {
-    font-size: 0.85rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.form-card__footer {
-    margin-top: 20px;
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--c-muted);
-    border-top: 1px solid var(--c-border);
-    padding-top: 20px;
-}
-
-.auth-divider {
-    display: flex;
-    align-items: center;
-    text-align: center;
-    color: var(--c-muted);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 16px 0;
-}
-
-    .auth-divider::before,
-    .auth-divider::after {
-        content: '';
-        flex: 1;
-        border-bottom: 1px solid var(--c-border);
-    }
-
-    .auth-divider span {
-        margin: 0 10px;
-    }
-
-/* Password strength */
-.strength-bar {
-    height: 3px;
-    background: var(--c-border);
-    border-radius: 3px;
-    margin-top: 4px;
-    overflow: hidden;
-}
-
-.strength-bar__fill {
-    display: block;
-    height: 100%;
-    width: 0;
-    transition: width 0.2s ease;
-}
-
-.strength-bar__fill--weak {
-    background: var(--c-error);
-}
-
-.strength-bar__fill--fair {
-    background: var(--c-warning);
-}
-
-.strength-bar__fill--good {
-    background: var(--c-info);
-}
-
-.strength-bar__fill--strong {
-    background: var(--c-success);
-}
-
-/* --------------------------------------------- */
-/* HOME - For You Feed                            */
-/* --------------------------------------------- */
-.fy-shell {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 20px;
-}
-
-/* Sidebar filters */
-.fy-sidebar {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    padding: 16px;
-    height: fit-content;
-    position: sticky;
-    top: 20px;
-}
-
-.fy-sidebar__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.fy-sidebar__title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--c-muted);
-}
-
-.fy-sidebar__reset {
-    background: none;
-    border: none;
-    color: var(--c-primary);
-    font-size: 0.7rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-}
-
-    .fy-sidebar__reset:hover {
-        background: var(--c-primary-soft);
-    }
-
-.fy-filter-group {
-    margin-bottom: 16px;
-}
-
-.fy-filter-group__label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    margin-bottom: 6px;
-    display: block;
-}
-
-/* Search */
-.fy-search-wrap {
-    display: flex;
-    align-items: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 0 8px;
-}
-
-    .fy-search-wrap svg {
-        width: 14px;
-        height: 14px;
-        color: var(--c-muted);
-        margin-right: 6px;
-    }
-
-.fy-search-input {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 8px 0;
-    font-size: 0.8rem;
-    outline: none;
-}
-
-    .fy-search-input:focus {
-        color: var(--c-text);
-    }
-
-/* Price range */
-.fy-price-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.fy-price-field {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-}
-
-.fy-price-field__sym {
-    padding: 0 6px;
-    color: var(--c-muted);
-    font-size: 0.75rem;
-}
-
-.fy-price-input {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 6px 6px 6px 0;
-    font-size: 0.8rem;
-    outline: none;
-}
-
-.fy-price-sep {
-    color: var(--c-muted);
-    font-size: 0.75rem;
-}
-
-/* Checkbox list */
-.fy-check-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.fy-check-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 0;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.fy-check {
-    position: absolute;
-    opacity: 0;
-}
-
-.fy-check-box {
-    width: 14px;
-    height: 14px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 3px;
-    flex-shrink: 0;
-}
-
-.fy-check:checked + .fy-check-box {
-    background: var(--c-primary);
-    border-color: var(--c-primary);
-    position: relative;
-}
-
-    .fy-check:checked + .fy-check-box::after {
-        content: '';
-        position: absolute;
-        left: 3px;
-        top: 0px;
-        width: 4px;
-        height: 8px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-    }
-
-.fy-check-text {
-    color: var(--c-text);
-}
-
-/* Main feed */
-.fy-feed-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.fy-feed-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.fy-feed-meta {
-    font-size: 0.8rem;
-    color: var(--c-muted);
-}
-
-/* Item grid - smaller cards */
-.fy-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.fy-card {
-    position: relative;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-    .fy-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,.08);
-    }
-
-.fy-card--sold {
-    opacity: 0.7;
-}
-
-.fy-card--hidden {
-    display: none;
-}
-
-.fy-card__img-wrap {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    background: var(--c-bg);
-}
-
-.fy-card__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.fy-card__img--placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted-light);
-}
-
-    .fy-card__img--placeholder svg {
-        width: 40px;
-        height: 40px;
-    }
-
-/* Card badges - pushed further left */
-.fy-card__condition-badge {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    background: var(--c-surface);
-    color: var(--c-text);
-    font-size: 0.65rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,.08);
-    z-index: 1;
-}
-
-.fy-card__stealable-badge {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    background: var(--c-primary);
-    color: white;
-    font-size: 0.65rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.12);
-    z-index: 2;
-    pointer-events: none;
-}
-
-.fy-card--sold .fy-card__stealable-badge {
-    background: var(--c-poor);
-}
-
-.fy-card__owner-badge {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    font-size: 0.65rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-.fy-card__body {
-    padding: 8px;
-    position: relative;
-}
-
-.fy-card__top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-}
-
-.fy-card__category {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-    color: var(--c-muted);
-    max-width: 70%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fy-card__date {
-    font-size: 0.62rem;
-    color: var(--c-muted);
-    flex-shrink: 0;
-}
-
-.fy-card__title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin: 0 0 4px;
-    line-height: 1.2;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fy-card__price {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--c-primary);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.fy-card__steal-hint {
-    font-size: 0.62rem;
-    font-weight: 500;
-    color: var(--c-primary);
-    margin-left: 4px;
-}
-
-.fy-card__link {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    text-indent: -9999px;
-    overflow: hidden;
-}
-
-.fy-card__actions {
-    position: relative;
-    z-index: 2;
-    padding: 0 8px 8px;
-}
-
-.fy-btn--manage {
-    display: block;
-    padding: 6px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 5px;
-    text-align: center;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--c-text);
-    text-decoration: none;
-}
-
-    .fy-btn--manage:hover {
-        background: var(--c-surface);
-        border-color: var(--c-primary);
-    }
-
-/* Filter empty state */
-.fy-empty {
-    text-align: center;
-    padding: 48px 20px;
-}
-
-.fy-empty--hidden {
-    display: none;
-}
-
-.fy-empty__icon {
-    color: #c0b8e0;
-    margin-bottom: 16px;
-}
-
-    .fy-empty__icon svg {
-        width: 56px;
-        height: 56px;
-    }
-
-.fy-empty__title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-}
-
-.fy-empty__body {
-    font-size: 0.8rem;
-    color: var(--c-muted);
-    margin-bottom: 14px;
-}
-
-.fy-empty__reset-btn {
-    background: none;
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-size: 0.75rem;
-    color: var(--c-text);
-    cursor: pointer;
-}
-
-    .fy-empty__reset-btn:hover {
-        background: var(--c-bg);
-    }
-
-/* Mobile responsiveness */
-@media (max-width: 992px) {
-    .fy-shell {
-        grid-template-columns: 220px 1fr;
-    }
-
-    .fy-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    }
-}
-
-@media (max-width: 768px) {
-    .fy-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .fy-sidebar {
-        position: static;
-        margin-bottom: 16px;
-    }
-
-    .fy-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
-    }
-
-    .fy-card__category {
-        max-width: 65%;
-    }
-}
-
-@media (max-width: 480px) {
-    .fy-grid {
-        grid-template-columns: 1fr;
-    }
-}
-/* --------------------------------------------- */
-/* DETAILS PAGE  â€” compact (fits 100% zoom)       */
-/* --------------------------------------------- */
-.detail-shell {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 16px 24px 32px;
-}
-
-.detail-breadcrumb {
-    margin-bottom: 14px;
-}
-
-.detail-breadcrumb__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--c-muted);
-    font-size: 0.75rem;
-    text-decoration: none;
-}
-
-    .detail-breadcrumb__link:hover {
-        color: var(--c-primary);
-    }
-
-    .detail-breadcrumb__link svg {
-        width: 15px;
-        height: 15px;
-    }
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: 420px 1fr;
-    gap: 24px;
-    align-items: start;
-}
-
-/* â”€â”€ Image column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.detail-img-col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.detail-img-frame {
-    position: relative;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-    overflow: hidden;
-    aspect-ratio: 1 / 1;
-    /* Hard cap so it never drives the viewport taller */
-    max-height: 420px;
-}
-
-.detail-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.detail-img--placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted);
-    background: var(--c-bg);
-}
-
-    .detail-img--placeholder svg {
-        width: 48px;
-        height: 48px;
-        margin-bottom: 8px;
-        stroke: var(--c-border);
-    }
-
-/* Gallery arrows */
-.gallery-arrow {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.88);
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 4;
-    box-shadow: 0 2px 6px rgba(0,0,0,.14);
-    opacity: 0;
-    transition: opacity 0.18s ease, background 0.15s ease;
-    color: var(--c-text);
-}
-
-.detail-img-frame:hover .gallery-arrow {
-    opacity: 1;
-}
-
-.gallery-arrow:hover {
-    background: #fff;
-}
-
-.gallery-arrow--prev {
-    left: 8px;
-}
-
-.gallery-arrow--next {
-    right: 8px;
-}
-
-/* Counter badge */
-.gallery-counter {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    background: rgba(0,0,0,.5);
-    color: #fff;
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 99px;
-    pointer-events: none;
-    z-index: 4;
-}
-
-/* Thumbnail strip */
-.gallery-thumbs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.gallery-thumb {
-    position: relative;
-    width: 52px;
-    height: 52px;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 2px solid transparent;
-    background: var(--c-surface);
-    cursor: pointer;
-    padding: 0;
-    flex-shrink: 0;
-    transition: border-color 0.15s ease, transform 0.15s ease;
-}
-
-    .gallery-thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .gallery-thumb:hover {
-        transform: scale(1.05);
-    }
-
-.gallery-thumb--active {
-    border-color: var(--c-primary);
-    box-shadow: 0 0 0 1px var(--c-primary);
-}
-
-.gallery-thumb__cover {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    font-size: 0.42rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-align: center;
-    background: rgba(0,0,0,.52);
-    color: #fff;
-    padding: 2px 0;
-}
-
-/* Stealable badge on image */
-.detail-stealable-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--c-primary);
-    color: white;
-    font-size: 0.66rem;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 5px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.18);
-    z-index: 2;
-}
-
-/* Gallery crossfade */
-#mainGalleryImg {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: opacity 0.22s ease;
-}
-
-    #mainGalleryImg.gallery-fading {
-        opacity: 0;
-    }
-
-/* Seller card */
-.detail-seller {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-}
-
-.detail-seller__avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.95rem;
-    flex-shrink: 0;
-}
-
-.detail-seller__label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    margin: 0 0 1px;
-}
-
-.detail-seller__name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin: 0 0 2px;
-}
-
-.detail-seller__since {
-    font-size: 0.68rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.detail-seller--inline {
-    display: none;
-}
-
-/* â”€â”€ Details column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.detail-info-col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-/* Meta row */
-.detail-meta-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.detail-category,
-.detail-size {
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    font-size: 0.64rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-}
-
-.detail-condition {
-    font-size: 0.64rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-}
-
-.detail-condition--new {
-    background: var(--c-new);
-    color: white;
-}
-
-.detail-condition--like-new {
-    background: var(--c-like-new);
-    color: white;
-}
-
-.detail-condition--good {
-    background: var(--c-good);
-    color: white;
-}
-
-.detail-condition--fair {
-    background: var(--c-fair);
-    color: white;
-}
-
-.detail-condition--poor {
-    background: var(--c-poor);
-    color: white;
-}
-
-.detail-listing-type-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-    border: 1px solid var(--c-primary);
-    font-size: 0.64rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 5px;
-}
-
-/* Title & price */
-.detail-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 0 0 2px;
-    line-height: 1.25;
-}
-
-.detail-price-block {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 6px 10px;
-}
-
-.detail-price {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--c-primary);
-    line-height: 1.2;
-}
-
-.detail-price-label {
-    font-size: 0.75rem;
-    color: var(--c-muted);
-}
-
-.detail-steal-note {
-    font-size: 0.7rem;
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-weight: 500;
-}
-
-/* Countdown cards */
-.steal-countdown-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--c-primary-soft);
-    border: 1px solid var(--c-primary);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin: 4px 0;
-}
-
-.steal-countdown-card--finalize {
-    background: var(--c-success-bg);
-    border-color: var(--c-success);
-}
-
-.steal-countdown-card__icon {
-    color: var(--c-primary);
-    flex-shrink: 0;
-}
-
-.steal-countdown-card--finalize .steal-countdown-card__icon {
-    color: var(--c-success);
-}
-
-.steal-countdown-card__body {
-    flex: 1;
-}
-
-.steal-countdown-card__label {
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    margin: 0 0 1px;
-}
-
-.steal-countdown-card__timer {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--c-text);
-    margin: 0;
-    font-family: monospace;
-}
-
-.steal-countdown-card--finalize .steal-countdown-card__timer {
-    color: var(--c-success);
-}
-
-/* Sold notice */
-.steal-sold-notice {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 0.75rem;
-    margin: 4px 0;
-}
-
-/* Divider */
-.detail-divider {
-    border: none;
-    border-top: 1px solid var(--c-border);
-    margin: 4px 0 6px;
-}
-
-/* Description */
-.detail-section-heading {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--c-muted);
-    margin: 0 0 5px;
-    font-weight: 600;
-}
-
-.detail-description {
-    font-size: 0.8rem;
-    line-height: 1.55;
-    margin: 0;
-    white-space: pre-wrap;
-}
-
-/* Facts grid */
-.detail-facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-    padding: 10px 12px;
-}
-
-.detail-fact {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.detail-fact__label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-}
-
-.detail-fact__value {
-    font-size: 0.78rem;
-    font-weight: 500;
-}
-
-/* Action buttons */
-.detail-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin: 4px 0 2px;
-}
-
-.detail-actions--waiting {
-    opacity: 0.8;
-}
-
-.detail-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 9px 18px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    min-width: 130px;
-}
-
-    .detail-btn svg {
-        width: 15px;
-        height: 15px;
-        fill: currentColor;
-    }
-
-.detail-btn__badge {
-    background: rgba(255,255,255,0.2);
-    padding: 1px 6px;
-    border-radius: 20px;
-    font-size: 0.66rem;
-    margin-left: 2px;
-}
-
-.detail-btn--buy,
-.detail-btn--get {
-    background: var(--c-primary);
-    color: white;
-    flex: 1;
-}
-
-    .detail-btn--buy:hover,
-    .detail-btn--get:hover {
-        background: var(--c-primary-light);
-    }
-
-.detail-btn--steal {
-    background: var(--c-warning);
-    color: white;
-    flex: 1;
-}
-
-    .detail-btn--steal:hover {
-        background: #92400e;
-    }
-
-.detail-btn--complete {
-    background: var(--c-success);
-    color: white;
-    flex: 1;
-}
-
-    .detail-btn--complete:hover {
-        background: #0b5339;
-    }
-
-.detail-btn--cart,
-.detail-btn--edit {
-    background: transparent;
-    color: var(--c-text);
-    border: 1px solid var(--c-border);
-    flex: 1;
-}
-
-    .detail-btn--cart:hover,
-    .detail-btn--edit:hover {
-        background: var(--c-bg);
-    }
-
-.detail-btn--delete {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-    flex: 1;
-}
-
-    .detail-btn--delete:hover {
-        background: #fee2e2;
-    }
-
-.detail-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-/* Action notes */
-.detail-owner-note,
-.detail-anon-note,
-.detail-steal-explainer {
-    font-size: 0.72rem;
-    color: var(--c-muted);
-    margin: 2px 0 0;
-    line-height: 1.5;
-}
-
-    .detail-owner-note a,
-    .detail-anon-note a {
-        color: var(--c-primary);
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-        .detail-owner-note a:hover,
-        .detail-anon-note a:hover {
-            text-decoration: underline;
-        }
-
-.detail-steal-explainer--winner {
-    background: var(--c-success-bg);
-    color: var(--c-success);
-    padding: 9px 11px;
-    border-radius: 6px;
-    border: 1px solid #a7f3d0;
-}
-
-/* Winner / locked notices */
-.detail-winner-notice,
-.detail-locked-notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 0.78rem;
-    flex: 1;
-    line-height: 1.5;
-}
-
-    .detail-winner-notice svg {
-        fill: var(--c-primary);
-        flex-shrink: 0;
-    }
-
-    .detail-winner-notice strong {
-        color: var(--c-primary);
-    }
-
-    .detail-locked-notice svg {
-        fill: var(--c-muted);
-        flex-shrink: 0;
-    }
-
-
-.create-toast--info {
-    background: var(--c-info-bg, #eff6ff);
-    color: var(--c-info, #1d4ed8);
-    border-color: #b9d5ff;
-}
-/* --------------------------------------------- */
-/* CREATE/EDIT ITEM PAGE - ULTRA COMPACT         */
-/* --------------------------------------------- */
-.create-page {
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.create-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.create-header__back {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    color: var(--c-muted);
-    text-decoration: none;
-    font-size: 0.75rem;
-    padding: 3px 8px;
-    border: 1px solid var(--c-border);
-    border-radius: 5px;
-}
-
-    .create-header__back svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    .create-header__back:hover {
-        background: var(--c-bg);
-        color: var(--c-text);
-    }
-
-.create-header__title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.2;
-}
-
-.create-header__subtitle {
-    font-size: 0.75rem;
-    color: var(--c-muted);
-    margin: 2px 0 0;
-}
-
-.create-grid {
-    display: grid;
-    grid-template-columns: 0.8fr 1.2fr;
-    gap: 16px;
-}
-
-/* Photo column */
-.create-section-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-
-.photo-dropzone {
-    position: relative;
-    border: 2px dashed var(--c-border);
-    border-radius: 8px;
-    background: var(--c-bg);
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: border-color 0.2s ease;
-    overflow: hidden;
-}
-
-    .photo-dropzone:hover {
-        border-color: var(--c-primary);
-    }
-
-.photo-dropzone--drag {
-    border-color: var(--c-primary);
-    background: var(--c-primary-soft);
-}
-
-.photo-dropzone__input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.photo-dropzone__empty {
-    text-align: center;
-    padding: 8px;
-}
-
-.photo-dropzone__icon {
-    color: var(--c-muted-light);
-    margin-bottom: 4px;
-}
-
-    .photo-dropzone__icon svg {
-        width: 28px;
-        height: 28px;
-    }
-
-.photo-dropzone__cta {
-    color: var(--c-primary);
-    font-weight: 600;
-    font-size: 0.75rem;
-}
-
-.photo-dropzone__main {
-    font-size: 0.75rem;
-    margin: 0;
-}
-
-.photo-dropzone__hint {
-    font-size: 0.6rem;
-    color: var(--c-muted);
-    margin: 2px 0 0;
-}
-
-.photo-dropzone__preview {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-    .photo-dropzone__preview img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-.photo-dropzone__remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.6);
-    border: none;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-    .photo-dropzone__remove svg {
-        width: 12px;
-        height: 12px;
-    }
-
-    .photo-dropzone__remove:hover {
-        background: rgba(0,0,0,0.8);
-    }
-
-.photo-dropzone__overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(45,27,105,0.9);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.8rem;
-}
-
-.create-tips {
-    margin-top: 8px;
-}
-
-.create-tips__heading {
-    font-size: 0.62rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-    color: var(--c-muted);
-    margin-bottom: 2px;
-}
-
-.create-tips__list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-    .create-tips__list li {
-        font-size: 0.7rem;
-        color: var(--c-text);
-        padding: 1px 0 1px 12px;
-        position: relative;
-    }
-
-        .create-tips__list li::before {
-            content: 'â€¢';
-            position: absolute;
-            left: 3px;
-            color: var(--c-primary);
-            font-size: 0.65rem;
-        }
-
-/* Form column */
-.create-form-col {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.create-field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.create-field__top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.create-field__label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-    color: var(--c-muted);
-    font-weight: 600;
-}
-
-.create-field__optional {
-    font-size: 0.6rem;
-    color: var(--c-muted);
-}
-
-.create-field__counter {
-    font-size: 0.6rem;
-    color: var(--c-muted);
-}
-
-.create-field__counter--warn {
-    color: var(--c-warning);
-}
-
-.create-field__input {
-    width: 100%;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 5px;
-    padding: 6px 8px;
-    font-size: 0.78rem;
-}
-
-    .create-field__input:focus {
-        outline: none;
-        border-color: var(--c-primary);
-        box-shadow: 0 0 0 2px rgba(45,27,105,.15);
-    }
-
-.create-field__input--textarea {
-    resize: vertical;
-    min-height: 50px;
-}
-
-.create-price-wrap {
-    display: flex;
-    align-items: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 5px;
-}
-
-.create-price-wrap__symbol {
-    padding: 0 8px;
-    color: var(--c-muted);
-    font-weight: 600;
-    font-size: 0.85rem;
-}
-
-.create-price-wrap__input {
-    flex: 1;
-    border: none;
-    background: none;
-    padding: 6px 8px 6px 0;
-}
-
-/* Hidden select for chips */
-.create-hidden-select {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-/* Chips */
-.create-chips,
-.create-condition {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.create-chip,
-.create-condition__pill {
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--c-text);
-}
-
-    .create-chip:hover,
-    .create-condition__pill:hover {
-        border-color: var(--c-primary);
-        background: var(--c-surface);
-    }
-
-.create-chip--active,
-.create-condition__pill--active {
-    background: var(--c-primary);
-    color: white;
-    border-color: var(--c-primary);
-}
-
-/* Stealable toggle */
-.create-field--stealable {
-    border-top: 1px solid var(--c-border);
-    padding-top: 8px;
-    margin-top: 2px;
-}
-
-.create-stealable-header__sub {
-    font-size: 0.7rem;
-    color: var(--c-muted);
-    margin: 2px 0 0;
-    line-height: 1.3;
-}
-
-.stealable-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    width: fit-content;
-    margin-bottom: 6px;
-}
-
-.stealable-toggle__track {
-    position: relative;
-    width: 36px;
-    height: 20px;
-    flex-shrink: 0;
-}
-
-.stealable-toggle__input {
-    position: absolute;
-    opacity: 0;
-}
-
-.stealable-toggle__thumb {
-    position: absolute;
-    inset: 0;
-    background: var(--c-border);
-    border-radius: 99px;
-    transition: background 0.2s ease;
-}
-
-    .stealable-toggle__thumb::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 16px;
-        height: 16px;
-        background: white;
-        border-radius: 50%;
-        transition: transform 0.2s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,.15);
-    }
-
-.stealable-toggle__input:checked + .stealable-toggle__thumb {
-    background: var(--c-primary);
-}
-
-    .stealable-toggle__input:checked + .stealable-toggle__thumb::after {
-        transform: translateX(16px);
-    }
-
-.stealable-toggle__name {
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.stealable-toggle__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: var(--c-primary);
-    color: white;
-    font-size: 0.5rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 1px 4px;
-    border-radius: 3px;
-}
-
-    .stealable-toggle__badge svg {
-        width: 8px;
-        height: 8px;
-    }
-
-.stealable-duration-panel {
-    margin-top: 6px;
-}
-
-    .stealable-duration-panel[hidden] {
-        display: none;
-    }
-
-.stealable-duration-inner {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 8px;
-}
-
-.stealable-duration-icon {
-    color: var(--c-primary);
-    flex-shrink: 0;
-}
-
-    .stealable-duration-icon svg {
-        width: 14px;
-        height: 14px;
-    }
-
-.stealable-duration-body {
-    flex: 1;
-}
-
-.stealable-duration-body__hint {
-    font-size: 0.68rem;
-    color: var(--c-muted);
-    margin: 2px 0 6px;
-    line-height: 1.3;
-}
-
-/* Actions */
-.create-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 6px;
-}
-
-    .create-actions .btn {
-        flex: 1;
-        padding: 6px 10px;
-        font-size: 0.75rem;
-    }
-
-        .create-actions .btn svg {
-            width: 14px;
-            height: 14px;
-        }
-
-/* Error banner */
-.create-error-banner {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-    border-radius: 5px;
-    padding: 6px 10px;
-    margin-bottom: 8px;
-    font-size: 0.75rem;
-}
-
-    .create-error-banner svg {
-        width: 14px;
-        height: 14px;
-        flex-shrink: 0;
-    }
-
-    .create-error-banner div {
-        margin: 0;
-    }
-
-.create-toast {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--c-success-bg);
-    color: var(--c-success);
-    border: 1px solid #a7f3d0;
-    border-radius: 5px;
-    padding: 6px 10px;
-    margin-bottom: 8px;
-    font-size: 0.75rem;
-    transition: opacity 0.4s ease;
-}
-
-    .create-toast svg {
-        width: 14px;
-        height: 14px;
-        flex-shrink: 0;
-    }
-
-/* Validation error */
-.field__error {
-    font-size: 0.6rem;
-    color: var(--c-error);
-    margin-top: 1px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 992px) {
-    .create-page {
-        max-width: 100%;
-        padding: 0 12px;
-    }
-
-    .create-grid {
-        gap: 12px;
-    }
-}
-
-@media (max-width: 768px) {
-    .create-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .create-header {
-        flex-wrap: wrap;
-    }
-}
-
-/* ================================================ */
-/* MULTI-IMAGE UPLOAD + VALIDATION â€” APPEND TO END  */
-/* ================================================ */
-
-/* â”€â”€ Compact layout overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.create-grid {
-    gap: 14px;
-}
-
-.create-form-col {
-    gap: 7px;
-}
-
-.create-field__input--textarea {
-    min-height: 46px;
-}
-
-.create-field--stealable {
-    padding-top: 7px;
-}
-
-.create-actions .btn {
-    padding: 5px 10px;
-    font-size: 0.73rem;
-}
-
-/* â”€â”€ Photo add zone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.photo-add-zone {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 3px;
-    border: 2px dashed var(--c-border);
-    border-radius: 7px;
-    background: var(--c-bg);
-    padding: 10px 8px;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    text-align: center;
-    min-height: 68px;
-    margin-bottom: 6px;
-}
-
-    .photo-add-zone:hover {
-        border-color: var(--c-primary);
-        background: var(--c-surface);
-    }
-
-.photo-add-zone--drag {
-    border-color: var(--c-primary);
-    background: var(--c-primary-soft, rgba(45,27,105,.06));
-}
-
-.photo-add-zone--hidden {
-    display: none;
-}
-
-.photo-add-zone__cta {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--c-primary);
-}
-
-.photo-add-zone__hint {
-    font-size: 0.6rem;
-    color: var(--c-muted);
-}
-
-/* â”€â”€ Photo thumbnail grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.photo-thumbs {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-.photo-thumb {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-}
-
-    .photo-thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-.photo-thumb--existing img {
-    /* existing images already uploaded â€” no visual distinction needed */
-}
-
-/* Cover badge (first thumb) */
-.photo-thumb__badge {
-    position: absolute;
-    bottom: 3px;
-    left: 3px;
-    font-size: 0.48rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: rgba(0,0,0,.65);
-    color: #fff;
-    padding: 1px 4px;
-    border-radius: 3px;
-    pointer-events: none;
-}
-
-.photo-thumb__badge--new {
-    background: var(--c-primary, #2d1b69);
-}
-
-/* Remove button */
-.photo-thumb__remove {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: rgba(0,0,0,.6);
-    border: none;
-    color: #fff;
-    font-size: 0.85rem;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    transition: background 0.15s ease;
-}
-
-    .photo-thumb__remove:hover {
-        background: rgba(220,38,38,.85);
-    }
-
-/* â”€â”€ Client-side validation error states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-
-/* Text inputs and textareas */
-.input-error {
-    border-color: var(--c-error, #ef4444) !important;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, .12) !important;
-}
-
-/* Price wrapper (wraps the â‚± symbol + input) */
-.create-price-wrap.input-error {
-    border-color: var(--c-error, #ef4444) !important;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, .12) !important;
-}
-
-    .create-price-wrap.input-error .create-price-wrap__input {
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-/* Chip containers (category, condition, duration) */
-.chips-error {
-    outline: 2px dashed var(--c-error, #ef4444);
-    outline-offset: 3px;
-    border-radius: 5px;
-}
-
-/* --------------------------------------------- */
-/* MY LISTINGS PAGE                               */
-/* --------------------------------------------- */
-.listings-shell {
-    max-width: 1100px;
-    margin: 0 auto;
-}
-
-.listings-toast {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--c-success-bg);
-    color: var(--c-success);
-    border: 1px solid #a7f3d0;
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 20px;
-    transition: opacity 0.4s ease;
-}
-
-.listings-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-}
-
-.listings-header__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 4px;
-}
-
-.listings-header__subtitle {
-    font-size: 0.85rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.listings-empty {
-    text-align: center;
-    padding: 64px 24px;
-}
-
-.listings-empty__icon {
-    color: #c0b8e0;
-    margin-bottom: 20px;
-}
-
-    .listings-empty__icon svg {
-        width: 64px;
-        height: 64px;
-    }
-
-.listings-empty__title {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
-
-.listings-empty__body {
-    font-size: 0.82rem;
-    color: var(--c-muted);
-    margin-bottom: 20px;
-}
-
-/* Table */
-.listings-table-wrap {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    overflow-x: auto;
-}
-
-.listings-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.listings-th {
-    text-align: left;
-    padding: 16px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    border-bottom: 1px solid var(--c-border);
-}
-
-.listings-th--img {
-    width: 60px;
-}
-
-.listings-th--price {
-    width: 100px;
-}
-
-.listings-th--date {
-    width: 120px;
-}
-
-.listings-th--actions {
-    width: 140px;
-}
-
-.listings-row {
-    border-bottom: 1px solid var(--c-border);
-}
-
-    .listings-row:last-child {
-        border-bottom: none;
-    }
-
-.listings-row--clickable {
-    cursor: pointer;
-}
-
-    .listings-row--clickable:hover {
-        background: var(--c-bg);
-    }
-
-.listings-td {
-    padding: 12px 16px;
-    vertical-align: middle;
-}
-
-.listings-td--img {
-    width: 60px;
-}
-
-.listings-thumb {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.listings-thumb--placeholder {
-    width: 48px;
-    height: 48px;
-    background: var(--c-bg);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted-light);
-}
-
-    .listings-thumb--placeholder svg {
-        width: 24px;
-        height: 24px;
-    }
-
-.listings-item-title {
-    font-weight: 600;
-    color: var(--c-text);
-    text-decoration: none;
-    display: block;
-    margin-bottom: 4px;
-}
-
-.listings-item-title--link:hover {
-    color: var(--c-primary);
-    text-decoration: underline;
-}
-
-.listings-item-condition {
-    font-size: 0.68rem;
-    color: var(--c-muted);
-}
-
-.listings-badge {
-    display: inline-block;
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-}
-
-.listings-price {
-    font-weight: 700;
-    color: var(--c-primary);
-}
-
-.listings-actions {
-    display: flex;
-    gap: 6px;
-}
-
-.listings-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    font-size: 0.72rem;
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    background: var(--c-surface);
-    color: var(--c-text);
-    text-decoration: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-    .listings-action-btn svg {
-        width: 14px;
-        height: 14px;
-    }
-
-.listings-action-btn--edit:hover {
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-    border-color: var(--c-primary);
-}
-
-.listings-action-btn--delete {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border-color: #fecaca;
-}
-
-    .listings-action-btn--delete:hover {
-        background: #fee2e2;
-    }
-
-.listings-delete-form {
-    display: inline;
-}
-
-/* --------------------------------------------- */
-/* CHECKOUT PAGE  â€” compact (fits 100% zoom)      */
-/* --------------------------------------------- */
-.co-shell {
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 16px 24px 32px;
-}
-
-.co-breadcrumb {
-    margin-bottom: 12px;
-}
-
-.co-breadcrumb__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--c-muted);
-    font-size: 0.75rem;
-    text-decoration: none;
-}
-
-    .co-breadcrumb__link:hover {
-        color: var(--c-primary);
-    }
-
-    .co-breadcrumb__link svg {
-        width: 15px;
-        height: 15px;
-    }
-
-.co-header {
-    margin-bottom: 18px;
-}
-
-.co-header__title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin: 0 0 2px;
-}
-
-.co-header__subtitle {
-    font-size: 0.78rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.co-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: start;
-}
-
-/* Alert */
-.co-alert {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 0.75rem;
-    margin-bottom: 14px;
-}
-
-.co-alert--error {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-}
-
-.co-alert__link {
-    margin-left: auto;
-    font-weight: 600;
-    color: var(--c-error);
-    text-decoration: underline;
-}
-
-/* â”€â”€ Item summary card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.co-item-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 14px;
-}
-
-.co-item-card__img-wrap {
-    position: relative;
-    /* Fixed height instead of 1:1 ratio â€” biggest space saver */
-    height: 220px;
-    background: var(--c-bg);
-    overflow: hidden;
-}
-
-.co-item-card__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.co-item-card__img--placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted-light);
-    height: 100%;
-}
-
-    .co-item-card__img--placeholder svg {
-        width: 48px;
-        height: 48px;
-    }
-
-.co-item-card__stealable-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--c-primary);
-    color: white;
-    font-size: 0.66rem;
-    font-weight: 600;
-    padding: 3px 7px;
-    border-radius: 5px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.18);
-}
-
-.co-item-card__body {
-    padding: 12px 14px;
-}
-
-.co-item-card__meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-bottom: 6px;
-}
-
-.co-item-card__category {
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 20px;
-}
-
-.co-item-card__condition {
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 20px;
-}
-
-.co-item-card__size {
-    background: var(--c-bg);
-    color: var(--c-muted);
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 20px;
-}
-
-.co-item-card__title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin: 0 0 10px;
-}
-
-.co-item-card__seller {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.co-item-card__seller-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--c-badge-bg);
-    color: var(--c-badge-txt);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.78rem;
-}
-
-.co-item-card__seller-label {
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    color: var(--c-muted);
-    margin: 0 0 1px;
-}
-
-.co-item-card__seller-name {
-    font-size: 0.78rem;
-    font-weight: 500;
-    margin: 0;
-}
-
-/* P2P notice */
-.co-p2p-notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--c-info-bg);
-    border: 1px solid #b9d5ff;
-    border-radius: 8px;
-    padding: 10px 12px;
-}
-
-.co-p2p-notice__icon {
-    color: var(--c-info);
-    flex-shrink: 0;
-}
-
-.co-p2p-notice__heading {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--c-info);
-    margin: 0 0 3px;
-}
-
-.co-p2p-notice__text {
-    font-size: 0.73rem;
-    color: var(--c-text);
-    margin: 0;
-    line-height: 1.5;
-}
-
-/* â”€â”€ Order breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.co-breakdown {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 10px;
-    padding: 16px 18px;
-}
-
-.co-breakdown__heading {
-    font-size: 0.9rem;
-    font-weight: 700;
-    margin: 0 0 14px;
-}
-
-.co-breakdown__rows {
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-}
-
-.co-breakdown__row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-}
-
-.co-breakdown__row--steal {
-    color: var(--c-warning);
-}
-
-.co-breakdown__label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: var(--c-muted);
-}
-
-.co-breakdown__steal-icon {
-    color: var(--c-warning);
-}
-
-.co-breakdown__value--steal {
-    font-weight: 600;
-    color: var(--c-warning);
-}
-
-.co-breakdown__divider {
-    height: 1px;
-    background: var(--c-border);
-    margin: 10px 0;
-}
-
-.co-breakdown__total-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-.co-breakdown__total-label {
-    color: var(--c-text);
-}
-
-.co-breakdown__total-value {
-    color: var(--c-primary);
-}
-
-/* Payment section */
-.co-pay-section {
-    margin-top: 16px;
-}
-
-.co-pay-section__heading {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--c-muted);
-    margin: 0 0 8px;
-}
-
-.co-pay-options {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 14px;
-}
-
-.co-pay-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1.5px solid var(--c-border);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-    .co-pay-option:has(.co-pay-radio:checked) {
-        border-color: var(--c-primary);
-        background: var(--c-primary-soft);
-    }
-
-.co-pay-option--disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-}
-
-.co-pay-radio {
-    position: absolute;
-    opacity: 0;
-}
-
-.co-pay-option__icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.co-pay-option__body {
-    flex: 1;
-}
-
-.co-pay-option__name {
-    font-size: 0.82rem;
-    font-weight: 600;
-    margin: 0 0 1px;
-}
-
-.co-pay-option__detail {
-    font-size: 0.73rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.co-pay-option__insufficient {
-    color: var(--c-error);
-}
-
-    .co-pay-option__insufficient a {
-        color: var(--c-error);
-        font-weight: 600;
-    }
-
-/* Confirm button */
-.co-confirm-btn {
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 11px 18px;
-    background: var(--c-primary);
-    color: white;
-    font-size: 0.88rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 7px;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-    .co-confirm-btn:hover {
-        background: var(--c-primary-light);
-    }
-
-    .co-confirm-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-.co-cancel-link {
-    display: block;
-    text-align: center;
-    margin-top: 10px;
-    color: var(--c-muted);
-    font-size: 0.73rem;
-    text-decoration: none;
-}
-
-    .co-cancel-link:hover {
-        color: var(--c-primary);
-        text-decoration: underline;
-    }
-
-/* --------------------------------------------- */
-/* MY PURCHASES PAGE                              */
-/* --------------------------------------------- */
-.mp-shell {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 24px 32px 48px;
-}
-
-.mp-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-}
-
-.mp-header__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 4px;
-}
-
-.mp-header__subtitle {
-    font-size: 0.85rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.mp-header__actions {
-    display: flex;
-    gap: 10px;
-}
-
-/* Toast */
-.mp-toast {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-    transition: opacity 0.4s ease;
-}
-
-.mp-toast--success {
-    background: var(--c-success-bg);
-    color: var(--c-success);
-    border: 1px solid #a7f3d0;
-}
-
-.mp-toast--info {
-    background: var(--c-info-bg);
-    color: var(--c-info);
-    border: 1px solid #b9d5ff;
-}
-
-.mp-toast--error {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    border: 1px solid #fecaca;
-}
-
-/* Empty state */
-.mp-empty {
-    text-align: center;
-    padding: 64px 24px;
-}
-
-.mp-empty__icon {
-    color: #c0b8e0;
-    margin-bottom: 20px;
-}
-
-    .mp-empty__icon svg {
-        width: 64px;
-        height: 64px;
-    }
-
-.mp-empty__title {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
-
-.mp-empty__body {
-    font-size: 0.82rem;
-    color: var(--c-muted);
-    margin-bottom: 20px;
-}
-
-/* Purchase list */
-.mp-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.mp-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    padding: 16px;
-    transition: box-shadow 0.2s ease;
-}
-
-    .mp-row:hover {
-        box-shadow: 0 4px 18px rgba(0,0,0,.05);
-    }
-
-.mp-row__img-wrap {
-    width: 80px;
-    height: 80px;
-    flex-shrink: 0;
-}
-
-.mp-row__img {
-    width: 100%;
-    height: 100%;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.mp-row__img--placeholder {
-    background: var(--c-bg);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted-light);
-}
-
-    .mp-row__img--placeholder svg {
-        width: 32px;
-        height: 32px;
-    }
-
-.mp-row__body {
-    flex: 1;
-}
-
-.mp-row__top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-}
-
-.mp-row__title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin: 0;
-}
-
-.mp-status {
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-}
-
-.mp-status--pending {
-    background: var(--c-warning-bg);
-    color: var(--c-warning);
-}
-
-.mp-status--completed {
-    background: var(--c-success-bg);
-    color: var(--c-success);
-}
-
-.mp-status--cancelled {
-    background: var(--c-error-bg);
-    color: var(--c-error);
-}
-
-.mp-row__seller {
-    font-size: 0.8rem;
-    color: var(--c-muted);
-    margin: 0 0 4px;
-}
-
-.mp-row__pay {
-    margin: 0 0 4px;
-}
-
-.mp-pay-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.mp-pay-pill--wallet {
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-}
-
-.mp-pay-pill--cod {
-    background: var(--c-warning-bg);
-    color: var(--c-warning);
-}
-
-.mp-row__date {
-    font-size: 0.72rem;
-    color: var(--c-muted);
-    margin: 0;
-}
-
-.mp-deliver-form {
-    margin-top: 8px;
-}
-
-.mp-deliver-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: var(--c-primary);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-    .mp-deliver-btn:hover {
-        background: var(--c-primary-light);
-    }
-
-.mp-row__price-col {
-    text-align: right;
-}
-
-.mp-row__price {
-    display: block;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--c-primary);
-}
-
-.mp-row__price-label {
-    font-size: 0.68rem;
-    color: var(--c-muted);
-}
-
-/* --------------------------------------------- */
-/* ADD FUNDS PAGE                                 */
-/* --------------------------------------------- */
-.addfunds-shell {
-    max-width: 480px;
-    margin: 2rem auto 4rem;
-}
-
-.addfunds-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 16px;
-    padding: 40px 32px;
-    text-align: center;
-}
-
-.addfunds-card__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    background: var(--c-primary-soft);
-    color: var(--c-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-}
-
-    .addfunds-card__icon svg {
-        width: 28px;
-        height: 28px;
-    }
-
-.addfunds-card__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 8px;
-}
-
-.addfunds-card__subtitle {
-    font-size: 0.85rem;
-    color: var(--c-muted);
-    margin: 0 0 24px;
-    line-height: 1.5;
-}
-
-.addfunds-demo-notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--c-info-bg);
-    border: 1px solid #b9d5ff;
-    border-radius: 8px;
-    padding: 14px 16px;
-    text-align: left;
-    margin-bottom: 24px;
-}
-
-    .addfunds-demo-notice svg {
-        color: var(--c-info);
-        flex-shrink: 0;
-    }
-
-    .addfunds-demo-notice p {
-        font-size: 0.8rem;
-        color: var(--c-info);
-        margin: 0;
-        line-height: 1.5;
-    }
-
-.addfunds-alert {
-    background: var(--c-error-bg);
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 0.85rem;
-    color: var(--c-error);
-    margin-bottom: 20px;
-    text-align: left;
-}
-
-.addfunds-form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.addfunds-amount-wrap {
-    display: flex;
-    align-items: center;
-    border: 1.5px solid var(--c-border);
-    border-radius: 10px;
-    background: var(--c-surface);
-    overflow: hidden;
-}
-
-    .addfunds-amount-wrap:focus-within {
-        border-color: var(--c-primary);
-    }
-
-.addfunds-amount-wrap__sym {
-    padding: 0 14px;
-    font-size: 1.1rem;
-    color: var(--c-muted);
-    border-right: 1.5px solid var(--c-border);
-}
-
-.addfunds-amount-input {
-    flex: 1;
-    border: none;
-    outline: none;
-    padding: 14px 14px 14px 0;
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: var(--c-text);
-    background: transparent;
-    width: 100%;
-}
-
-.addfunds-quick {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.addfunds-quick__btn {
-    padding: 6px 14px;
-    border: 1.5px solid var(--c-border);
-    border-radius: 6px;
-    background: var(--c-surface);
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--c-text);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-    .addfunds-quick__btn:hover,
-    .addfunds-quick__btn--active {
-        border-color: var(--c-primary);
-        background: var(--c-primary-soft);
-        color: var(--c-primary);
-    }
-
-.addfunds-methods {
-    margin-top: 32px;
-}
-
-.addfunds-methods__label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--c-muted);
-    margin: 0 0 12px;
-}
-
-.addfunds-methods__logos {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.addfunds-method-pill {
-    padding: 4px 12px;
-    border: 1px solid var(--c-border);
-    border-radius: 99px;
-    font-size: 0.75rem;
-    color: var(--c-muted);
-    opacity: 0.65;
-}
-
-/* --------------------------------------------- */
-/* CONFIRM DELETE PAGE                            */
-/* --------------------------------------------- */
-.confirm-shell {
-    max-width: 480px;
-    margin: 4rem auto;
-}
-
-.confirm-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 16px;
-    padding: 40px 32px;
-    text-align: center;
-}
-
-.confirm-card__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--c-error-bg);
-    color: var(--c-error);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-}
-
-.confirm-card__title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin: 0 0 8px;
-}
-
-.confirm-card__body {
-    font-size: 0.85rem;
-    color: var(--c-muted);
-    margin: 0 0 24px;
-}
-
-.confirm-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    margin-bottom: 24px;
-    text-align: left;
-}
-
-.confirm-item__img {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.confirm-item__img--placeholder {
-    width: 60px;
-    height: 60px;
-    background: var(--c-surface);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--c-muted-light);
-}
-
-.confirm-item__title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin: 0 0 4px;
-}
-
-.confirm-item__price {
-    font-size: 0.9rem;
-    color: var(--c-primary);
-    font-weight: 600;
-    margin: 0;
-}
-
-.confirm-actions {
-    display: flex;
-    gap: 12px;
-}
-
-    .confirm-actions .btn {
-        flex: 1;
-    }
-
-/* --------------------------------------------- */
-/* RESPONSIVE                                     */
-/* --------------------------------------------- */
-@media (max-width: 992px) {
-    .fy-shell {
-        grid-template-columns: 240px 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .container {
-        padding: 16px 20px 32px;
-    }
-
-    /* Auth */
-    .auth-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .auth-panel--brand {
-        display: none;
-    }
-
-    /* For You */
-    .fy-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .fy-sidebar {
-        position: static;
-        margin-bottom: 20px;
-    }
-
-    .fy-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    }
-
-    /* Details */
-    .detail-grid {
-        grid-template-columns: 1fr;
-        gap: 24px;
-    }
-
-    .detail-seller--below-img {
-        display: none;
-    }
-
-    .detail-seller--inline {
-        display: flex;
-    }
-
-    .detail-actions {
-        flex-direction: column;
-    }
-
-    .detail-btn {
-        width: 100%;
-        min-width: 0;
-    }
-
-    /* Create */
-    .create-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .create-actions {
-        flex-direction: column;
-    }
-
-    /* Checkout */
-    .co-grid {
-        grid-template-columns: 1fr;
-    }
-
-    /* My Purchases */
-    .mp-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-
-    .mp-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .mp-row__price-col {
-        text-align: left;
-        width: 100%;
-    }
-
-    /* Delete */
-    .confirm-actions {
-        flex-direction: column;
-    }
-}
-
-@media (max-width: 480px) {
-    .fy-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .listings-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-
-    .listings-actions {
-        flex-direction: column;
     }
 }
 

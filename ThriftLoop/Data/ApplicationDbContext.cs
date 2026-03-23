@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
 using ThriftLoop.Models;
 using ThriftLoop.Enums;
+
 namespace ThriftLoop.Data;
 
 public class ApplicationDbContext : DbContext
@@ -12,7 +13,10 @@ public class ApplicationDbContext : DbContext
 
     // ── DbSets ────────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
+    public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<Item> Items => Set<Item>();
+    public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
+    public DbSet<ItemVariantSku> ItemVariantSkus => Set<ItemVariantSku>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
@@ -42,11 +46,64 @@ public class ApplicationDbContext : DbContext
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
 
             // ── Password Reset ─────────────────────────────────────────────────
-            // MIGRATION: Add-Migration AddPasswordReset → Update-Database
             entity.Property(u => u.PasswordResetToken)
                   .IsRequired(false).HasMaxLength(64).IsUnicode(false);
             entity.Property(u => u.PasswordResetTokenExpiry)
                   .IsRequired(false).HasColumnType("datetime2");
+
+            // ── Role ───────────────────────────────────────────────────────────
+            // MIGRATION: Add-Migration AddRolesAndSellerProfile → Update-Database
+            entity.Property(u => u.Role)
+                  .IsRequired()
+                  .HasDefaultValue(UserRole.User);
+        });
+
+        // ── SellerProfiles ────────────────────────────────────────────────────
+        modelBuilder.Entity<SellerProfile>(entity =>
+        {
+            entity.ToTable("SellerProfiles");
+            entity.HasKey(sp => sp.Id);
+            entity.Property(sp => sp.Id).ValueGeneratedOnAdd();
+
+            // One user → at most one seller profile.
+            entity.HasIndex(sp => sp.UserId)
+                  .IsUnique()
+                  .HasDatabaseName("UQ_SellerProfiles_UserId");
+
+            entity.Property(sp => sp.ApplicationStatus)
+                  .IsRequired()
+                  .HasDefaultValue(ApplicationStatus.Pending);
+
+            entity.Property(sp => sp.AppliedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(sp => sp.ReviewedAt)
+                  .IsRequired(false).HasColumnType("datetime2");
+
+            entity.Property(sp => sp.ShopName)
+                  .IsRequired().HasMaxLength(100);
+
+            entity.Property(sp => sp.Bio)
+                  .IsRequired(false).HasMaxLength(500);
+
+            entity.Property(sp => sp.BannerUrl)
+                  .IsRequired(false).HasMaxLength(512).IsUnicode(false);
+
+            entity.Property(sp => sp.LogoUrl)
+                  .IsRequired(false).HasMaxLength(512).IsUnicode(false);
+
+            // SellerProfile → User (1:1 from SellerProfile's side)
+            entity.HasOne(sp => sp.User)
+                  .WithOne(u => u.SellerProfile)
+                  .HasForeignKey<SellerProfile>(sp => sp.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // SellerProfile → Items (1:many — a shop's listings)
+            entity.HasMany(sp => sp.Items)
+                  .WithOne(i => i.Shop)
+                  .HasForeignKey(i => i.ShopId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.NoAction);
         });
 
         // ── Items ─────────────────────────────────────────────────────────────
@@ -93,16 +150,66 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.StealDurationHours).IsRequired(false);
             entity.Property(i => i.StealEndsAt).IsRequired(false).HasColumnType("datetime2");
             entity.Property(i => i.CurrentWinnerId).IsRequired(false);
-
             entity.Property(i => i.OriginalGetterUserId).IsRequired(false);
 
             entity.Ignore(i => i.IsInFinalizeWindow);
             entity.Ignore(i => i.FinalizeDeadline);
 
+            // ShopId is nullable — null means P2P listing.
+            // The SellerProfile relationship is configured on the SellerProfile side above.
+            entity.Property(i => i.ShopId).IsRequired(false);
+
             entity.HasOne(i => i.User)
                   .WithMany()
                   .HasForeignKey(i => i.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            // Item → ItemVariants (1:many)
+            entity.HasMany(i => i.Variants)
+                  .WithOne(v => v.Item)
+                  .HasForeignKey(v => v.ItemId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ItemVariants ──────────────────────────────────────────────────────
+        modelBuilder.Entity<ItemVariant>(entity =>
+        {
+            entity.ToTable("ItemVariants");
+            entity.HasKey(v => v.Id);
+            entity.Property(v => v.Id).ValueGeneratedOnAdd();
+
+            entity.Property(v => v.Name)
+                  .IsRequired().HasMaxLength(50);
+
+            // Relationship back to Item is configured on the Item side above.
+
+            // ItemVariant → ItemVariantSkus (1:many)
+            entity.HasMany(v => v.Skus)
+                  .WithOne(s => s.Variant)
+                  .HasForeignKey(s => s.VariantId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ItemVariantSkus ───────────────────────────────────────────────────
+        modelBuilder.Entity<ItemVariantSku>(entity =>
+        {
+            entity.ToTable("ItemVariantSkus");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Id).ValueGeneratedOnAdd();
+
+            entity.Property(s => s.Size)
+                  .IsRequired(false).HasMaxLength(20);
+
+            entity.Property(s => s.Price)
+                  .IsRequired().HasColumnType("decimal(10,2)");
+
+            entity.Property(s => s.Quantity)
+                  .IsRequired().HasDefaultValue(1);
+
+            entity.Property(s => s.Status)
+                  .IsRequired().HasDefaultValue(SkuStatus.Available);
+
+            // Relationship back to ItemVariant is configured on the ItemVariant side above.
         });
 
         // ── Orders ────────────────────────────────────────────────────────────
@@ -112,14 +219,36 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(o => o.Id);
             entity.Property(o => o.Id).ValueGeneratedOnAdd();
             entity.Property(o => o.FinalPrice).IsRequired().HasColumnType("decimal(10,2)");
+            entity.Property(o => o.Quantity).IsRequired().HasDefaultValue(1);
             entity.Property(o => o.OrderDate)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(o => o.Status).IsRequired().HasDefaultValue(OrderStatus.Pending);
             entity.Property(o => o.PaymentMethod).IsRequired().HasDefaultValue(PaymentMethod.Wallet);
             entity.Property(o => o.CashCollectedByRider).IsRequired().HasDefaultValue(false);
-            entity.HasOne(o => o.Item).WithMany().HasForeignKey(o => o.ItemId).OnDelete(DeleteBehavior.NoAction);
-            entity.HasOne(o => o.Buyer).WithMany().HasForeignKey(o => o.BuyerId).OnDelete(DeleteBehavior.NoAction);
-            entity.HasOne(o => o.Seller).WithMany().HasForeignKey(o => o.SellerId).OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(o => o.Item)
+                  .WithMany()
+                  .HasForeignKey(o => o.ItemId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            // Order → ItemVariantSku
+            // IsRequired(false) because orders created before the variant system
+            // have no SKU to reference. All new orders must set this at checkout.
+            entity.HasOne(o => o.ItemVariantSku)
+                  .WithMany(s => s.Orders)
+                  .HasForeignKey(o => o.ItemVariantSkuId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(o => o.Buyer)
+                  .WithMany()
+                  .HasForeignKey(o => o.BuyerId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(o => o.Seller)
+                  .WithMany()
+                  .HasForeignKey(o => o.SellerId)
+                  .OnDelete(DeleteBehavior.NoAction);
         });
 
         // ── Wallets ───────────────────────────────────────────────────────────

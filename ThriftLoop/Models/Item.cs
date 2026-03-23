@@ -5,6 +5,27 @@ namespace ThriftLoop.Models;
 
 // ── Domain model ───────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Top-level listing record. Covers both P2P listings posted by regular Users
+/// and shop listings posted by approved Sellers.
+///
+/// Distinguishing P2P vs Shop:
+///   ShopId == null  →  P2P listing.  One flat item, one seller, quantity 1.
+///   ShopId != null  →  Shop listing. Posted by a Seller via their shop page.
+///
+/// Variants and inventory:
+///   All items — P2P and shop alike — carry at least one ItemVariant with at
+///   least one ItemVariantSku. For P2P items a single "Default" variant and
+///   SKU are auto-generated at creation time so that Orders always reference
+///   a SkuId regardless of listing type. This keeps checkout, escrow, and
+///   order history logic uniform across both paths.
+///
+/// Steal mechanic:
+///   The stealable fields (ListingType, StealEndsAt, CurrentWinnerId, etc.)
+///   and ItemStatus live here on the Item row — not on the SKU. Steal logic
+///   is P2P-only; shop listings always use ListingType.Standard and the SKU's
+///   SkuStatus drives their availability.
+/// </summary>
 public class Item
 {
     public int Id { get; set; }
@@ -35,6 +56,8 @@ public class Item
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // ── Stealable listing fields ──────────────────────────────────────────────
+    // These fields apply to P2P listings only.
+    // Shop listings always have ListingType.Standard and never use these.
 
     public ListingType ListingType { get; set; } = ListingType.Standard;
     public int? StealDurationHours { get; set; }
@@ -70,8 +93,28 @@ public class Item
     public DateTime? FinalizeDeadline =>
         StealEndsAt.HasValue ? StealEndsAt.Value.AddHours(2) : null;
 
-    // ── Relationships ─────────────────────────────────────────────────────────
+    // ── Shop FK ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Null for P2P listings.
+    /// Set to the SellerProfile.Id when a Seller posts this item through their shop.
+    /// Used to filter shop items on the Sellers page and to render shop context
+    /// (shop name, logo) on listing cards without a separate query.
+    /// </summary>
+    public int? ShopId { get; set; }
+    public SellerProfile? Shop { get; set; }
+
+    // ── Owner ─────────────────────────────────────────────────────────────────
 
     public int UserId { get; set; }
     public User? User { get; set; }
+
+    // ── Variants ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// For P2P items: always contains exactly one auto-generated "Default" variant.
+    /// For shop items: contains the seller-defined variants (e.g. "Red", "Navy").
+    /// Each variant contains one or more ItemVariantSkus (size + price + quantity).
+    /// </summary>
+    public ICollection<ItemVariant> Variants { get; set; } = new List<ItemVariant>();
 }
