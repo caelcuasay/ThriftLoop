@@ -10,5 +10,16 @@ public class User
     /// </summary>
     public string? PasswordHash { get; set; }
 
+    /// <summary>
+    /// Cryptographically secure reset token. Stored as plain text — cleared immediately
+    /// after use or expiry. For higher-security requirements, store the SHA-256 hash instead.
+    /// </summary>
+    public string? PasswordResetToken { get; set; }
+
+    /// <summary>
+    /// UTC expiry for the reset token. Tokens are valid for 1 hour.
+    /// </summary>
+    public DateTime? PasswordResetTokenExpiry { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

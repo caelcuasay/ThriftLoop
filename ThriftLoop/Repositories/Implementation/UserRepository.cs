@@ -35,4 +35,14 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync();
         return user.Id;
     }
+
+    /// <summary>
+    /// Attaches the detached entity (from an AsNoTracking read) and saves all changes.
+    /// Safe to call after any AsNoTracking read — EF will mark the entity as Modified.
+    /// </summary>
+    public async Task UpdateAsync(User user)
+    {
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+    }
 }

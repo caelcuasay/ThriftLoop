@@ -6,6 +6,8 @@ using ThriftLoop.Repositories.Implementation;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Implementation;
 using ThriftLoop.Services.Auth.Interface;
+using ThriftLoop.Services.Email.Implementation;
+using ThriftLoop.Services.Email.Interface;
 using ThriftLoop.Services.WalletManagement.Implementation;
 using ThriftLoop.Services.WalletManagement.Interface;
 
@@ -70,6 +72,7 @@ builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IEmailService, EmailService>();  // ← email service
 
 var app = builder.Build();
 

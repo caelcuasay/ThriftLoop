@@ -40,6 +40,13 @@ public class ApplicationDbContext : DbContext
                   .IsRequired(false).HasMaxLength(512).IsUnicode(false);
             entity.Property(u => u.CreatedAt)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // ── Password Reset ─────────────────────────────────────────────────
+            // MIGRATION: Add-Migration AddPasswordReset → Update-Database
+            entity.Property(u => u.PasswordResetToken)
+                  .IsRequired(false).HasMaxLength(64).IsUnicode(false);
+            entity.Property(u => u.PasswordResetTokenExpiry)
+                  .IsRequired(false).HasColumnType("datetime2");
         });
 
         // ── Items ─────────────────────────────────────────────────────────────
@@ -87,10 +94,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.StealEndsAt).IsRequired(false).HasColumnType("datetime2");
             entity.Property(i => i.CurrentWinnerId).IsRequired(false);
 
-            // ── OriginalGetterUserId ───────────────────────────────────────────
-            // Populated when a steal begins (saves User A's ID before overwriting
-            // CurrentWinnerId with the stealer). Cleared on confirm or cancel.
-            // MIGRATION: Add-Migration AddOriginalGetterUserId → Update-Database
             entity.Property(i => i.OriginalGetterUserId).IsRequired(false);
 
             entity.Ignore(i => i.IsInFinalizeWindow);

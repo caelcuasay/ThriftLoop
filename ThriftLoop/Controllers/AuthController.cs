@@ -96,6 +96,87 @@ public class AuthController : Controller
     }
 
     // ─────────────────────────────────────────
+    //  FORGOT PASSWORD
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult ForgotPassword()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToAction("Index", "Home");
+
+        return View();
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDTO dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
+
+        var resetUrl = Url.Action(
+            nameof(ResetPassword), "Auth",
+            values: null,
+            protocol: Request.Scheme)!;
+
+        await _authService.ForgotPasswordAsync(dto, resetUrl);
+
+        // Always show the confirmation — never reveal whether the email exists
+        TempData["ForgotPasswordConfirm"] =
+            "If an account with that email exists, a reset link has been sent.";
+
+        return RedirectToAction(nameof(ForgotPasswordConfirmation));
+    }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult ForgotPasswordConfirmation()
+    {
+        return View();
+    }
+
+    // ─────────────────────────────────────────
+    //  RESET PASSWORD
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult ResetPassword(string? token, string? email)
+    {
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(email))
+        {
+            TempData["ResetError"] = "This password reset link is invalid or has expired.";
+            return RedirectToAction(nameof(Login));
+        }
+
+        return View(new ResetPasswordDTO { Token = token, Email = email });
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDTO dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
+
+        var success = await _authService.ResetPasswordAsync(dto);
+
+        if (!success)
+        {
+            ModelState.AddModelError(string.Empty,
+                "This reset link is invalid or has expired. Please request a new one.");
+            return View(dto);
+        }
+
+        TempData["ResetSuccess"] = "Your password has been updated. You can now sign in.";
+        return RedirectToAction(nameof(Login));
+    }
+
+    // ─────────────────────────────────────────
     //  GOOGLE OAUTH
     // ─────────────────────────────────────────
 
@@ -103,8 +184,6 @@ public class AuthController : Controller
     [AllowAnonymous]
     public IActionResult GoogleLogin(string? returnUrl = null)
     {
-        // After Google posts back to /signin-google the middleware will redirect
-        // to ExternalLoginCallback, carrying returnUrl through.
         var redirectUrl = Url.Action(
             nameof(ExternalLoginCallback), "Auth", new { returnUrl });
 
@@ -120,7 +199,6 @@ public class AuthController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null)
     {
-        // Read the identity the Google middleware stored in the external cookie.
         var externalResult = await HttpContext.AuthenticateAsync("ExternalCookie");
 
         if (!externalResult.Succeeded || externalResult.Principal is null)
@@ -139,10 +217,8 @@ public class AuthController : Controller
             return RedirectToAction(nameof(Login));
         }
 
-        // Discard the short-lived external cookie — it is no longer needed.
         await HttpContext.SignOutAsync("ExternalCookie");
 
-        // Find the existing user or auto-provision a new password-less account.
         var user = await _authService.FindOrCreateGoogleUserAsync(email);
 
         await SignInUserAsync(user.Id, user.Email, rememberMe: false);

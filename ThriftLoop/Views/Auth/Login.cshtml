@@ -26,11 +26,30 @@
                 <p class="form-card__subtitle">Sign in to continue to ThriftLoop</p>
             </header>
 
+            @* Google error (e.g. OAuth cancelled) *@
             @if (TempData["ExternalAuthError"] is string extError)
             {
                 <div class="alert alert--error" role="alert">
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
                     <span>@extError</span>
+                </div>
+            }
+
+            @* Successful password reset redirect *@
+            @if (TempData["ResetSuccess"] is string resetMsg)
+            {
+                <div class="alert alert--success" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+                    <span>@resetMsg</span>
+                </div>
+            }
+
+            @* Invalid reset link redirect *@
+            @if (TempData["ResetError"] is string resetErr)
+            {
+                <div class="alert alert--error" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                    <span>@resetErr</span>
                 </div>
             }
 
@@ -43,8 +62,8 @@
             }
 
             <a asp-action="GoogleLogin" asp-controller="Auth"
-                   asp-route-returnUrl="@returnUrl"
-                   class="btn btn--google">
+               asp-route-returnUrl="@returnUrl"
+               class="btn btn--google">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -76,7 +95,7 @@
                 <div class="field">
                     <div class="field__label-row">
                         <label asp-for="Password" class="field__label"></label>
-                        <a href="#" class="field__link">Forgot password?</a>
+                        <a asp-action="ForgotPassword" asp-controller="Auth" class="field__link">Forgot password?</a>
                     </div>
                     <div class="field__input-wrapper">
                         <input asp-for="Password"
