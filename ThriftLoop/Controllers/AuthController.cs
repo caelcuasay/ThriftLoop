@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using ThriftLoop.DTOs.Auth;
+using ThriftLoop.Models;
 using ThriftLoop.Services.Auth.Interface;
 
 namespace ThriftLoop.Controllers;
@@ -50,7 +51,7 @@ public class AuthController : Controller
             return View(dto);
         }
 
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
+        await SignInUserAsync(user, rememberMe: false);
 
         _logger.LogInformation("User {UserId} registered and signed in.", user.Id);
         return RedirectToAction("Index", "Home");
@@ -89,7 +90,7 @@ public class AuthController : Controller
             return View(dto);
         }
 
-        await SignInUserAsync(user.Id, user.Email, dto.RememberMe);
+        await SignInUserAsync(user, dto.RememberMe);
 
         _logger.LogInformation("User {UserId} logged in.", user.Id);
         return RedirectToLocal(returnUrl);
@@ -221,7 +222,7 @@ public class AuthController : Controller
 
         var user = await _authService.FindOrCreateGoogleUserAsync(email);
 
-        await SignInUserAsync(user.Id, user.Email, rememberMe: false);
+        await SignInUserAsync(user, rememberMe: false);
 
         _logger.LogInformation("User {UserId} signed in via Google.", user.Id);
         return RedirectToLocal(returnUrl);
@@ -245,13 +246,24 @@ public class AuthController : Controller
     //  HELPERS
     // ─────────────────────────────────────────
 
-    private async Task SignInUserAsync(int userId, string email, bool rememberMe)
+    /// <summary>
+    /// Issues the auth cookie with all identity claims.
+    /// Role is stamped here so that [Authorize(Roles = "Seller")] works on every
+    /// subsequent request without hitting the database. If a user's role changes
+    /// (e.g. they get approved as a Seller), they need to log out and back in
+    /// for the new role to take effect — this is expected and intentional.
+    /// </summary>
+    private async Task SignInUserAsync(User user, bool rememberMe)
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Email, email),
-            new(ClaimTypes.Name, email)
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email,          user.Email),
+            new(ClaimTypes.Name,           user.Email),
+
+            // Stamp the role so [Authorize(Roles = "Seller")] works without a DB hit.
+            // Role name matches the enum member name (e.g. "User", "Seller", "Rider", "Admin").
+            new(ClaimTypes.Role,           user.Role.ToString())
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

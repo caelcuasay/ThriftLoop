@@ -1,11 +1,27 @@
 ﻿@using System.Security.Claims
+@using ThriftLoop.Repositories.Interface
+@inject IShopRepository ShopRepo
 
 @{
     var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
-                      ?? User.Identity?.Name
-                      ?? string.Empty;
+                        ?? User.Identity?.Name
+                        ?? string.Empty;
     var displayName = userEmail.Contains('@') ? userEmail.Split('@')[0] : userEmail;
     var currentPath = Context.Request.Path.Value ?? string.Empty;
+
+    // Resolve live shop name for the navbar pill.
+    // Done via @inject so it's always current — no stale cookie value.
+    var shopLabel = "My Shop";
+    if (User.IsInRole("Seller"))
+    {
+        var rawId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(rawId, out var navUserId))
+        {
+            var shop = await ShopRepo.GetByUserIdAsync(navUserId);
+            if (!string.IsNullOrWhiteSpace(shop?.ShopName))
+                shopLabel = shop.ShopName;
+        }
+    }
 }
 
 <nav class="tl-nav">
@@ -39,10 +55,24 @@
             </li>
         </ul>
 
-        @* Right: user dropdown menu *@
+        @* ── Right side: My Shop pill + user dropdown ────────────────────────── *@
         <div class="tl-nav__user">
             @if (User.Identity?.IsAuthenticated == true)
             {
+                @* My Shop pill — immediately left of the user dropdown, Sellers only *@
+                @if (User.IsInRole("Seller"))
+                {
+                    <a asp-controller="Shop"
+                       asp-action="Mine"
+                       class="tl-nav__shop-btn @(currentPath.StartsWith("/Shop", StringComparison.OrdinalIgnoreCase) ? "tl-nav__shop-btn--active" : "")">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5zm-2.5 2H4a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h8a.5.5 0 00.5-.5V5a.5.5 0 00-.5-.5h-1.5v.75a.75.75 0 01-1.5 0V4.5h-2v.75a.75.75 0 01-1.5 0V4.5z" clip-rule="evenodd" />
+                        </svg>
+                        @shopLabel
+                    </a>
+                }
+
+                @* User dropdown *@
                 <div class="tl-nav__dropdown">
                     <button class="tl-nav__dropdown-toggle" id="userDropdown" aria-expanded="false">
                         <span class="tl-nav__avatar" title="@userEmail">@char.ToUpper(displayName[0])</span>
@@ -98,23 +128,52 @@
     </div>
 </nav>
 
+<style>
+    /* My Shop pill — sits between center links and user dropdown */
+    .tl-nav__shop-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.4rem 0.875rem;
+        border: 1.5px solid var(--color-border, #e2ddd6);
+        border-radius: 999px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text, #1a1814);
+        text-decoration: none;
+        transition: border-color 0.15s, background 0.15s, color 0.15s;
+        white-space: nowrap;
+    }
+
+        .tl-nav__shop-btn:hover {
+            border-color: var(--color-primary, #2d5a27);
+            color: var(--color-primary, #2d5a27);
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 4%, transparent);
+        }
+
+    .tl-nav__shop-btn--active {
+        border-color: var(--color-primary, #2d5a27);
+        color: var(--color-primary, #2d5a27);
+        background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+    }
+</style>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const dropdownToggle = document.getElementById('userDropdown');
-        const dropdownMenu = document.getElementById('userDropdownMenu');
+        const dropdownMenu   = document.getElementById('userDropdownMenu');
 
         if (dropdownToggle && dropdownMenu) {
-            dropdownToggle.addEventListener('click', function(e) {
+            dropdownToggle.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-
                 const isExpanded = this.getAttribute('aria-expanded') === 'true';
                 this.setAttribute('aria-expanded', !isExpanded);
                 dropdownMenu.classList.toggle('show');
             });
 
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function(e) {
+            document.addEventListener('click', function (e) {
                 if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
                     dropdownToggle.setAttribute('aria-expanded', 'false');
                     dropdownMenu.classList.remove('show');

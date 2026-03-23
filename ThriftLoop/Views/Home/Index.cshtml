@@ -145,11 +145,12 @@
                     var isStealable = item.ListingType == ListingType.Stealable;
                     var isReserved = item.Status == ItemStatus.Reserved;
                     var isSold = item.Status == ItemStatus.Sold;
+                    var isShopItem = item.ShopId.HasValue;
 
                     @* Serialise the full image list for JS hover cycling *@
                     var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
 
-                    <article class="fy-card @(isSold ? "fy-card--sold" : "")"
+                    <article class="fy-card @(isSold ? "fy-card--sold" : "") @(isShopItem ? "fy-card--shop" : "")"
                              data-category="@item.Category"
                              data-condition="@item.Condition"
                              data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
@@ -220,6 +221,12 @@
                                 </span>
                             }
 
+                            @* Shop badge *@
+                            @if (isShopItem)
+                            {
+                                <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
+                            }
+
                             @* Owner badge *@
                             @if (isOwner)
                             {
@@ -236,6 +243,10 @@
 
                             <h2 class="fy-card__title">@item.Title</h2>
                             <p class="fy-card__price">
+                                @if (isShopItem)
+                                {
+                                    <span class="fy-card__from-label">From </span>
+                                }
                                 ₱@item.Price.ToString("N2")
                                 @if (isStealable && item.Status == ItemStatus.Available)
                                 {
@@ -243,23 +254,37 @@
                                 }
                             </p>
 
-                            <a asp-action="Details"
-                               asp-controller="Items"
-                               asp-route-id="@item.Id"
-                               class="fy-card__link"
-                               aria-label="View details for @item.Title">
-                            </a>
+                            @if (isShopItem)
+                            {
+                                <a asp-action="Details" asp-controller="Shop"
+                                   asp-route-id="@item.Id" class="fy-card__link"
+                                   aria-label="View details for @item.Title"></a>
+                            }
+                            else
+                            {
+                                <a asp-action="Details" asp-controller="Items"
+                                   asp-route-id="@item.Id" class="fy-card__link"
+                                   aria-label="View details for @item.Title"></a>
+                            }
                         </div>
 
                         @if (isOwner)
                         {
                             <div class="fy-card__actions fy-card__actions--owner">
-                                <a asp-action="Edit"
-                                   asp-controller="Items"
-                                   asp-route-id="@item.Id"
-                                   class="fy-btn fy-btn--manage">
-                                    Manage listing
-                                </a>
+                                @if (isShopItem)
+                                {
+                                    <a asp-action="Edit" asp-controller="Shop"
+                                       asp-route-id="@item.Id" class="fy-btn fy-btn--manage">
+                                        Manage listing
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-action="Edit" asp-controller="Items"
+                                       asp-route-id="@item.Id" class="fy-btn fy-btn--manage">
+                                        Manage listing
+                                    </a>
+                                }
                             </div>
                         }
 
@@ -359,6 +384,39 @@
         .fy-card__dot--active {
             background: #fff;
             transform: scale(1.3);
+        }
+
+        /* ── Shop item card — subtle purple glow ─────────────────────── */
+        .fy-card--shop {
+            box-shadow: 0 0 0 1.5px rgba(139, 92, 246, 0.25), 0 2px 8px rgba(139, 92, 246, 0.08);
+        }
+
+            .fy-card--shop:hover {
+                box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 4px 18px rgba(139, 92, 246, 0.15);
+            }
+
+        .fy-card__shop-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(139, 92, 246, 0.88);
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 3px 7px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.15);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .fy-card__from-label {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--color-muted, #8a8278);
+            margin-right: 1px;
         }
     </style>
 

@@ -1,0 +1,1071 @@
+﻿@model ThriftLoop.ViewModels.ShopPageViewModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+
+@{
+    ViewData["Title"] = Model.ShopName;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var isOwner = Model.IsOwner;
+    var afToken = Antiforgery.GetAndStoreTokens(Context).RequestToken ?? string.Empty;
+}
+
+@* ── Image upload modal (banner + logo) ──────────────────────────────────── *@
+@if (isOwner)
+{
+    <div class="sp-modal-backdrop" id="imgModalBackdrop" hidden>
+        <div class="sp-modal" id="imgModal" role="dialog" aria-modal="true" aria-labelledby="imgModalTitle">
+
+            <div class="sp-modal__header">
+                <span class="sp-modal__title" id="imgModalTitle">Banner</span>
+                <button class="sp-modal__close" id="imgModalClose" type="button" aria-label="Close">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                        <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+                    </svg>
+                </button>
+            </div>
+
+            @* Current / preview area *@
+            <div class="sp-modal__preview-area" id="imgPreviewArea"></div>
+
+            @* File picker zone *@
+            <div class="sp-modal__body">
+                <label class="sp-modal__drop-zone" id="imgDropZone" tabindex="0">
+                    <input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp,image/gif"
+                           class="sp-modal__file-input" aria-label="Choose image file" />
+                    <div class="sp-modal__drop-inner" id="imgDropInner">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                             width="28" height="28" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        <span class="sp-modal__drop-label">Click or drag an image here</span>
+                        <span class="sp-modal__drop-hint">JPEG, PNG, WebP or GIF · Max 5 MB</span>
+                    </div>
+                </label>
+
+                <p class="sp-field__error" id="imgModalError" hidden></p>
+
+                <div class="sp-modal__actions">
+                    <button type="button" class="tl-btn tl-btn--ghost" id="imgModalCancel">Cancel</button>
+                    <button type="button" class="tl-btn tl-btn--primary" id="imgModalSave" disabled>
+                        Upload
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@* ── Banner ───────────────────────────────────────────────────────────────── *@
+<div class="sp-banner @(isOwner ? "sp-banner--editable" : "")"
+     id="shopBanner"
+     style="@(Model.BannerUrl != null ? $"background-image:url('{Html.Raw(Model.BannerUrl)}')" : "")">
+    @if (Model.BannerUrl == null)
+    {
+        <div class="sp-banner__placeholder"></div>
+    }
+    @if (isOwner)
+    {
+        <div class="sp-banner__hint" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="15" height="15">
+                <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V3.5h1.75a.25.25 0 000-.5H3.5v-.5h9z" />
+            </svg>
+            Click to change banner
+        </div>
+    }
+</div>
+
+@* ── Main shell ───────────────────────────────────────────────────────────── *@
+<div class="sp-shell">
+
+    <div class="sp-identity">
+
+        @* Logo *@
+        <div class="sp-identity__logo-wrap @(isOwner ? "sp-identity__logo-wrap--editable" : "")"
+             id="shopLogoWrap"
+             tabindex="@(isOwner ? "0" : "-1")"
+             role="@(isOwner ? "button" : "img")"
+             aria-label="@(isOwner ? "Change logo" : Model.ShopName + " logo")">
+            @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+            {
+                <img src="@Model.LogoUrl" alt="@Model.ShopName logo"
+                     class="sp-identity__logo" id="shopLogoImg" />
+            }
+            else
+            {
+                <div class="sp-identity__logo sp-identity__logo--placeholder" id="shopLogoImg">
+                    @char.ToUpper(Model.ShopName.FirstOrDefault())
+                </div>
+            }
+            @if (isOwner)
+            {
+                <div class="sp-identity__logo-overlay" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18">
+                        <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.23 11.33a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.064l6.52-6.52z" />
+                    </svg>
+                </div>
+            }
+        </div>
+
+        @* Name + bio *@
+        <div class="sp-identity__text">
+
+            @* Shop name inline edit *@
+            <div class="sp-inline @(isOwner ? "sp-inline--editable" : "")"
+                 data-field="ShopName" data-maxlength="100">
+                <h1 class="sp-identity__name sp-inline__display">@Model.ShopName</h1>
+                @if (isOwner)
+                {
+                    <span class="sp-inline__edit-hint" aria-hidden="true">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                            <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.23 11.33a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.064l6.52-6.52z" />
+                        </svg>
+                    </span>
+                    <div class="sp-inline__editor" hidden>
+                        <input type="text" class="sp-field__input sp-inline__input"
+                               value="@Model.ShopName" maxlength="100" />
+                        <div class="sp-inline__actions">
+                            <button type="button" class="tl-btn tl-btn--primary sp-inline__save">Save</button>
+                            <button type="button" class="tl-btn tl-btn--ghost sp-inline__cancel">Cancel</button>
+                        </div>
+                        <p class="sp-field__error sp-inline__error" hidden></p>
+                    </div>
+                }
+            </div>
+
+            @* Bio inline edit *@
+            <div class="sp-inline @(isOwner ? "sp-inline--editable" : "")"
+                 data-field="Bio" data-maxlength="500">
+                <p class="sp-identity__bio sp-inline__display @(!string.IsNullOrWhiteSpace(Model.Bio) ? "" : "sp-identity__bio--empty")">
+                    @(string.IsNullOrWhiteSpace(Model.Bio)
+                                        ? (isOwner ? "Click to add a bio..." : "")
+                                        : Model.Bio)
+                </p>
+                @if (isOwner)
+                {
+                    <span class="sp-inline__edit-hint" aria-hidden="true">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                            <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.23 11.33a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.064l6.52-6.52z" />
+                        </svg>
+                    </span>
+                    <div class="sp-inline__editor" hidden>
+                        <textarea class="sp-field__textarea sp-inline__input"
+                              maxlength="500" rows="3">@Model.Bio</textarea>
+                        <div class="sp-inline__actions">
+                            <button type="button" class="tl-btn tl-btn--primary sp-inline__save">Save</button>
+                            <button type="button" class="tl-btn tl-btn--ghost sp-inline__cancel">Cancel</button>
+                        </div>
+                        <p class="sp-field__error sp-inline__error" hidden></p>
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+
+    @* ── Listings section ──────────────────────────────────────────────── *@
+    <div class="sp-listings-header">
+        <span class="sp-listings-header__label">Listings</span>
+        @if (isOwner)
+        {
+            <a asp-controller="Shop" asp-action="Create" class="tl-btn tl-btn--primary sp-listings-header__add">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
+                    <path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z" />
+                </svg>
+                Add Item
+            </a>
+        }
+    </div>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="sp-listings-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 width="40" height="40" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
+            </svg>
+            <p>No listings yet.@(isOwner ? " Click \"Add Item\" to get started." : "")</p>
+        </div>
+    }
+    else
+    {
+        <div class="sp-items-grid">
+            @foreach (var item in Model.Items)
+            {
+                <a asp-controller="Shop" asp-action="Details"
+                   asp-route-id="@item.Id" class="sp-item-card">
+
+                    <div class="sp-item-card__img-wrap">
+                        @if (item.ImageUrls.Count > 0)
+                        {
+                            <img src="@item.ImageUrls[0]" alt="@item.Title"
+                                 class="sp-item-card__img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="sp-item-card__img sp-item-card__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-width="1.2" width="28" height="28">
+                                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <path d="M21 15l-5-5L5 21" />
+                                </svg>
+                            </div>
+                        }
+                        <span class="sp-item-card__condition">@item.Condition</span>
+                    </div>
+
+                    <div class="sp-item-card__body">
+                        <p class="sp-item-card__title">@item.Title</p>
+                        <p class="sp-item-card__price">From &#x20B1;@item.Price.ToString("N2")</p>
+                        <p class="sp-item-card__category">@item.Category</p>
+                    </div>
+
+                    @if (isOwner)
+                    {
+                        <div class="sp-item-card__owner-actions">
+                            <a href="/Shop/Edit/@item.Id"
+                               class="sp-item-card__action sp-item-card__action--edit"
+                               onclick="event.stopPropagation()">Edit</a>
+                            <a href="/Shop/Delete/@item.Id"
+                               class="sp-item-card__action sp-item-card__action--delete"
+                               onclick="event.stopPropagation()">Delete</a>
+                        </div>
+                    }
+
+                </a>
+            }
+        </div>
+    }
+
+</div>
+
+@if (isOwner)
+{
+    <input type="hidden" id="afToken" value="@afToken" />
+
+    <script>
+        (function () {
+            'use strict';
+
+            const SHOP_ID      = @Model.ShopId;
+            const AF_TOKEN     = document.getElementById('afToken').value;
+            const FIELD_URL    = '/Shop/SaveField';
+            const IMAGE_URL    = '/Shop/SaveImage';
+
+            // ── AJAX: text field ─────────────────────────────────────────────────
+            async function saveTextField(field, value) {
+                const res = await fetch(FIELD_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': AF_TOKEN
+                    },
+                    body: JSON.stringify({ shopId: SHOP_ID, field, value })
+                });
+                return res.json();
+            }
+
+            // ── AJAX: image upload ───────────────────────────────────────────────
+            async function uploadImage(field, file) {
+                const fd = new FormData();
+                fd.append('shopId', SHOP_ID);
+                fd.append('field',  field);
+                fd.append('file',   file);
+
+                const res = await fetch(IMAGE_URL, {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': AF_TOKEN },
+                    body: fd
+                });
+                return res.json();
+            }
+
+            // ════════════════════════════════════════════════════════════════════
+            //  IMAGE MODAL
+            // ════════════════════════════════════════════════════════════════════
+            const backdrop    = document.getElementById('imgModalBackdrop');
+            const modalTitle  = document.getElementById('imgModalTitle');
+            const previewArea = document.getElementById('imgPreviewArea');
+            const dropZone    = document.getElementById('imgDropZone');
+            const fileInput   = document.getElementById('imgFileInput');
+            const dropInner   = document.getElementById('imgDropInner');
+            const saveBtn     = document.getElementById('imgModalSave');
+            const cancelBtn   = document.getElementById('imgModalCancel');
+            const closeBtn    = document.getElementById('imgModalClose');
+            const errorEl     = document.getElementById('imgModalError');
+
+            let activeField   = null;
+            let pendingFile   = null;
+
+            // ── Open modal ───────────────────────────────────────────────────────
+            function openModal(field, currentUrl, title) {
+                activeField  = field;
+                pendingFile  = null;
+                saveBtn.disabled = true;
+                errorEl.hidden   = true;
+                fileInput.value  = '';
+                modalTitle.textContent = title;
+
+                // Show current image as preview if one exists
+                previewArea.innerHTML = '';
+                if (currentUrl) {
+                    if (field === 'BannerUrl') {
+                        const div = document.createElement('div');
+                        div.className = 'sp-modal__banner-preview';
+                        div.style.backgroundImage = `url('${currentUrl}')`;
+                        previewArea.appendChild(div);
+                    } else {
+                        const img = document.createElement('img');
+                        img.src = currentUrl;
+                        img.className = 'sp-modal__logo-preview';
+                        previewArea.appendChild(img);
+                    }
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'sp-modal__preview-empty';
+                    empty.textContent = 'No image set';
+                    previewArea.appendChild(empty);
+                }
+
+                // Reset drop zone label
+                dropInner.querySelector('.sp-modal__drop-label').textContent =
+                    'Click or drag an image here';
+
+                backdrop.removeAttribute('hidden');
+                dropZone.focus();
+            }
+
+            function closeModal() {
+                backdrop.setAttribute('hidden', '');
+                activeField  = null;
+                pendingFile  = null;
+            }
+
+            closeBtn?.addEventListener('click',  closeModal);
+            cancelBtn?.addEventListener('click', closeModal);
+            backdrop?.addEventListener('click',  e => { if (e.target === backdrop) closeModal(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+            // ── File selection (click or drag) ───────────────────────────────────
+            function handleFile(file) {
+                if (!file) return;
+
+                const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
+                if (!allowed.includes(file.type)) {
+                    showModalError('Only JPEG, PNG, WebP, or GIF images are allowed.');
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    showModalError('File exceeds the 5 MB limit.');
+                    return;
+                }
+
+                errorEl.hidden = true;
+                pendingFile    = file;
+                saveBtn.disabled = false;
+
+                // Live preview using FileReader
+                const reader = new FileReader();
+                reader.onload = e => {
+                    previewArea.innerHTML = '';
+                    if (activeField === 'BannerUrl') {
+                        const div = document.createElement('div');
+                        div.className = 'sp-modal__banner-preview';
+                        div.style.backgroundImage = `url('${e.target.result}')`;
+                        previewArea.appendChild(div);
+                    } else {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'sp-modal__logo-preview';
+                        previewArea.appendChild(img);
+                    }
+                };
+                reader.readAsDataURL(file);
+
+                dropInner.querySelector('.sp-modal__drop-label').textContent = file.name;
+            }
+
+            fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+            // Drag-and-drop
+            dropZone?.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('sp-modal__drop-zone--over'); });
+            dropZone?.addEventListener('dragleave', ()  => dropZone.classList.remove('sp-modal__drop-zone--over'));
+            dropZone?.addEventListener('drop', e => {
+                e.preventDefault();
+                dropZone.classList.remove('sp-modal__drop-zone--over');
+                handleFile(e.dataTransfer.files[0]);
+            });
+
+            // ── Upload ───────────────────────────────────────────────────────────
+            saveBtn?.addEventListener('click', async () => {
+                if (!pendingFile || !activeField) return;
+
+                saveBtn.disabled     = true;
+                saveBtn.textContent  = 'Uploading…';
+                errorEl.hidden       = true;
+
+                const res = await uploadImage(activeField, pendingFile);
+
+                saveBtn.disabled    = false;
+                saveBtn.textContent = 'Upload';
+
+                if (!res.ok) {
+                    showModalError(res.error);
+                    return;
+                }
+
+                // Update the page live without a reload
+                const cacheBuster = `${res.url}?v=${Date.now()}`;
+
+                if (activeField === 'BannerUrl') {
+                    const banner = document.getElementById('shopBanner');
+                    banner.style.backgroundImage = `url('${cacheBuster}')`;
+                    banner.querySelector('.sp-banner__placeholder')?.remove();
+                } else {
+                    const wrap     = document.getElementById('shopLogoWrap');
+                    const existing = document.getElementById('shopLogoImg');
+                    if (existing.tagName === 'DIV') {
+                        // Replace the initial letter placeholder with an actual img
+                        const img  = document.createElement('img');
+                        img.src    = cacheBuster;
+                        img.id     = 'shopLogoImg';
+                        img.alt    = 'Shop logo';
+                        img.className = 'sp-identity__logo';
+                        existing.replaceWith(img);
+                    } else {
+                        existing.src = cacheBuster;
+                    }
+                }
+
+                closeModal();
+            });
+
+            function showModalError(msg) {
+                errorEl.textContent = msg;
+                errorEl.hidden      = false;
+            }
+
+            // ── Banner click ──────────────────────────────────────────────────────
+            document.getElementById('shopBanner')?.addEventListener('click', () => {
+                const raw     = document.getElementById('shopBanner').style.backgroundImage;
+                const current = raw ? raw.replace(/^url\(['"]?/,'').replace(/['"]?\)$/,'') : null;
+                openModal('BannerUrl', current || null, 'Banner Image');
+            });
+
+            // ── Logo click ────────────────────────────────────────────────────────
+            const logoWrap = document.getElementById('shopLogoWrap');
+            if (logoWrap) {
+                const openLogo = () => {
+                    const img     = document.getElementById('shopLogoImg');
+                    const current = img?.tagName === 'IMG' ? img.src : null;
+                    openModal('LogoUrl', current, 'Logo Image');
+                };
+                logoWrap.addEventListener('click', openLogo);
+                logoWrap.addEventListener('keydown', e => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLogo(); }
+                });
+            }
+
+            // ════════════════════════════════════════════════════════════════════
+            //  INLINE TEXT EDITING (ShopName + Bio)
+            // ════════════════════════════════════════════════════════════════════
+            document.querySelectorAll('.sp-inline--editable').forEach(block => {
+                const display   = block.querySelector('.sp-inline__display');
+                const editor    = block.querySelector('.sp-inline__editor');
+                const input     = block.querySelector('.sp-inline__input');
+                const saveBtn   = block.querySelector('.sp-inline__save');
+                const cancelBtn = block.querySelector('.sp-inline__cancel');
+                const errorEl   = block.querySelector('.sp-inline__error');
+                const field     = block.dataset.field;
+
+                if (!display || !editor || !input) return;
+
+                let originalValue = input.value;
+
+                function openEditor() {
+                    input.value = originalValue;
+                    display.hidden = true;
+                    editor.removeAttribute('hidden');
+                    block.classList.add('sp-inline--editing');
+                    input.focus();
+                    if (input.tagName === 'INPUT')
+                        input.setSelectionRange(input.value.length, input.value.length);
+                }
+
+                function closeEditor(restore) {
+                    if (restore) input.value = originalValue;
+                    display.hidden = false;
+                    editor.setAttribute('hidden', '');
+                    errorEl.hidden = true;
+                    block.classList.remove('sp-inline--editing');
+                }
+
+                display.addEventListener('click', openEditor);
+                cancelBtn.addEventListener('click', () => closeEditor(true));
+
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); }
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveBtn.click();
+                });
+
+                saveBtn.addEventListener('click', async () => {
+                    const val = input.value.trim();
+                    errorEl.hidden      = true;
+                    saveBtn.disabled    = true;
+                    saveBtn.textContent = 'Saving…';
+
+                    const res = await saveTextField(field, val);
+
+                    saveBtn.disabled    = false;
+                    saveBtn.textContent = 'Save';
+
+                    if (!res.ok) {
+                        errorEl.textContent = res.error;
+                        errorEl.hidden      = false;
+                        return;
+                    }
+
+                    originalValue = val;
+
+                    if (field === 'ShopName') {
+                        display.textContent = val;
+                        document.title = val;
+                    } else {
+                        display.textContent = val || 'Click to add a bio...';
+                        display.classList.toggle('sp-identity__bio--empty', !val);
+                    }
+
+                    closeEditor(false);
+                });
+            });
+
+        }());
+    </script>
+}
+
+<style>
+    /* ── Banner ─────────────────────────────────────────────────────────── */
+    .sp-banner {
+        width: 100%;
+        height: 200px;
+        background-size: cover;
+        background-position: center;
+        background-color: var(--color-border, #e2ddd6);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .sp-banner__placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient( 135deg, color-mix(in srgb, var(--color-primary, #2d5a27) 12%, #fff) 0%, color-mix(in srgb, var(--color-primary, #2d5a27) 5%, #fff) 100% );
+    }
+
+    .sp-banner--editable {
+        cursor: pointer;
+    }
+
+    .sp-banner__hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #fff;
+        background: rgba(0,0,0,0.35);
+        opacity: 0;
+        transition: opacity 0.18s;
+    }
+
+    .sp-banner--editable:hover .sp-banner__hint {
+        opacity: 1;
+    }
+
+    /* ── Shell ──────────────────────────────────────────────────────────── */
+    .sp-shell {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 1.25rem 4rem;
+    }
+
+    /* ── Identity ───────────────────────────────────────────────────────── */
+    .sp-identity {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.25rem;
+        margin-top: -2.5rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.75rem;
+        border-bottom: 1px solid var(--color-border, #e2ddd6);
+    }
+
+    .sp-identity__logo-wrap {
+        flex-shrink: 0;
+        position: relative;
+        border-radius: 14px;
+        cursor: default;
+    }
+
+    .sp-identity__logo-wrap--editable {
+        cursor: pointer;
+    }
+
+    .sp-identity__logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 14px;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,.1);
+        object-fit: cover;
+        display: block;
+    }
+
+    .sp-identity__logo--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary, #2d5a27);
+        color: #fff;
+        font-family: 'DM Serif Display', serif;
+        font-size: 2rem;
+        width: 80px;
+        height: 80px;
+        border-radius: 14px;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    }
+
+    .sp-identity__logo-overlay {
+        position: absolute;
+        inset: 0;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        background: rgba(0,0,0,.4);
+        opacity: 0;
+        transition: opacity 0.18s;
+    }
+
+    .sp-identity__logo-wrap--editable:hover .sp-identity__logo-overlay,
+    .sp-identity__logo-wrap--editable:focus .sp-identity__logo-overlay {
+        opacity: 1;
+    }
+
+    .sp-identity__text {
+        flex: 1;
+        padding-top: 2.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    /* ── Inline text editor ─────────────────────────────────────────────── */
+    .sp-inline {
+        position: relative;
+    }
+
+    .sp-inline--editable .sp-inline__display {
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.15s;
+        padding: 2px 4px;
+        margin: -2px -4px;
+    }
+
+        .sp-inline--editable .sp-inline__display:hover {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 6%, transparent);
+        }
+
+    .sp-inline__edit-hint {
+        position: absolute;
+        top: 50%;
+        right: -20px;
+        transform: translateY(-50%);
+        color: var(--color-muted, #8a8278);
+        opacity: 0;
+        transition: opacity 0.15s;
+        pointer-events: none;
+    }
+
+    .sp-inline--editable:not(.sp-inline--editing):hover .sp-inline__edit-hint {
+        opacity: 1;
+    }
+
+    .sp-identity__name {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.75rem;
+        color: var(--color-text, #1a1814);
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .sp-identity__bio {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.9rem;
+        color: var(--color-muted, #8a8278);
+        margin: 0;
+        max-width: 520px;
+        line-height: 1.55;
+    }
+
+    .sp-identity__bio--empty {
+        font-style: italic;
+        opacity: .6;
+    }
+
+    .sp-inline__editor {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding-top: 0.25rem;
+    }
+
+    .sp-inline__input {
+        width: 100%;
+        max-width: 480px;
+        box-sizing: border-box;
+    }
+
+    .sp-inline__actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    /* ── Listings placeholder ───────────────────────────────────────────── */
+    .sp-listings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+    }
+
+    .sp-listings-header__add {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.875rem;
+    }
+
+    .sp-listings-header__label {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        color: var(--color-muted, #8a8278);
+    }
+
+    .sp-listings-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 3rem 0;
+        color: var(--color-muted, #8a8278);
+    }
+
+        .sp-listings-empty p {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+    /* ── Items grid ─────────────────────────────────────────────────────── */
+    .sp-items-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .sp-item-card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--color-border, #e2ddd6);
+        border-radius: 12px;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        transition: box-shadow 0.15s, transform 0.15s;
+        position: relative;
+        background: #fff;
+    }
+
+        .sp-item-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,.08);
+            transform: translateY(-1px);
+        }
+
+    .sp-item-card__img-wrap {
+        aspect-ratio: 1;
+        position: relative;
+        overflow: hidden;
+        background: var(--color-surface, #f7f5f2);
+    }
+
+    .sp-item-card__img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .sp-item-card__img--placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-muted, #8a8278);
+    }
+
+    .sp-item-card__condition {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        background: rgba(0,0,0,.5);
+        color: #fff;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    .sp-item-card__body {
+        padding: 0.75rem;
+        flex: 1;
+    }
+
+    .sp-item-card__title {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text, #1a1814);
+        margin: 0 0 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sp-item-card__price {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1rem;
+        color: var(--color-text, #1a1814);
+        margin: 0 0 0.1rem;
+    }
+
+    .sp-item-card__category {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.75rem;
+        color: var(--color-muted, #8a8278);
+        margin: 0;
+    }
+
+    .sp-item-card__owner-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0 0.75rem 0.75rem;
+    }
+
+    .sp-item-card__action {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+    }
+
+    .sp-item-card__action--edit {
+        background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
+        color: var(--color-primary, #2d5a27);
+    }
+
+    .sp-item-card__action--delete {
+        background: color-mix(in srgb, #dc2626 10%, transparent);
+        color: #b91c1c;
+    }
+
+    /* ── Shared field styles ────────────────────────────────────────────── */
+    .sp-field__input,
+    .sp-field__textarea {
+        padding: .75rem .875rem;
+        border: 1.5px solid var(--color-border, #e2ddd6);
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: .9rem;
+        color: var(--color-text, #1a1814);
+        background: #fff;
+        outline: none;
+        transition: border-color .15s;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .sp-field__textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+        .sp-field__input:focus,
+        .sp-field__textarea:focus {
+            border-color: var(--color-primary, #2d5a27);
+        }
+
+    .sp-field__error {
+        font-family: 'DM Sans', sans-serif;
+        font-size: .8rem;
+        color: #dc2626;
+        margin: .25rem 0 0;
+    }
+
+    /* ── Image modal ────────────────────────────────────────────────────── */
+    .sp-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .sp-modal {
+        background: #fff;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.2);
+        overflow: hidden;
+    }
+
+    .sp-modal__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--color-border, #e2ddd6);
+    }
+
+    .sp-modal__title {
+        font-family: 'DM Sans', sans-serif;
+        font-size: .875rem;
+        font-weight: 700;
+        color: var(--color-text, #1a1814);
+    }
+
+    .sp-modal__close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-muted, #8a8278);
+        padding: .25rem;
+        border-radius: 4px;
+        display: flex;
+    }
+
+        .sp-modal__close:hover {
+            color: var(--color-text, #1a1814);
+        }
+
+    /* Current image preview strip */
+    .sp-modal__preview-area {
+        background: var(--color-surface, #f7f5f2);
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sp-modal__banner-preview {
+        width: 100%;
+        height: 130px;
+        background-size: cover;
+        background-position: center;
+    }
+
+    .sp-modal__logo-preview {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin: 1rem;
+    }
+
+    .sp-modal__preview-empty {
+        font-family: 'DM Sans', sans-serif;
+        font-size: .85rem;
+        color: var(--color-muted, #8a8278);
+        padding: 1.5rem;
+    }
+
+    /* Drop zone */
+    .sp-modal__body {
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .sp-modal__drop-zone {
+        display: block;
+        border: 2px dashed var(--color-border, #e2ddd6);
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color .15s, background .15s;
+    }
+
+        .sp-modal__drop-zone:hover,
+        .sp-modal__drop-zone--over {
+            border-color: var(--color-primary, #2d5a27);
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 4%, transparent);
+        }
+
+    .sp-modal__file-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .sp-modal__drop-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .375rem;
+        color: var(--color-muted, #8a8278);
+        pointer-events: none;
+    }
+
+    .sp-modal__drop-label {
+        font-family: 'DM Sans', sans-serif;
+        font-size: .875rem;
+        font-weight: 600;
+        color: var(--color-text, #1a1814);
+    }
+
+    .sp-modal__drop-hint {
+        font-family: 'DM Sans', sans-serif;
+        font-size: .775rem;
+        color: var(--color-muted, #8a8278);
+    }
+
+    .sp-modal__actions {
+        display: flex;
+        gap: .625rem;
+        justify-content: flex-end;
+    }
+</style>
