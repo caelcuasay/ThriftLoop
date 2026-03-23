@@ -1,6 +1,7 @@
 ﻿using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Services.WalletManagement.Implementation;
 

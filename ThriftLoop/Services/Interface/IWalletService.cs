@@ -1,5 +1,5 @@
 ﻿using ThriftLoop.Models;
-
+using ThriftLoop.Enums;
 namespace ThriftLoop.Services.WalletManagement.Interface;
 
 public interface IWalletService

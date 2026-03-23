@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
 
 namespace ThriftLoop.Controllers;
 
-public class HomeController : Controller
+public class HomeController : BaseController
 {
     private readonly IItemRepository _itemRepository;
     private readonly ILogger<HomeController> _logger;
@@ -25,18 +25,10 @@ public class HomeController : Controller
     /// </summary>
     public async Task<IActionResult> Index()
     {
-        // Resolve the current user's ID — null for anonymous visitors.
-        int? currentUserId = null;
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (int.TryParse(rawId, out int parsedId))
-            currentUserId = parsedId;
-
-        var items = await _itemRepository.GetAllAsync();
-
         var viewModel = new HomeIndexViewModel
         {
-            Items = items,
-            CurrentUserId = currentUserId
+            Items = await _itemRepository.GetAllAsync(),
+            CurrentUserId = ResolveUserId()
         };
 
         return View(viewModel);
@@ -45,7 +37,7 @@ public class HomeController : Controller
     public IActionResult Privacy() => View();
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error() => View(new ThriftLoop.Models.ErrorViewModel
+    public IActionResult Error() => View(new ErrorViewModel
     {
         RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier
     });

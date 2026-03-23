@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
 using ThriftLoop.Models;
-
+using ThriftLoop.Enums;
 namespace ThriftLoop.Data;
 
 public class ApplicationDbContext : DbContext

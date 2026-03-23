@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using ThriftLoop.Constants;
 
 namespace ThriftLoop.ViewModels;
 
@@ -64,21 +65,9 @@ public class ItemEditViewModel
     /// </summary>
     public List<string> RemovedImageUrls { get; set; } = new();
 
-    // ── Select-List Options ───────────────────────────────────────────────────
+    // ── Select-List Options (delegates to constants) ──────────────────────────
 
-    public static readonly IReadOnlyList<string> Categories = new[]
-    {
-        "Tops", "Bottoms", "Dresses & Skirts", "Outerwear", "Footwear",
-        "Accessories", "Vintage", "Activewear", "Bags", "Other"
-    };
-
-    public static readonly IReadOnlyList<string> Conditions = new[]
-    {
-        "New", "Like New", "Good", "Fair", "Poor"
-    };
-
-    public static readonly IReadOnlyList<string> Sizes = new[]
-    {
-        "XS", "S", "M", "L", "XL", "XXL", "XXXL"
-    };
+    public static IReadOnlyList<string> Categories => ItemConstants.Categories;
+    public static IReadOnlyList<string> Conditions => ItemConstants.Conditions;
+    public static IReadOnlyList<string> Sizes => ItemConstants.Sizes;
 }

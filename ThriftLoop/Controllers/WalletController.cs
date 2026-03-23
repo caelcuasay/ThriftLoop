@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ThriftLoop.Models;
+using ThriftLoop.Constants;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
 using ThriftLoop.ViewModels;
@@ -9,7 +8,7 @@ using ThriftLoop.ViewModels;
 namespace ThriftLoop.Controllers;
 
 [Authorize]
-public class WalletController : Controller
+public class WalletController : BaseController
 {
     private readonly IWalletService _walletService;
     private readonly ITransactionRepository _txRepo;
@@ -37,7 +36,7 @@ public class WalletController : Controller
         if (userId is null) return Unauthorized();
 
         var wallet = await _walletService.GetOrCreateWalletAsync(userId.Value);
-        var transactions = await _txRepo.GetByUserIdAsync(userId.Value, take: 30);
+        var transactions = await _txRepo.GetByUserIdAsync(userId.Value, take: WalletConstants.RecentTransactionCount);
         var withdrawals = await _withdrawalRepo.GetByUserIdAsync(userId.Value);
 
         var vm = new WalletIndexViewModel
@@ -52,7 +51,7 @@ public class WalletController : Controller
         return View(vm);
     }
 
-    // ── ADD FUNDS (placeholder) ────────────────────────────────────────────
+    // ── ADD FUNDS (demo top-up) ────────────────────────────────────────────
 
     [HttpGet]
     public IActionResult AddFunds() => View();
@@ -64,15 +63,17 @@ public class WalletController : Controller
         var userId = ResolveUserId();
         if (userId is null) return Unauthorized();
 
-        if (amount <= 0 || amount > 50_000m)
+        if (amount <= 0 || amount > WalletConstants.MaxTopUpAmount)
         {
-            TempData["ErrorMessage"] = "Please enter an amount between ₱1 and ₱50,000.";
+            TempData["ErrorMessage"] =
+                $"Please enter an amount between ₱1 and ₱{WalletConstants.MaxTopUpAmount:N0}.";
             return View();
         }
 
         await _walletService.TopUpAsync(userId.Value, amount);
 
-        _logger.LogInformation("User {UserId} added ₱{Amount} to wallet (demo).", userId.Value, amount);
+        _logger.LogInformation(
+            "User {UserId} added ₱{Amount} to wallet (demo).", userId.Value, amount);
 
         TempData["SuccessMessage"] = $"₱{amount:N2} has been added to your wallet.";
         return RedirectToAction(nameof(Index));
@@ -105,12 +106,17 @@ public class WalletController : Controller
         if (!ModelState.IsValid)
             return View(vm);
 
-        if (vm.Amount <= 0 || vm.Amount > wallet.Balance)
+        if (vm.Amount < WalletConstants.MinWithdrawalAmount)
         {
             ModelState.AddModelError(nameof(vm.Amount),
-                vm.Amount <= 0
-                    ? "Amount must be greater than ₱0."
-                    : $"Insufficient balance. Your available balance is ₱{wallet.Balance:N2}.");
+                $"Minimum withdrawal amount is ₱{WalletConstants.MinWithdrawalAmount:N0}.");
+            return View(vm);
+        }
+
+        if (vm.Amount > wallet.Balance)
+        {
+            ModelState.AddModelError(nameof(vm.Amount),
+                $"Insufficient balance. Your available balance is ₱{wallet.Balance:N2}.");
             return View(vm);
         }
 
@@ -130,13 +136,5 @@ public class WalletController : Controller
         TempData["SuccessMessage"] =
             $"Withdrawal of ₱{vm.Amount:N2} requested. We'll process it within 1–3 business days.";
         return RedirectToAction(nameof(Index));
-    }
-
-    // ── Private ────────────────────────────────────────────────────────────
-
-    private int? ResolveUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(raw, out int id) ? id : null;
     }
 }

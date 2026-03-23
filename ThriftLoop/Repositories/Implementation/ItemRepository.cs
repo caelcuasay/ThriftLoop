@@ -2,6 +2,7 @@
 using ThriftLoop.Data;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Repositories.Implementation;
 

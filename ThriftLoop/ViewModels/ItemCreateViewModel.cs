@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using ThriftLoop.Constants;
 
 namespace ThriftLoop.ViewModels;
 
@@ -41,7 +42,7 @@ public class ItemCreateViewModel : IValidatableObject
     // ── Images ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Up to 5 images uploaded from the Create form.
+    /// Up to <see cref="ItemConstants.MaxImagesPerListing"/> images uploaded from the Create form.
     /// Bound from a multiple file input with name="Images".
     /// </summary>
     [Display(Name = "Item Photos (optional)")]
@@ -66,34 +67,21 @@ public class ItemCreateViewModel : IValidatableObject
             {
                 yield return new ValidationResult(
                     "Please select a Steal window duration.",
-                    new[] { nameof(StealDurationHours) });
+                    [nameof(StealDurationHours)]);
             }
-            else if (!StealDurations.Contains(StealDurationHours.Value))
+            else if (!ItemConstants.StealDurations.Contains(StealDurationHours.Value))
             {
                 yield return new ValidationResult(
-                    "Steal window must be 6, 12, or 24 hours.",
-                    new[] { nameof(StealDurationHours) });
+                    $"Steal window must be {string.Join(", ", ItemConstants.StealDurations)} hours.",
+                    [nameof(StealDurationHours)]);
             }
         }
     }
 
-    // ── Select-List Options ───────────────────────────────────────────────────
+    // ── Select-List Options (delegates to constants) ──────────────────────────
 
-    public static readonly IReadOnlyList<string> Categories = new[]
-    {
-        "Tops", "Bottoms", "Dresses & Skirts", "Outerwear", "Footwear",
-        "Accessories", "Vintage", "Activewear", "Bags", "Other"
-    };
-
-    public static readonly IReadOnlyList<string> Conditions = new[]
-    {
-        "New", "Like New", "Good", "Fair", "Poor"
-    };
-
-    public static readonly IReadOnlyList<string> Sizes = new[]
-    {
-        "XS", "S", "M", "L", "XL", "XXL", "XXXL"
-    };
-
-    public static readonly IReadOnlyList<int> StealDurations = new[] { 6, 12, 24 };
+    public static IReadOnlyList<string> Categories => ItemConstants.Categories;
+    public static IReadOnlyList<string> Conditions => ItemConstants.Conditions;
+    public static IReadOnlyList<string> Sizes => ItemConstants.Sizes;
+    public static IReadOnlyList<int> StealDurations => ItemConstants.StealDurations;
 }

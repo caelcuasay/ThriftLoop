@@ -1,4 +1,6 @@
-﻿using ThriftLoop.Models;
+﻿using ThriftLoop.Enums;
+using ThriftLoop.Models;
+using ThriftLoop.Constants;
 
 namespace ThriftLoop.ViewModels;
 
@@ -26,7 +28,12 @@ public class WalletIndexViewModel
 /// </summary>
 public class WithdrawViewModel
 {
+    /// <summary>
+    /// Must be at least <see cref="WalletConstants.MinWithdrawalAmount"/>.
+    /// Validated in the controller against the user's live wallet balance.
+    /// </summary>
     public decimal Amount { get; set; }
+
     public WithdrawalMethod Method { get; set; } = WithdrawalMethod.BankTransfer;
 
     /// <summary>Bank account number or pickup reference.</summary>

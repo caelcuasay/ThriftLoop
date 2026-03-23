@@ -1,32 +1,35 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using ThriftLoop.Constants;
+using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
+using ThriftLoop.Services.OrderManagement.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
 using ThriftLoop.ViewModels;
 
 namespace ThriftLoop.Controllers;
 
 [Authorize]
-public class OrdersController : Controller
+public class OrdersController : BaseController
 {
     private readonly IItemRepository _itemRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly IWalletService _walletService;
+    private readonly IOrderService _orderService;
     private readonly ILogger<OrdersController> _logger;
-
-    private const decimal StealPremium = 50m;
 
     public OrdersController(
         IItemRepository itemRepository,
         IOrderRepository orderRepository,
         IWalletService walletService,
+        IOrderService orderService,
         ILogger<OrdersController> logger)
     {
         _itemRepository = itemRepository;
         _orderRepository = orderRepository;
         _walletService = walletService;
+        _orderService = orderService;
         _logger = logger;
     }
 
@@ -47,7 +50,7 @@ public class OrdersController : Controller
             return RedirectToAction("Details", "Items", new { id = itemId });
         }
 
-        var (allowed, reason) = IsBuyerAllowedToCheckout(item, buyerId.Value);
+        var (allowed, reason) = _orderService.CanBuyerCheckout(item, buyerId.Value);
         if (!allowed)
         {
             TempData["ErrorMessage"] = reason;
@@ -65,8 +68,7 @@ public class OrdersController : Controller
         }
 
         var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
-        var viewModel = BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance);
-        return View(viewModel);
+        return View(BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance));
     }
 
     // ── CONFIRM ORDER ──────────────────────────────────────────────────────
@@ -84,7 +86,7 @@ public class OrdersController : Controller
         if (item.UserId == buyerId.Value)
             return Forbid();
 
-        var (allowed, reason) = IsBuyerAllowedToCheckout(item, buyerId.Value);
+        var (allowed, reason) = _orderService.CanBuyerCheckout(item, buyerId.Value);
         if (!allowed)
         {
             TempData["ErrorMessage"] = reason;
@@ -119,20 +121,17 @@ public class OrdersController : Controller
             if (!held)
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
-
                 TempData["ErrorMessage"] =
                     $"Insufficient wallet balance. You need ₱{finalPrice:N2} but your available balance is too low. " +
                     "Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
-            // Mark Sold now that the order is confirmed and funds are held.
             item.Status = ItemStatus.Sold;
             await _itemRepository.UpdateAsync(item);
 
             _logger.LogInformation(
-                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, " +
-                "Seller {SellerId}, ₱{FinalPrice}.",
+                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
                 tempOrder.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
 
             TempData["SuccessMessage"] =
@@ -157,13 +156,11 @@ public class OrdersController : Controller
 
         await _orderRepository.AddAsync(order);
 
-        // Mark Sold now that the order is confirmed.
         item.Status = ItemStatus.Sold;
         await _itemRepository.UpdateAsync(item);
 
         _logger.LogInformation(
-            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, " +
-            "Seller {SellerId}, ₱{FinalPrice}.",
+            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
             order.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
 
         TempData["SuccessMessage"] =
@@ -240,69 +237,20 @@ public class OrdersController : Controller
 
     // ── Private helpers ────────────────────────────────────────────────────
 
-    private int? ResolveUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(raw, out int id) ? id : null;
-    }
-
-    private static (bool allowed, string reason) IsBuyerAllowedToCheckout(Item item, int buyerId)
-    {
-        if (item.ListingType == ListingType.Stealable)
-        {
-            // ── Steal pending checkout ─────────────────────────────────────
-            // Stealer has bumped the price and needs to complete the order.
-            // Allow immediately — no finalize window required.
-            if (item.Status == ItemStatus.StolenPendingCheckout)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the buyer for this stolen item.");
-                return (true, string.Empty);
-            }
-
-            // ── Already sold (order exists) ────────────────────────────────
-            if (item.Status == ItemStatus.Sold)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the buyer for this item.");
-                return (true, string.Empty);
-            }
-
-            // ── Reserved — original getter in finalize window ──────────────
-            if (item.Status == ItemStatus.Reserved)
-            {
-                if (item.CurrentWinnerId != buyerId)
-                    return (false, "You are not the current winner of this item.");
-                if (!item.IsInFinalizeWindow)
-                    return (false, "The purchase window for this item has not opened yet, or has expired.");
-                return (true, string.Empty);
-            }
-
-            return (false, "This item is not ready for checkout. Please claim it first.");
-        }
-
-        // ── Standard listing ───────────────────────────────────────────────
-        if (item.Status == ItemStatus.Sold)
-            return (false, "This item has already been sold.");
-        if (item.Status == ItemStatus.Reserved)
-            return (false, "This item is currently reserved by another buyer.");
-
-        return (true, string.Empty);
-    }
-
     private static CheckoutViewModel BuildCheckoutViewModel(Item item, int buyerId, decimal buyerBalance)
     {
-        // wasStolen: the buyer is checking out a steal — item is StolenPendingCheckout
-        // and they are the current winner who applied the ₱50 premium.
         bool wasStolen = item.ListingType == ListingType.Stealable
                       && item.Status == ItemStatus.StolenPendingCheckout
                       && item.CurrentWinnerId == buyerId;
 
-        decimal basePrice = wasStolen ? item.Price - StealPremium : item.Price;
-        decimal stealPremium = wasStolen ? StealPremium : 0m;
+        decimal basePrice = wasStolen
+            ? item.Price - ItemConstants.StealPremium
+            : item.Price;
 
         string sellerEmail = item.User?.Email ?? string.Empty;
-        string sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+        string sellerDisplay = sellerEmail.Contains('@')
+            ? sellerEmail.Split('@')[0]
+            : sellerEmail;
 
         return new CheckoutViewModel
         {
@@ -315,7 +263,6 @@ public class OrdersController : Controller
             SellerName = sellerDisplay,
             SellerEmail = sellerEmail,
             BasePrice = basePrice,
-            StealPremium = stealPremium,
             WasStolen = wasStolen,
             IsStealable = item.ListingType == ListingType.Stealable,
             BuyerBalance = buyerBalance

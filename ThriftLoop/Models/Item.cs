@@ -1,18 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
-
-// ── Enums ──────────────────────────────────────────────────────────────────────
-
-public enum ListingType { Standard, Stealable }
-
-public enum ItemStatus
-{
-    Available,
-    Reserved,
-    Sold,
-    StolenPendingCheckout
-}
 
 // ── Domain model ───────────────────────────────────────────────────────────────
 

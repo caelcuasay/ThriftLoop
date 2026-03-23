@@ -6,6 +6,7 @@ using ThriftLoop.Data;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Controllers;
 

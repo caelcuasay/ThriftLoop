@@ -1,4 +1,5 @@
-﻿using ThriftLoop.Models;
+﻿using ThriftLoop.Enums;
+using ThriftLoop.Constants;
 
 namespace ThriftLoop.ViewModels;
 
@@ -24,7 +25,13 @@ public class CheckoutViewModel
 
     // ── Price breakdown ───────────────────────────────────────────────────
     public decimal BasePrice { get; init; }
-    public decimal StealPremium { get; init; }
+
+    /// <summary>
+    /// ₱50 premium applied when the buyer stole the listing.
+    /// Sourced from <see cref="ItemConstants.StealPremium"/>.
+    /// </summary>
+    public decimal StealPremium => WasStolen ? ItemConstants.StealPremium : 0m;
+
     public decimal FinalPrice => BasePrice + StealPremium;
 
     // ── Context flags ─────────────────────────────────────────────────────
