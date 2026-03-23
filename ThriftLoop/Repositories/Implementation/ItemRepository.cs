@@ -53,7 +53,7 @@ public class ItemRepository : IItemRepository
     public async Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId)
         => await _context.Items
                          .AsNoTracking()
-                         .Where(i => i.UserId == userId)
+                         .Where(i => i.UserId == userId && i.Status != ItemStatus.Sold)
                          .OrderByDescending(i => i.CreatedAt)
                          .ToListAsync();
 

@@ -126,11 +126,9 @@ public class OrdersController : Controller
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
-            if (item.Status != ItemStatus.Sold)
-            {
-                item.Status = ItemStatus.Sold;
-                await _itemRepository.UpdateAsync(item);
-            }
+            // Mark Sold now that the order is confirmed and funds are held.
+            item.Status = ItemStatus.Sold;
+            await _itemRepository.UpdateAsync(item);
 
             _logger.LogInformation(
                 "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, " +
@@ -159,11 +157,9 @@ public class OrdersController : Controller
 
         await _orderRepository.AddAsync(order);
 
-        if (item.Status != ItemStatus.Sold)
-        {
-            item.Status = ItemStatus.Sold;
-            await _itemRepository.UpdateAsync(item);
-        }
+        // Mark Sold now that the order is confirmed.
+        item.Status = ItemStatus.Sold;
+        await _itemRepository.UpdateAsync(item);
 
         _logger.LogInformation(
             "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, " +
@@ -254,6 +250,17 @@ public class OrdersController : Controller
     {
         if (item.ListingType == ListingType.Stealable)
         {
+            // ── Steal pending checkout ─────────────────────────────────────
+            // Stealer has bumped the price and needs to complete the order.
+            // Allow immediately — no finalize window required.
+            if (item.Status == ItemStatus.StolenPendingCheckout)
+            {
+                if (item.CurrentWinnerId != buyerId)
+                    return (false, "You are not the buyer for this stolen item.");
+                return (true, string.Empty);
+            }
+
+            // ── Already sold (order exists) ────────────────────────────────
             if (item.Status == ItemStatus.Sold)
             {
                 if (item.CurrentWinnerId != buyerId)
@@ -261,18 +268,20 @@ public class OrdersController : Controller
                 return (true, string.Empty);
             }
 
+            // ── Reserved — original getter in finalize window ──────────────
             if (item.Status == ItemStatus.Reserved)
             {
                 if (item.CurrentWinnerId != buyerId)
                     return (false, "You are not the current winner of this item.");
                 if (!item.IsInFinalizeWindow)
-                    return (false, "The purchase window for this item has expired.");
+                    return (false, "The purchase window for this item has not opened yet, or has expired.");
                 return (true, string.Empty);
             }
 
             return (false, "This item is not ready for checkout. Please claim it first.");
         }
 
+        // ── Standard listing ───────────────────────────────────────────────
         if (item.Status == ItemStatus.Sold)
             return (false, "This item has already been sold.");
         if (item.Status == ItemStatus.Reserved)
@@ -283,8 +292,10 @@ public class OrdersController : Controller
 
     private static CheckoutViewModel BuildCheckoutViewModel(Item item, int buyerId, decimal buyerBalance)
     {
+        // wasStolen: the buyer is checking out a steal — item is StolenPendingCheckout
+        // and they are the current winner who applied the ₱50 premium.
         bool wasStolen = item.ListingType == ListingType.Stealable
-                      && item.Status == ItemStatus.Sold
+                      && item.Status == ItemStatus.StolenPendingCheckout
                       && item.CurrentWinnerId == buyerId;
 
         decimal basePrice = wasStolen ? item.Price - StealPremium : item.Price;

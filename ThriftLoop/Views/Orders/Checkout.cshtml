@@ -28,8 +28,19 @@
     </nav>
 
     <header class="co-header">
-        <h1 class="co-header__title">Confirm Your Purchase</h1>
-        <p class="co-header__subtitle">Review the details below before finalising.</p>
+        <h1 class="co-header__title">
+            @(Model.WasStolen ? "Complete Your Steal" : "Confirm Your Purchase")
+        </h1>
+        <p class="co-header__subtitle">
+            @if (Model.WasStolen)
+            {
+                @:You stole this item — complete checkout to secure it, or cancel to return it.
+            }
+            else
+            {
+                @:Review the details below before finalising.
+            }
+        </p>
     </header>
 
     @if (TempData["ErrorMessage"] is string errMsg)
@@ -101,20 +112,50 @@
                 </div>
             </div>
 
-            <div class="co-p2p-notice" role="note">
-                <div class="co-p2p-notice__icon" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-                    </svg>
+            @* Cancel Steal option — only shown when the buyer has stolen the item
+               and has not yet confirmed the order. Cancelling reverts the item. *@
+            @if (Model.WasStolen)
+            {
+                <div class="co-cancel-steal-notice" role="note">
+                    <div class="co-cancel-steal-notice__icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 112 0v4a1 1 0 11-2 0V9zm1-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="co-cancel-steal-notice__body">
+                        <p class="co-cancel-steal-notice__heading">Changed your mind?</p>
+                        <p class="co-cancel-steal-notice__text">
+                            You can cancel the steal — the ₱50 premium is removed and the item returns to available for anyone to claim.
+                        </p>
+                        <form asp-action="CancelSteal" asp-controller="Items" asp-route-id="@Model.ItemId" method="post" style="margin-top:10px">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="co-cancel-steal-btn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                </svg>
+                                Cancel Steal &amp; Return Item
+                            </button>
+                        </form>
+                    </div>
                 </div>
-                <div class="co-p2p-notice__body">
-                    <p class="co-p2p-notice__heading">This is a P2P transaction</p>
-                    <p class="co-p2p-notice__text">
-                        ThriftLoop connects buyers and sellers directly. After confirming,
-                        coordinate with <strong>@Model.SellerName</strong> for pickup or shipping.
-                    </p>
+            }
+            else
+            {
+                <div class="co-p2p-notice" role="note">
+                    <div class="co-p2p-notice__icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="co-p2p-notice__body">
+                        <p class="co-p2p-notice__heading">This is a P2P transaction</p>
+                        <p class="co-p2p-notice__text">
+                            ThriftLoop connects buyers and sellers directly. After confirming,
+                            coordinate with <strong>@Model.SellerName</strong> for pickup or shipping.
+                        </p>
+                    </div>
                 </div>
-            </div>
+            }
 
         </div>
 
@@ -219,11 +260,8 @@
                     </div>
                 </div>
 
-                @* Confirm form — paymentMethod is injected by JS from the radio *@
-                <form asp-action="ConfirmOrder"
-                      asp-controller="Orders"
-                      method="post"
-                      id="confirmForm">
+                @* Confirm form *@
+                <form asp-action="ConfirmOrder" asp-controller="Orders" method="post" id="confirmForm">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="itemId" value="@Model.ItemId" />
                     <input type="hidden" name="paymentMethod" id="paymentMethodInput"
@@ -233,14 +271,17 @@
                         <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                         </svg>
-                        Confirm Purchase
+                        @(Model.WasStolen ? "Confirm Steal Purchase" : "Confirm Purchase")
                     </button>
                 </form>
 
-                <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
-                   class="co-cancel-link">
-                    Cancel and go back
-                </a>
+                @if (!Model.WasStolen)
+                {
+                    <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+                       class="co-cancel-link">
+                        Cancel and go back
+                    </a>
+                }
 
             </div>
 
@@ -252,6 +293,64 @@
 
 @section Scripts {
     <style>
+        .co-alert--info {
+            background: var(--c-info-bg, #eff6ff);
+            color: var(--c-info, #1d4ed8);
+            border: 1px solid #b9d5ff;
+        }
+
+        /* ── Cancel Steal notice card ──────────────────────────────────────── */
+        .co-cancel-steal-notice {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        .co-cancel-steal-notice__icon {
+            color: #c2410c;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .co-cancel-steal-notice__heading {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #9a3412;
+            margin: 0 0 3px;
+        }
+
+        .co-cancel-steal-notice__text {
+            font-size: 0.75rem;
+            color: #7c2d12;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .co-cancel-steal-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: #fff;
+            color: #c2410c;
+            border: 1.5px solid #fdba74;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+            .co-cancel-steal-btn:hover {
+                background: #fff7ed;
+                border-color: #c2410c;
+            }
+
+        /* ── Payment method selector ───────────────────────────────────────── */
         .co-alert__link {
             margin-left: 0.75rem;
             font-weight: 600;
@@ -259,18 +358,16 @@
             text-decoration: underline;
         }
 
-        /* ── Payment method selector ───────────────────────────────────────── */
         .co-pay-section {
             margin-top: 1.25rem;
         }
 
         .co-pay-section__heading {
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.8125rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: var(--color-muted, #8a8278);
+            color: var(--c-muted);
             margin: 0 0 0.75rem;
         }
 
@@ -285,7 +382,7 @@
             align-items: flex-start;
             gap: 0.75rem;
             padding: 0.875rem 1rem;
-            border: 1.5px solid var(--color-border, #e2ddd6);
+            border: 1.5px solid var(--c-border);
             border-radius: 10px;
             background: #fff;
             cursor: pointer;
@@ -293,8 +390,8 @@
         }
 
             .co-pay-option:has(.co-pay-radio:checked) {
-                border-color: var(--color-primary, #2d5a27);
-                background: color-mix(in srgb, var(--color-primary, #2d5a27) 4%, transparent);
+                border-color: var(--c-primary);
+                background: color-mix(in srgb, var(--c-primary) 4%, transparent);
             }
 
         .co-pay-option--disabled {
@@ -310,8 +407,8 @@
             width: 34px;
             height: 34px;
             border-radius: 8px;
-            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
-            color: var(--color-primary, #2d5a27);
+            background: color-mix(in srgb, var(--c-primary) 10%, transparent);
+            color: var(--c-primary);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -319,17 +416,15 @@
         }
 
         .co-pay-option__name {
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.9rem;
             font-weight: 600;
-            color: var(--color-text, #1a1814);
+            color: var(--c-text);
             margin: 0 0 2px;
         }
 
         .co-pay-option__detail {
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.8rem;
-            color: var(--color-muted, #8a8278);
+            color: var(--c-muted);
             margin: 0;
         }
 
@@ -352,14 +447,12 @@
             var form        = document.getElementById('confirmForm');
             var btn         = document.getElementById('confirmBtn');
 
-            // Keep hidden input in sync with radio selection.
             radios.forEach(function (radio) {
                 radio.addEventListener('change', function () {
                     if (hiddenInput) hiddenInput.value = radio.value;
                 });
             });
 
-            // Disable the confirm button after first click.
             if (form && btn) {
                 form.addEventListener('submit', function () {
                     btn.disabled = true;

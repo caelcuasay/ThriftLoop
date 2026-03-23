@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ThriftLoop.Data;
 
@@ -11,9 +12,11 @@ using ThriftLoop.Data;
 namespace ThriftLoop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260319013816_AddMultipleImageUrls")]
+    partial class AddMultipleImageUrls
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -54,7 +57,6 @@ namespace ThriftLoop.Migrations
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("ImageUrls")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("ImageUrls");
 
@@ -62,9 +64,6 @@ namespace ThriftLoop.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
-
-                    b.Property<int?>("OriginalGetterUserId")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(10,2)");

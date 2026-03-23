@@ -2,14 +2,9 @@
 
 namespace ThriftLoop.ViewModels;
 
-/// <summary>
-/// ViewModel for the Create Item form.
-/// All user-facing validation annotations live here, keeping the domain
-/// model (Item.cs) focused purely on the database schema.
-/// </summary>
 public class ItemCreateViewModel : IValidatableObject
 {
-    // ── Core Fields ────────────────────────────────────────────────────────
+    // ── Core Fields ───────────────────────────────────────────────────────────
 
     [Required(ErrorMessage = "Title is required.")]
     [StringLength(100, MinimumLength = 3,
@@ -24,8 +19,7 @@ public class ItemCreateViewModel : IValidatableObject
     public string Description { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Price is required.")]
-    [Range(0.01, 99_999.99,
-        ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
+    [Range(0.01, 99_999.99, ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
     [DataType(DataType.Currency)]
     [Display(Name = "Price (₱)")]
     public decimal Price { get; set; }
@@ -40,42 +34,30 @@ public class ItemCreateViewModel : IValidatableObject
     [Display(Name = "Condition")]
     public string Condition { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Optional clothing size. Not required — some categories (bags, accessories)
-    /// do not have a standard size.
-    /// </summary>
     [StringLength(10)]
     [Display(Name = "Size (optional)")]
     public string? Size { get; set; }
 
-    [Display(Name = "Item Photo (optional)")]
-    [DataType(DataType.Upload)]
-    public IFormFile? Image { get; set; }
-    public string? ImageUrl { get; set; }
-
-    // ── Stealable Listing Fields ───────────────────────────────────────────
+    // ── Images ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// When true the listing is created as a Stealable listing.
-    /// Bound to a toggle/checkbox in the form.
+    /// Up to 5 images uploaded from the Create form.
+    /// Bound from a multiple file input with name="Images".
     /// </summary>
+    [Display(Name = "Item Photos (optional)")]
+    [DataType(DataType.Upload)]
+    public List<IFormFile>? Images { get; set; }
+
+    // ── Stealable Listing Fields ──────────────────────────────────────────────
+
     [Display(Name = "Make this a Stealable listing")]
     public bool IsStealable { get; set; }
 
-    /// <summary>
-    /// The seller-chosen Steal window duration in hours (6, 12, or 24).
-    /// Required only when <see cref="IsStealable"/> is true.
-    /// Validated via <see cref="Validate"/>.
-    /// </summary>
     [Display(Name = "Steal Window")]
     public int? StealDurationHours { get; set; }
 
-    // ── IValidatableObject ─────────────────────────────────────────────────
+    // ── IValidatableObject ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Cross-field validation: StealDurationHours is required and must be one
-    /// of the allowed values whenever the listing is marked as Stealable.
-    /// </summary>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (IsStealable)
@@ -95,42 +77,23 @@ public class ItemCreateViewModel : IValidatableObject
         }
     }
 
-    // ── Select-List Options ────────────────────────────────────────────────
+    // ── Select-List Options ───────────────────────────────────────────────────
 
     public static readonly IReadOnlyList<string> Categories = new[]
     {
-        "Tops",
-        "Bottoms",
-        "Dresses & Skirts",
-        "Outerwear",
-        "Footwear",
-        "Accessories",
-        "Vintage",
-        "Activewear",
-        "Bags",
-        "Other"
+        "Tops", "Bottoms", "Dresses & Skirts", "Outerwear", "Footwear",
+        "Accessories", "Vintage", "Activewear", "Bags", "Other"
     };
 
     public static readonly IReadOnlyList<string> Conditions = new[]
     {
-        "New",
-        "Like New",
-        "Good",
-        "Fair",
-        "Poor"
+        "New", "Like New", "Good", "Fair", "Poor"
     };
 
     public static readonly IReadOnlyList<string> Sizes = new[]
     {
-        "XS",
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL",
-        "XXXL"
+        "XS", "S", "M", "L", "XL", "XXL", "XXXL"
     };
 
-    /// <summary>The three allowed Steal window durations displayed in the form dropdown.</summary>
     public static readonly IReadOnlyList<int> StealDurations = new[] { 6, 12, 24 };
 }

@@ -2,20 +2,14 @@
 
 namespace ThriftLoop.ViewModels;
 
-/// <summary>
-/// ViewModel for the Edit Item form.
-/// Mirrors ItemCreateViewModel but also carries the item's primary key,
-/// its current image URL (so the view can display it and the controller
-/// can preserve it when no replacement is uploaded), and a RemoveImage flag.
-/// </summary>
 public class ItemEditViewModel
 {
-    // ── Identity ────────────────────────────────────────────────────────────
+    // ── Identity ──────────────────────────────────────────────────────────────
 
-    /// <summary>Primary key — rendered as a hidden field and used to route the POST.</summary>
+    /// <summary>Primary key — rendered as a hidden field, used to route the POST.</summary>
     public int Id { get; set; }
 
-    // ── Core Fields ─────────────────────────────────────────────────────────
+    // ── Core Fields ───────────────────────────────────────────────────────────
 
     [Required(ErrorMessage = "Title is required.")]
     [StringLength(100, MinimumLength = 3,
@@ -30,8 +24,7 @@ public class ItemEditViewModel
     public string Description { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Price is required.")]
-    [Range(0.01, 99_999.99,
-        ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
+    [Range(0.01, 99_999.99, ErrorMessage = "Price must be between ₱0.01 and ₱99,999.99.")]
     [DataType(DataType.Currency)]
     [Display(Name = "Price (₱)")]
     public decimal Price { get; set; }
@@ -46,67 +39,46 @@ public class ItemEditViewModel
     [Display(Name = "Condition")]
     public string Condition { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Optional clothing size. Not required — some categories (bags, accessories)
-    /// do not have a standard size.
-    /// </summary>
     [StringLength(10)]
     [Display(Name = "Size (optional)")]
     public string? Size { get; set; }
 
-    // ── Image ────────────────────────────────────────────────────────────────
+    // ── Images ────────────────────────────────────────────────────────────────
 
-    /// <summary>Optional replacement image uploaded by the user.</summary>
-    [Display(Name = "Item Photo")]
+    /// <summary>New images added by the user on the Edit form (name="NewImages").</summary>
+    [Display(Name = "Add Photos")]
     [DataType(DataType.Upload)]
-    public IFormFile? Image { get; set; }
+    public List<IFormFile>? NewImages { get; set; }
 
     /// <summary>
-    /// The URL of the item's current image, populated from the database.
-    /// Passed back through the form as a hidden field so the controller
-    /// can keep it when no new image is uploaded.
+    /// The item's current image URLs from the database.
+    /// Round-tripped through the form as repeated hidden inputs (name="ExistingImageUrls").
+    /// The controller reads this to know which existing images to keep.
     /// </summary>
-    public string? ExistingImageUrl { get; set; }
+    public List<string> ExistingImageUrls { get; set; } = new();
 
     /// <summary>
-    /// When true the controller will delete the existing image file and
-    /// set ImageUrl to null, even if no replacement is uploaded.
+    /// URLs the user removed in the UI.
+    /// Injected by JS as hidden inputs (name="RemovedImageUrls") when a thumbnail × is clicked.
+    /// The controller deletes these files from disk and removes them from the DB list.
     /// </summary>
-    public bool RemoveImage { get; set; }
+    public List<string> RemovedImageUrls { get; set; } = new();
 
-    // ── Select-List Options ──────────────────────────────────────────────────
+    // ── Select-List Options ───────────────────────────────────────────────────
 
     public static readonly IReadOnlyList<string> Categories = new[]
     {
-        "Tops",
-        "Bottoms",
-        "Dresses & Skirts",
-        "Outerwear",
-        "Footwear",
-        "Accessories",
-        "Vintage",
-        "Activewear",
-        "Bags",
-        "Other"
+        "Tops", "Bottoms", "Dresses & Skirts", "Outerwear", "Footwear",
+        "Accessories", "Vintage", "Activewear", "Bags", "Other"
     };
 
     public static readonly IReadOnlyList<string> Conditions = new[]
     {
-        "New",
-        "Like New",
-        "Good",
-        "Fair",
-        "Poor"
+        "New", "Like New", "Good", "Fair", "Poor"
     };
 
     public static readonly IReadOnlyList<string> Sizes = new[]
     {
-        "XS",
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL",
-        "XXXL"
+        "XS", "S", "M", "L", "XL", "XXL", "XXXL"
     };
 }

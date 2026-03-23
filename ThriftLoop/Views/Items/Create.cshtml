@@ -30,59 +30,52 @@
             </div>
         }
 
+        <!-- Client-side validation error banner (hidden until JS shows it) -->
+        <div class="create-error-banner" id="validationBanner" style="display:none">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+            <span id="validationBannerText">Please fix the highlighted fields before posting.</span>
+        </div>
+
         <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
             @Html.AntiForgeryToken()
 
             <div class="create-grid">
 
-                @* ── Photo Column ──────────────────────────────────────────────── *@
+                @* ── Photo Column ─────────────────────────────────────────── *@
                 <div class="create-photo-col">
-                    <p class="create-section-label">Photo</p>
+                    <p class="create-section-label">
+                        Photos <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.6rem">(up to 5)</span>
+                    </p>
 
-                    <div class="photo-dropzone" id="photoDropzone" tabindex="0" role="button">
-                        <input asp-for="Image" type="file" id="photoInput" class="photo-dropzone__input" accept="image/jpeg,image/png,image/webp" />
+                    <!-- Thumbnail grid - populated by JS -->
+                    <div id="photoThumbs" class="photo-thumbs"></div>
 
-                        <div class="photo-dropzone__empty" id="dropzoneEmpty">
-                            <div class="photo-dropzone__icon">
-                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <rect x="4" y="10" width="40" height="28" rx="4" stroke="currentColor" />
-                                    <circle cx="34" cy="18" r="3" stroke="currentColor" />
-                                    <path d="M4 32l10-10 8 8 6-6 8 8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </div>
-                            <p class="photo-dropzone__main">
-                                <span class="photo-dropzone__cta">Click to upload</span> or drag
-                            </p>
-                            <p class="photo-dropzone__hint">JPEG, PNG · max 5MB</p>
-                        </div>
-
-                        <div class="photo-dropzone__preview" id="dropzonePreview" hidden>
-                            <img id="previewImg" src="" alt="Preview" />
-                            <button type="button" class="photo-dropzone__remove" id="removePhoto">
-                                <svg viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div class="photo-dropzone__overlay" id="dropzoneOverlay" hidden>
-                            <p>Drop to add photo</p>
-                        </div>
+                    <!-- Compact add zone -->
+                    <div class="photo-add-zone" id="photoAddZone">
+                        <input type="file" id="photosInput" name="Images" multiple
+                               accept="image/jpeg,image/png,image/webp" style="display:none" />
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" style="opacity:.5">
+                            <path d="M3 16.5v-9A1.5 1.5 0 014.5 6h1l1-2h7l1 2h1A1.5 1.5 0 0117 7.5v9A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5z" stroke-linecap="round" stroke-linejoin="round" />
+                            <circle cx="10" cy="12" r="2.5" stroke-linecap="round" />
+                        </svg>
+                        <span class="photo-add-zone__cta">Click or drag to add photos</span>
+                        <span class="photo-add-zone__hint">JPEG · PNG · max 5 MB each</span>
                     </div>
-
-                    <span asp-validation-for="Image" class="field__error"></span>
+                    <span class="field__error" id="photoErr"></span>
 
                     <div class="create-tips">
                         <p class="create-tips__heading">Quick tips</p>
                         <ul class="create-tips__list">
-                            <li>Use natural light</li>
+                            <li>First photo is the cover shown on cards</li>
+                            <li>Use natural light for best results</li>
                             <li>Show any wear honestly</li>
-                            <li>Square crops work best</li>
                         </ul>
                     </div>
                 </div>
 
-                @* ── Form Column ───────────────────────────────────────────────── *@
+                @* ── Form Column ──────────────────────────────────────────── *@
                 <div class="create-form-col">
 
                     @* Title *@
@@ -91,8 +84,9 @@
                             <label asp-for="Title" class="create-field__label">Title</label>
                             <span class="create-field__counter" id="titleCounter">0/100</span>
                         </div>
-                        <input asp-for="Title" class="create-field__input" id="titleInput" placeholder="e.g. Vintage Levi's 501" maxlength="100" />
-                        <span asp-validation-for="Title" class="field__error"></span>
+                        <input asp-for="Title" class="create-field__input" id="titleInput"
+                               placeholder="e.g. Vintage Levi's 501" maxlength="100" />
+                        <span class="field__error" id="titleErr"></span>
                     </div>
 
                     @* Description *@
@@ -101,18 +95,22 @@
                             <label asp-for="Description" class="create-field__label">Description</label>
                             <span class="create-field__counter" id="descCounter">0/1000</span>
                         </div>
-                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea" id="descInput" rows="3" maxlength="1000" placeholder="Describe the item..."></textarea>
-                        <span asp-validation-for="Description" class="field__error"></span>
+                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
+                                  id="descInput" rows="3" maxlength="1000"
+                                  placeholder="Describe the item — colour, fit, any flaws…"></textarea>
+                        <span class="field__error" id="descErr"></span>
                     </div>
 
                     @* Price *@
                     <div class="create-field">
                         <label asp-for="Price" class="create-field__label">Price</label>
-                        <div class="create-price-wrap">
+                        <div class="create-price-wrap" id="priceWrap">
                             <span class="create-price-wrap__symbol">₱</span>
-                            <input asp-for="Price" class="create-field__input create-price-wrap__input" type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
+                            <input asp-for="Price" id="priceInput"
+                                   class="create-field__input create-price-wrap__input"
+                                   type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
                         </div>
-                        <span asp-validation-for="Price" class="field__error"></span>
+                        <span class="field__error" id="priceErr"></span>
                     </div>
 
                     @* Category *@
@@ -128,10 +126,13 @@
                         <div class="create-chips" id="categoryChips">
                             @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
                             {
-                                <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")" data-value="@cat" data-target="categorySelect">@cat</button>
+                                <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
+                                        data-value="@cat" data-target="categorySelect">
+                                    @cat
+                                </button>
                             }
                         </div>
-                        <span asp-validation-for="Category" class="field__error"></span>
+                        <span class="field__error" id="categoryErr"></span>
                     </div>
 
                     @* Condition *@
@@ -151,14 +152,15 @@
                             }
                             @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
                             {
-                                <button type="button" class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")" data-value="@cond" data-target="conditionSelect">
-                                    <span>@icons[idx]</span>
-                                    <span>@cond</span>
+                                <button type="button"
+                                        class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
+                                        data-value="@cond" data-target="conditionSelect">
+                                    <span>@icons[idx]</span> <span>@cond</span>
                                 </button>
                                 idx++;
                             }
                         </div>
-                        <span asp-validation-for="Condition" class="field__error"></span>
+                        <span class="field__error" id="conditionErr"></span>
                     </div>
 
                     @* Size — optional *@
@@ -174,24 +176,20 @@
                                 <option value="@size">@size</option>
                             }
                         </select>
-                        <div class="create-chips create-chips--size" id="sizeChips">
+                        <div class="create-chips" id="sizeChips">
                             @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
                             {
                                 <button type="button"
                                         class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
-                                        data-value="@size"
-                                        data-target="sizeSelect">
+                                        data-value="@size" data-target="sizeSelect">
                                     @size
                                 </button>
                             }
                         </div>
-                        <span asp-validation-for="Size" class="field__error"></span>
                     </div>
 
-                    @* ── Stealable Listing Section ─────────────────────────────── *@
+                    @* ── Stealable Listing Section ─────────────────────────── *@
                     <div class="create-field create-field--stealable">
-
-                        @* Section divider *@
                         <div class="create-stealable-header">
                             <div>
                                 <p class="create-field__label">Listing Type</p>
@@ -201,12 +199,9 @@
                             </div>
                         </div>
 
-                        @* Toggle row *@
                         <label class="stealable-toggle" for="IsStealable">
                             <span class="stealable-toggle__track">
-                                <input asp-for="IsStealable"
-                                       id="IsStealable"
-                                       type="checkbox"
+                                <input asp-for="IsStealable" id="IsStealable" type="checkbox"
                                        class="stealable-toggle__input" />
                                 <span class="stealable-toggle__thumb" aria-hidden="true"></span>
                             </span>
@@ -221,53 +216,39 @@
                             </span>
                         </label>
 
-                        @* Duration panel — hidden until checkbox is ticked *@
                         <div class="stealable-duration-panel" id="stealDurationPanel"
-                             @(Model.IsStealable ? "" : "hidden")
-                             aria-live="polite">
-
+                             @(Model.IsStealable ? "" : "hidden") aria-live="polite">
                             <div class="stealable-duration-inner">
-                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
                                 </svg>
-
                                 <div class="stealable-duration-body">
-                                    <label asp-for="StealDurationHours" class="create-field__label">
-                                        Steal Window Duration
-                                    </label>
+                                    <label asp-for="StealDurationHours" class="create-field__label">Steal Window Duration</label>
                                     <p class="stealable-duration-body__hint">
                                         How long a buyer has before another can steal the item.
                                         After the window closes, the original buyer gets a 2-hour grace period.
                                     </p>
-
-                                    @* Chip-style duration selector driven by a hidden <select> *@
-                                    <select asp-for="StealDurationHours"
-                                            class="create-hidden-select"
-                                            id="stealDurationSelect">
+                                    <select asp-for="StealDurationHours" class="create-hidden-select" id="stealDurationSelect">
                                         <option value=""></option>
                                         @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
                                         {
                                             <option value="@hours">@hours hours</option>
                                         }
                                     </select>
-
-                                    <div class="create-chips create-chips--duration" id="durationChips">
+                                    <div class="create-chips" id="durationChips">
                                         @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
                                         {
                                             <button type="button"
                                                     class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
-                                                    data-value="@hours"
-                                                    data-target="stealDurationSelect">
+                                                    data-value="@hours" data-target="stealDurationSelect">
                                                 @hours hr
                                             </button>
                                         }
                                     </div>
-
-                                    <span asp-validation-for="StealDurationHours" class="field__error"></span>
+                                    <span class="field__error" id="durationErr"></span>
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     @* Actions *@
@@ -292,390 +273,351 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 
-    <style>
-        /* ── Stealable toggle ──────────────────────────────────────────────── */
-        .create-field--stealable {
-            border-top: 1px solid var(--color-border, #e8e3da);
-            padding-top: 1.25rem;
-            margin-top: 0.25rem;
-        }
-
-        .create-stealable-header {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-
-        .create-stealable-header__sub {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.8125rem;
-            color: var(--color-muted, #8a8278);
-            margin: 0.2rem 0 0;
-            line-height: 1.5;
-        }
-
-        /* Toggle switch */
-        .stealable-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            cursor: pointer;
-            user-select: none;
-            width: fit-content;
-        }
-
-        .stealable-toggle__track {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            flex-shrink: 0;
-        }
-
-        .stealable-toggle__input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .stealable-toggle__thumb {
-            position: absolute;
-            inset: 0;
-            background: var(--color-border, #d4cdc4);
-            border-radius: 99px;
-            transition: background 0.2s ease;
-        }
-
-            .stealable-toggle__thumb::after {
-                content: '';
-                position: absolute;
-                top: 3px;
-                left: 3px;
-                width: 18px;
-                height: 18px;
-                background: #fff;
-                border-radius: 50%;
-                transition: transform 0.2s ease;
-                box-shadow: 0 1px 3px rgba(0,0,0,.15);
-            }
-
-        .stealable-toggle__input:checked ~ .stealable-toggle__thumb {
-            background: var(--color-primary, #2d5a27);
-        }
-
-            .stealable-toggle__input:checked ~ .stealable-toggle__thumb::after {
-                transform: translateX(20px);
-            }
-
-        .stealable-toggle__input:focus-visible ~ .stealable-toggle__thumb {
-            outline: 2px solid var(--color-primary, #2d5a27);
-            outline-offset: 2px;
-        }
-
-        .stealable-toggle__label-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stealable-toggle__name {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.9375rem;
-            font-weight: 500;
-            color: var(--color-text, #1a1814);
-        }
-
-        .stealable-toggle__badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            background: var(--color-primary, #2d5a27);
-            color: #fff;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.6rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        /* Duration panel */
-        .stealable-duration-panel {
-            margin-top: 1rem;
-            overflow: hidden;
-        }
-
-            .stealable-duration-panel[hidden] {
-                display: none;
-            }
-
-        .stealable-duration-inner {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            background: var(--color-surface-alt, #f5f1ea);
-            border: 1px solid var(--color-border, #e2ddd6);
-            border-radius: 10px;
-            padding: 1rem 1.125rem;
-        }
-
-        .stealable-duration-icon {
-            color: var(--color-primary, #2d5a27);
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .stealable-duration-body {
-            flex: 1;
-        }
-
-        .stealable-duration-body__hint {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.8125rem;
-            color: var(--color-muted, #8a8278);
-            margin: 0.25rem 0 0.875rem;
-            line-height: 1.55;
-        }
-
-        .create-chips--duration {
-            margin-top: 0.5rem;
-        }
-    </style>
-
     <script>
-        (function() {
+        (function () {
             'use strict';
 
-            // ── Character counters ─────────────────────────────────────────────
+            var MAX_PHOTOS = 5;
+            var fileList   = new DataTransfer(); // virtual file list maintained by JS
+
+            // ── DOM refs ─────────────────────────────────────────────────────────
+            var addZone    = document.getElementById('photoAddZone');
+            var photosInput = document.getElementById('photosInput');
+            var thumbsEl   = document.getElementById('photoThumbs');
+            var photoErr   = document.getElementById('photoErr');
+            var form       = document.getElementById('createForm');
+            var submitBtn  = document.getElementById('submitBtn');
+            var banner     = document.getElementById('validationBanner');
+            var bannerText = document.getElementById('validationBannerText');
+
+            // ── Photo: add zone click / drag ──────────────────────────────────────
+            addZone.addEventListener('click', function () { photosInput.click(); });
+
+            addZone.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                addZone.classList.add('photo-add-zone--drag');
+            });
+            addZone.addEventListener('dragleave', function () {
+                addZone.classList.remove('photo-add-zone--drag');
+            });
+            addZone.addEventListener('drop', function (e) {
+                e.preventDefault();
+                addZone.classList.remove('photo-add-zone--drag');
+                addFiles(Array.from(e.dataTransfer.files));
+            });
+
+            photosInput.addEventListener('change', function () {
+                var selectedFiles = Array.from(photosInput.files); // capture BEFORE clearing
+                photosInput.value = '';                            // reset native picker
+                addFiles(selectedFiles);                           // syncInput runs last → files stay
+            });
+
+            function addFiles(files) {
+                var errors = [];
+                for (var i = 0; i < files.length; i++) {
+                    if (fileList.files.length >= MAX_PHOTOS) break;
+                    var f = files[i];
+                    if (!['image/jpeg','image/png','image/webp'].includes(f.type)) {
+                        errors.push('Only JPEG, PNG, or WebP images are accepted.');
+                        continue;
+                    }
+                    if (f.size > 5 * 1024 * 1024) {
+                        errors.push(f.name + ' exceeds 5 MB.');
+                        continue;
+                    }
+                    fileList.items.add(f);
+                }
+                if (errors.length) photoErr.textContent = errors[0];
+                syncInput();
+                renderThumbs();
+            }
+
+            function removeFile(idx) {
+                var newDt = new DataTransfer();
+                Array.from(fileList.files).forEach(function (f, i) {
+                    if (i !== idx) newDt.items.add(f);
+                });
+                fileList = newDt;
+                syncInput();
+                renderThumbs();
+            }
+
+            function syncInput() {
+                photosInput.files = fileList.files;
+            }
+
+            function renderThumbs() {
+                thumbsEl.innerHTML = '';
+                var files = Array.from(fileList.files);
+                files.forEach(function (file, i) {
+                    var div = document.createElement('div');
+                    div.className = 'photo-thumb';
+
+                    var img = document.createElement('img');
+                    img.alt = 'Photo ' + (i + 1);
+                    var reader = new FileReader();
+                    reader.onload = function (e) { img.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                    div.appendChild(img);
+
+                    if (i === 0) {
+                        var badge = document.createElement('span');
+                        badge.className = 'photo-thumb__badge';
+                        badge.textContent = 'Cover';
+                        div.appendChild(badge);
+                    }
+
+                    var rm = document.createElement('button');
+                    rm.type = 'button';
+                    rm.className = 'photo-thumb__remove';
+                    rm.innerHTML = '×';
+                    rm.setAttribute('aria-label', 'Remove photo');
+                    (function (idx) {
+                        rm.addEventListener('click', function () { removeFile(idx); });
+                    }(i));
+                    div.appendChild(rm);
+
+                    thumbsEl.appendChild(div);
+                });
+
+                // Show/hide add zone
+                if (files.length >= MAX_PHOTOS) {
+                    addZone.classList.add('photo-add-zone--hidden');
+                } else {
+                    addZone.classList.remove('photo-add-zone--hidden');
+                }
+
+                // Clear photo error when thumbs are present
+                if (files.length > 0) photoErr.textContent = '';
+            }
+
+            // ── Character counters ────────────────────────────────────────────────
             function initCounter(inputId, counterId, max) {
                 var input   = document.getElementById(inputId);
                 var counter = document.getElementById(counterId);
                 if (!input || !counter) return;
-
-                var update = function() {
+                var update = function () {
                     var len = input.value.length;
                     counter.textContent = len + '/' + max;
                     counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
                 };
-
                 input.addEventListener('input', update);
                 update();
             }
-
             initCounter('titleInput', 'titleCounter', 100);
-            initCounter('descInput', 'descCounter', 1000);
+            initCounter('descInput',  'descCounter',  1000);
 
-            // ── Category / Condition chips (required — click activates, cannot deselect) ──
+            // ── Required chips (category, condition) ──────────────────────────────
             function initChips(containerId) {
                 var container = document.getElementById(containerId);
                 if (!container) return;
-
-                container.addEventListener('click', function(e) {
+                container.addEventListener('click', function (e) {
                     var btn = e.target.closest('[data-value]');
                     if (!btn) return;
-
                     var select = document.getElementById(btn.dataset.target);
                     if (!select) return;
-
-                    container.querySelectorAll('[data-value]').forEach(function(b) {
-                        b.classList.remove('create-chip--active', 'create-condition__pill--active');
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active','create-condition__pill--active');
                     });
-
                     btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
                     select.value = btn.dataset.value;
-
-                    if (window.$ && $.validator) $(select).valid();
+                    // Clear the error for this field
+                    var errId = containerId === 'categoryChips' ? 'categoryErr' : 'conditionErr';
+                    var errEl = document.getElementById(errId);
+                    if (errEl) errEl.textContent = '';
+                    container.classList.remove('chips-error');
                 });
             }
-
             initChips('categoryChips');
             initChips('conditionPills');
 
-            // ── Duration chips (required when Stealable — same chip pattern) ───
-            function initDurationChips() {
-                var container = document.getElementById('durationChips');
-                var select    = document.getElementById('stealDurationSelect');
-                if (!container || !select) return;
-
-                container.addEventListener('click', function(e) {
-                    var btn = e.target.closest('[data-value]');
-                    if (!btn) return;
-
-                    container.querySelectorAll('[data-value]').forEach(function(b) {
-                        b.classList.remove('create-chip--active');
-                    });
-
-                    btn.classList.add('create-chip--active');
-                    select.value = btn.dataset.value;
-
-                    // Re-run unobtrusive validation on the hidden select so the
-                    // error span clears immediately when the user picks a value.
-                    if (window.$ && $.validator) $(select).valid();
-                });
-            }
-
-            initDurationChips();
-
-            // ── Size chips (optional — second click deselects) ─────────────────
-            (function initSizeChips() {
+            // ── Optional chips (size) — second click deselects ────────────────────
+            (function () {
                 var container = document.getElementById('sizeChips');
                 var select    = document.getElementById('sizeSelect');
                 if (!container || !select) return;
-
-                container.addEventListener('click', function(e) {
+                container.addEventListener('click', function (e) {
                     var btn = e.target.closest('[data-value]');
                     if (!btn) return;
-
-                    var alreadyActive = btn.classList.contains('create-chip--active');
-
-                    container.querySelectorAll('[data-value]').forEach(function(b) {
+                    var already = btn.classList.contains('create-chip--active');
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
                         b.classList.remove('create-chip--active');
                     });
-
-                    if (alreadyActive) {
-                        select.value = '';
-                    } else {
-                        btn.classList.add('create-chip--active');
-                        select.value = btn.dataset.value;
-                    }
+                    if (already) { select.value = ''; }
+                    else { btn.classList.add('create-chip--active'); select.value = btn.dataset.value; }
                 });
-            })();
+            }());
 
-            // ── Stealable toggle — show / hide the duration panel ─────────────
-            (function initStealableToggle() {
-                var checkbox      = document.getElementById('IsStealable');
-                var panel         = document.getElementById('stealDurationPanel');
-                var durationSelect = document.getElementById('stealDurationSelect');
+            // ── Duration chips ────────────────────────────────────────────────────
+            (function () {
+                var container = document.getElementById('durationChips');
+                var select    = document.getElementById('stealDurationSelect');
+                if (!container || !select) return;
+                container.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-value]');
+                    if (!btn) return;
+                    container.querySelectorAll('[data-value]').forEach(function (b) {
+                        b.classList.remove('create-chip--active');
+                    });
+                    btn.classList.add('create-chip--active');
+                    select.value = btn.dataset.value;
+                    var errEl = document.getElementById('durationErr');
+                    if (errEl) errEl.textContent = '';
+                    container.classList.remove('chips-error');
+                });
+            }());
+
+            // ── Stealable toggle ──────────────────────────────────────────────────
+            (function () {
+                var checkbox = document.getElementById('IsStealable');
+                var panel    = document.getElementById('stealDurationPanel');
+                var durSel   = document.getElementById('stealDurationSelect');
                 if (!checkbox || !panel) return;
-
-                function syncPanel() {
+                function sync() {
                     if (checkbox.checked) {
                         panel.removeAttribute('hidden');
                     } else {
                         panel.setAttribute('hidden', '');
+                        if (durSel) { durSel.value = ''; }
+                        document.querySelectorAll('#durationChips [data-value]').forEach(function (b) {
+                            b.classList.remove('create-chip--active');
+                        });
+                    }
+                }
+                checkbox.addEventListener('change', sync);
+                sync();
+            }());
 
-                        // Clear the selection so the hidden field submits empty
-                        // and server-side validation does not complain.
-                        if (durationSelect) {
-                            durationSelect.value = '';
-                            document.querySelectorAll('#durationChips [data-value]').forEach(function(b) {
-                                b.classList.remove('create-chip--active');
-                            });
-                        }
+            // ── Auto-clear input errors on change ────────────────────────────────
+            function bindClearError(inputId, errId, wrapId) {
+                var el = document.getElementById(inputId);
+                if (!el) return;
+                el.addEventListener('input', function () {
+                    el.classList.remove('input-error');
+                    if (wrapId) document.getElementById(wrapId) && document.getElementById(wrapId).classList.remove('input-error');
+                    var errEl = document.getElementById(errId);
+                    if (errEl) errEl.textContent = '';
+                    if (banner.style.display !== 'none') {
+                        // Re-check if any errors remain
+                        var anyErr = document.querySelectorAll('.input-error, .chips-error, .field__error:not(:empty)').length;
+                        if (!anyErr) banner.style.display = 'none';
+                    }
+                });
+            }
+            bindClearError('titleInput', 'titleErr');
+            bindClearError('descInput',  'descErr');
+            bindClearError('priceInput', 'priceErr', 'priceWrap');
+
+            // ── Client-side form validation ───────────────────────────────────────
+            function showErr(errId, msg) {
+                var el = document.getElementById(errId);
+                if (el) el.textContent = msg;
+            }
+            function markInputErr(inputId, wrapId) {
+                var el = document.getElementById(inputId);
+                if (el) el.classList.add('input-error');
+                if (wrapId) { var w = document.getElementById(wrapId); if (w) w.classList.add('input-error'); }
+                return el;
+            }
+            function markChipsErr(containerId) {
+                var el = document.getElementById(containerId);
+                if (el) el.classList.add('chips-error');
+                return el;
+            }
+
+            function validate() {
+                var firstErrEl = null;
+                var ok = true;
+
+                // Clear previous
+                ['titleErr','descErr','priceErr','categoryErr','conditionErr','durationErr','photoErr'].forEach(function (id) {
+                    var el = document.getElementById(id); if (el) el.textContent = '';
+                });
+                document.querySelectorAll('.input-error').forEach(function (el) { el.classList.remove('input-error'); });
+                document.querySelectorAll('.chips-error').forEach(function (el) { el.classList.remove('chips-error'); });
+
+                // Title
+                var titleEl = document.getElementById('titleInput');
+                var titleLen = titleEl ? titleEl.value.trim().length : 0;
+                if (titleLen < 3 || titleLen > 100) {
+                    showErr('titleErr', 'Title must be between 3 and 100 characters.');
+                    firstErrEl = firstErrEl || markInputErr('titleInput');
+                    ok = false;
+                }
+
+                // Description
+                var descEl = document.getElementById('descInput');
+                var descLen = descEl ? descEl.value.trim().length : 0;
+                if (descLen < 10 || descLen > 1000) {
+                    showErr('descErr', 'Description must be between 10 and 1 000 characters.');
+                    firstErrEl = firstErrEl || markInputErr('descInput');
+                    ok = false;
+                }
+
+                // Price
+                var priceEl = document.getElementById('priceInput');
+                var priceVal = priceEl ? parseFloat(priceEl.value) : NaN;
+                if (!priceEl || !priceEl.value || isNaN(priceVal) || priceVal < 0.01 || priceVal > 99999.99) {
+                    showErr('priceErr', 'Price must be between ₱0.01 and ₱99,999.99.');
+                    firstErrEl = firstErrEl || markInputErr('priceInput', 'priceWrap');
+                    ok = false;
+                }
+
+                // Category
+                var catSel = document.getElementById('categorySelect');
+                if (!catSel || !catSel.value) {
+                    showErr('categoryErr', 'Please select a category.');
+                    firstErrEl = firstErrEl || markChipsErr('categoryChips');
+                    ok = false;
+                }
+
+                // Condition
+                var condSel = document.getElementById('conditionSelect');
+                if (!condSel || !condSel.value) {
+                    showErr('conditionErr', 'Please select a condition.');
+                    firstErrEl = firstErrEl || markChipsErr('conditionPills');
+                    ok = false;
+                }
+
+                // Steal duration
+                var stealChk = document.getElementById('IsStealable');
+                if (stealChk && stealChk.checked) {
+                    var durSel = document.getElementById('stealDurationSelect');
+                    if (!durSel || !durSel.value) {
+                        showErr('durationErr', 'Please select a Steal window duration.');
+                        firstErrEl = firstErrEl || markChipsErr('durationChips');
+                        ok = false;
                     }
                 }
 
-                checkbox.addEventListener('change', syncPanel);
-                // Run once on load to restore state after a failed server POST.
-                syncPanel();
-            })();
-
-            // ── Photo dropzone ─────────────────────────────────────────────────
-            var dropzone   = document.getElementById('photoDropzone');
-            var input      = document.getElementById('photoInput');
-            var empty      = document.getElementById('dropzoneEmpty');
-            var preview    = document.getElementById('dropzonePreview');
-            var previewImg = document.getElementById('previewImg');
-            var removeBtn  = document.getElementById('removePhoto');
-            var overlay    = document.getElementById('dropzoneOverlay');
-
-            if (dropzone && input) {
-                dropzone.addEventListener('click', function(e) {
-                    if (e.target === removeBtn || (removeBtn && removeBtn.contains(e.target))) return;
-                    input.click();
-                });
-
-                input.addEventListener('change', function() {
-                    if (input.files && input.files[0]) showPreview(input.files[0]);
-                });
-
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        clearPreview();
-                    });
+                if (!ok) {
+                    banner.style.display = 'flex';
+                    if (firstErrEl) firstErrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    banner.style.display = 'none';
                 }
 
-                ['dragenter', 'dragover'].forEach(function(evt) {
-                    dropzone.addEventListener(evt, function(e) {
-                        e.preventDefault();
-                        if (overlay) overlay.hidden = false;
-                    });
-                });
-
-                ['dragleave', 'dragend', 'drop'].forEach(function(evt) {
-                    dropzone.addEventListener(evt, function(e) {
-                        e.preventDefault();
-                        if (overlay) overlay.hidden = true;
-                    });
-                });
-
-                dropzone.addEventListener('drop', function(e) {
-                    var file = e.dataTransfer.files[0];
-                    if (!file) return;
-
-                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                        showDropzoneError('Only JPEG, PNG, or WebP images are accepted.');
-                        return;
-                    }
-                    if (file.size > 5 * 1024 * 1024) {
-                        showDropzoneError('Image must be smaller than 5 MB.');
-                        return;
-                    }
-
-                    var dt = new DataTransfer();
-                    dt.items.add(file);
-                    input.files = dt.files;
-                    showPreview(file);
-                });
+                return ok;
             }
 
-            function showPreview(file) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImg.src = e.target.result;
-                    if (empty)   empty.hidden   = true;
-                    if (preview) preview.hidden = false;
-                };
-                reader.readAsDataURL(file);
-            }
+            // ── Submit handler ────────────────────────────────────────────────────
+            form.addEventListener('submit', function (e) {
+                e.preventDefault(); // Always prevent — let our validate() decide
+                if (!validate()) return;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".25"/></svg> Posting…';
+                form.submit(); // Programmatic submit bypasses event listeners
+            });
 
-            function clearPreview() {
-                input.value = '';
-                previewImg.src = '';
-                if (preview) preview.hidden = true;
-                if (empty)   empty.hidden   = false;
-            }
-
-            function showDropzoneError(msg) {
-                var errorSpan = document.querySelector('.create-photo-col .field__error');
-                if (errorSpan) {
-                    errorSpan.textContent = msg;
-                    setTimeout(function() { errorSpan.textContent = ''; }, 3000);
-                }
-            }
-
-            // ── Submit loading state ───────────────────────────────────────────
-            var form      = document.getElementById('createForm');
-            var submitBtn = document.getElementById('submitBtn');
-
-            if (form && submitBtn) {
-                form.addEventListener('submit', function() {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm-1 0v3M9 14v3M3 9H0M17 9h3"/></svg> Posting...';
-                });
-            }
-
-            // ── Auto-dismiss toast ─────────────────────────────────────────────
+            // ── Auto-dismiss toast ────────────────────────────────────────────────
             var toast = document.querySelector('.create-toast');
             if (toast) {
-                setTimeout(function() {
+                setTimeout(function () {
                     toast.style.opacity = '0';
-                    setTimeout(function() { toast.remove(); }, 400);
+                    setTimeout(function () { toast.remove(); }, 400);
                 }, 4000);
             }
 
-        })();
+        }());
     </script>
 }
