@@ -32,7 +32,6 @@ public class ItemRepository : IItemRepository
                          .Include(i => i.User)
                          .FirstOrDefaultAsync(i => i.Id == id);
 
-    /// <inheritdoc />
     public async Task<Item?> GetByIdWithVariantsAsync(int id)
         => await _context.Items
                          .AsNoTracking()
@@ -61,6 +60,15 @@ public class ItemRepository : IItemRepository
                          .OrderByDescending(i => i.CreatedAt)
                          .ToListAsync();
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Item>> GetAllShopItemsAsync()
+        => await _context.Items
+                         .AsNoTracking()
+                         .Include(i => i.Shop)
+                         .Where(i => i.ShopId != null && i.Status != ItemStatus.Sold)
+                         .OrderByDescending(i => i.CreatedAt)
+                         .ToListAsync();
+
     public async Task UpdateAsync(Item item)
     {
         _context.Items.Update(item);
@@ -74,4 +82,13 @@ public class ItemRepository : IItemRepository
         _context.Items.Remove(item);
         await _context.SaveChangesAsync();
     }
+
+    /// <inheritdoc />
+    public async Task<ItemVariantSku?> GetSkuByIdWithItemAsync(int skuId)
+        => await _context.ItemVariantSkus
+                         .AsNoTracking()
+                         .Include(s => s.Variant)
+                             .ThenInclude(v => v.Item)
+                                 .ThenInclude(i => i!.User)
+                         .FirstOrDefaultAsync(s => s.Id == skuId);
 }

@@ -41,7 +41,9 @@
             </li>
             <li class="tl-nav__divider" aria-hidden="true"></li>
             <li>
-                <a href="#" class="tl-nav__link @(currentPath.StartsWith("/Sellers", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                <a asp-controller="Sellers"
+                   asp-action="Index"
+                   class="tl-nav__link @(currentPath.StartsWith("/Sellers", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
                     Sellers
                 </a>
             </li>

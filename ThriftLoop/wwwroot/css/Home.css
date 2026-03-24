@@ -1,0 +1,669 @@
+﻿/* --------------------------------------------- */
+/* ThriftLoop - Home (For You) Stylesheet        */
+/* Design System: compact, accessible, consistent */
+/* --------------------------------------------- */
+
+:root {
+    /* Colors - high contrast for accessibility */
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-bg: #f2f2f5;
+    --c-surface: #ffffff;
+    --c-border: #e4e4ea;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+    --c-badge-bg: #ece8f8;
+    --c-badge-txt: #2d1b69;
+    --c-success: #0e6245;
+    --c-success-bg: #e8f3ef;
+    --c-error: #b91c1c;
+    --c-error-bg: #fee9e9;
+    --c-warning: #b45309;
+    --c-warning-bg: #feedd5;
+    --c-info: #1e40af;
+    --c-info-bg: #e0edff;
+    --c-new: #0e6245;
+    --c-like-new: #1e40af;
+    --c-good: #b45309;
+    --c-fair: #b91c6f;
+    --c-poor: #4b5563;
+}
+
+/* --------------------------------- */
+/* Base & Reset                      */
+/* --------------------------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--c-bg);
+    color: var(--c-text);
+    line-height: 1.5;
+    font-size: 0.85rem;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+}
+
+/* --------------------------------- */
+/* Typography                        */
+/* --------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+}
+
+h1 {
+    font-size: 1.5rem;
+}
+
+h2 {
+    font-size: 1.2rem;
+}
+
+/* --------------------------------- */
+/* Buttons - consistent, accessible  */
+/* --------------------------------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+    .btn svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+    }
+
+.btn--primary {
+    background: var(--c-primary);
+    color: white;
+}
+
+    .btn--primary:hover {
+        background: var(--c-primary-light);
+        transform: translateY(-1px);
+    }
+
+    .btn--primary:active {
+        transform: translateY(0);
+    }
+
+/* --------------------------------------------- */
+/* HOME - For You Feed                            */
+/* --------------------------------------------- */
+.fy-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+}
+
+/* Sidebar filters */
+.fy-sidebar {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    padding: 16px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+}
+
+.fy-sidebar__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.fy-sidebar__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--c-muted);
+}
+
+.fy-sidebar__reset {
+    background: none;
+    border: none;
+    color: var(--c-primary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+    .fy-sidebar__reset:hover {
+        background: var(--c-primary-soft);
+    }
+
+.fy-filter-group {
+    margin-bottom: 16px;
+}
+
+.fy-filter-group__label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--c-muted);
+    margin-bottom: 6px;
+    display: block;
+}
+
+/* Search */
+.fy-search-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    padding: 0 8px;
+}
+
+    .fy-search-wrap svg {
+        width: 14px;
+        height: 14px;
+        color: var(--c-muted);
+        margin-right: 6px;
+    }
+
+.fy-search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 8px 0;
+    font-size: 0.8rem;
+    outline: none;
+}
+
+    .fy-search-input:focus {
+        color: var(--c-text);
+    }
+
+/* Price range */
+.fy-price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fy-price-field {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+}
+
+.fy-price-field__sym {
+    padding: 0 6px;
+    color: var(--c-muted);
+    font-size: 0.75rem;
+}
+
+.fy-price-input {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 6px 6px 6px 0;
+    font-size: 0.8rem;
+    outline: none;
+}
+
+.fy-price-sep {
+    color: var(--c-muted);
+    font-size: 0.75rem;
+}
+
+/* Checkbox list */
+.fy-check-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.fy-check-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.fy-check {
+    position: absolute;
+    opacity: 0;
+}
+
+.fy-check-box {
+    width: 14px;
+    height: 14px;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.fy-check:checked + .fy-check-box {
+    background: var(--c-primary);
+    border-color: var(--c-primary);
+    position: relative;
+}
+
+    .fy-check:checked + .fy-check-box::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        top: 0px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+.fy-check-text {
+    color: var(--c-text);
+}
+
+/* Main feed */
+.fy-feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.fy-feed-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.fy-feed-meta {
+    font-size: 0.8rem;
+    color: var(--c-muted);
+}
+
+/* Item grid - smaller cards */
+.fy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.fy-card {
+    position: relative;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .fy-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+
+.fy-card--sold {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+    .fy-card--sold .fy-card__actions {
+        pointer-events: auto;
+    }
+
+.fy-card--hidden {
+    display: none;
+}
+
+.fy-card__img-wrap {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: var(--c-bg);
+}
+
+.fy-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.25s ease;
+}
+
+.fy-card__img--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-muted-light);
+}
+
+    .fy-card__img--placeholder svg {
+        width: 40px;
+        height: 40px;
+    }
+
+/* Multi-image cycling crossfade */
+.fy-card__img-wrap .fy-card__img.fy-img--fading {
+    opacity: 0;
+}
+
+/* Progress dots - appear at bottom of image on hover */
+.fy-card__dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.fy-card:hover .fy-card__dots {
+    opacity: 1;
+}
+
+.fy-card__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.fy-card__dot--active {
+    background: #fff;
+    transform: scale(1.3);
+}
+
+/* Card badges */
+.fy-card__condition-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--c-surface);
+    color: var(--c-text);
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    z-index: 1;
+}
+
+.fy-card__stealable-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--c-primary);
+    color: #fff;
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 7px;
+    border-radius: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.fy-card--sold .fy-card__stealable-badge {
+    background: #4b5563;
+}
+
+.fy-card__shop-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(139, 92, 246, 0.88);
+    color: #fff;
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 3px 7px;
+    border-radius: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.fy-card__owner-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.fy-card__body {
+    padding: 8px;
+    position: relative;
+}
+
+.fy-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.fy-card__category {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    color: var(--c-muted);
+    max-width: 70%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fy-card__date {
+    font-size: 0.62rem;
+    color: var(--c-muted);
+    flex-shrink: 0;
+}
+
+.fy-card__title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fy-card__price {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--c-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.fy-card__from-label {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--c-muted);
+    margin-right: 1px;
+}
+
+.fy-card__steal-hint {
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: var(--c-primary);
+    margin-left: 4px;
+}
+
+.fy-card__link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    text-indent: -9999px;
+    overflow: hidden;
+}
+
+.fy-card__actions {
+    position: relative;
+    z-index: 2;
+    padding: 0 8px 8px;
+}
+
+.fy-btn--manage {
+    display: block;
+    padding: 6px;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 5px;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--c-text);
+    text-decoration: none;
+}
+
+    .fy-btn--manage:hover {
+        background: var(--c-surface);
+        border-color: var(--c-primary);
+    }
+
+/* Shop item card - subtle purple glow */
+.fy-card--shop {
+    box-shadow: 0 0 0 1.5px rgba(139, 92, 246, 0.25), 0 2px 8px rgba(139, 92, 246, 0.08);
+}
+
+    .fy-card--shop:hover {
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 4px 18px rgba(139, 92, 246, 0.15);
+    }
+
+/* Filter empty state */
+.fy-empty {
+    text-align: center;
+    padding: 48px 20px;
+}
+
+.fy-empty--hidden {
+    display: none;
+}
+
+.fy-empty__icon {
+    color: #c0b8e0;
+    margin-bottom: 16px;
+}
+
+    .fy-empty__icon svg {
+        width: 56px;
+        height: 56px;
+    }
+
+.fy-empty__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.fy-empty__body {
+    font-size: 0.8rem;
+    color: var(--c-muted);
+    margin-bottom: 14px;
+}
+
+.fy-empty__reset-btn {
+    background: none;
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    color: var(--c-text);
+    cursor: pointer;
+}
+
+    .fy-empty__reset-btn:hover {
+        background: var(--c-bg);
+    }
+
+.fy-empty__cta {
+    display: inline-flex;
+    margin-top: 8px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .fy-shell {
+        grid-template-columns: 220px 1fr;
+    }
+
+    .fy-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 16px 20px 32px;
+    }
+
+    .fy-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .fy-sidebar {
+        position: static;
+        margin-bottom: 20px;
+    }
+
+    .fy-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
+    }
+
+    .fy-card__category {
+        max-width: 65%;
+    }
+}
+
+@media (max-width: 480px) {
+    .fy-grid {
+        grid-template-columns: 1fr;
+    }
+}

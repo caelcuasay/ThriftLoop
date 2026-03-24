@@ -3,292 +3,212 @@
 @using ThriftLoop.Enums
 @{
     ViewData["Title"] = "My Purchases";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = null;
 }
 
-<div class="mp-shell">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Orders.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
 
-    <header class="mp-header">
-        <div>
-            <h1 class="mp-header__title">My Purchases</h1>
-            <p class="mp-header__subtitle">
-                @Model.Count order@(Model.Count == 1 ? "" : "s") placed
-            </p>
-        </div>
-        <div class="mp-header__actions">
-            <a asp-action="Index" asp-controller="Wallet" class="btn btn--ghost mp-wallet-link">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15" aria-hidden="true">
-                    <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25z" />
-                    <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
-                </svg>
-                My Wallet
-            </a>
-            <a asp-action="Index" asp-controller="Home" class="btn btn--ghost mp-header__cta">
-                Browse listings
-            </a>
-        </div>
-    </header>
+    <div class="mp-shell">
 
-    @if (TempData["SuccessMessage"] is string successMsg)
-    {
-        <div class="mp-toast mp-toast--success" id="mpToast" role="status">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
-            </svg>
-            @successMsg
-        </div>
-    }
-    @if (TempData["InfoMessage"] is string infoMsg)
-    {
-        <div class="mp-toast mp-toast--info" id="mpToast" role="status">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-            </svg>
-            @infoMsg
-        </div>
-    }
-    @if (TempData["ErrorMessage"] is string errMsg)
-    {
-        <div class="mp-toast mp-toast--error" id="mpToast" role="alert">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-            </svg>
-            @errMsg
-        </div>
-    }
-
-    @if (!Model.Any())
-    {
-        <div class="mp-empty">
-            <div class="mp-empty__icon" aria-hidden="true">
-                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
-                    <rect x="8" y="16" width="48" height="36" rx="6" />
-                    <path d="M22 16v-4a10 10 0 0120 0v4" stroke-linecap="round" />
-                    <path d="M24 36h16" stroke-linecap="round" />
-                </svg>
+        <header class="mp-header">
+            <div>
+                <h1 class="mp-header__title">My Purchases</h1>
+                <p class="mp-header__subtitle">
+                    @Model.Count order@(Model.Count == 1 ? "" : "s") placed
+                </p>
             </div>
-            <h2 class="mp-empty__title">No purchases yet</h2>
-            <p class="mp-empty__body">Items you confirm will appear here.</p>
-            <a asp-action="Index" asp-controller="Home" class="btn btn--primary mp-empty__cta">
-                Browse listings
-            </a>
-        </div>
-    }
-    else
-    {
-        <div class="mp-list">
-            @foreach (var order in Model)
-            {
-                var sellerEmail = order.Seller?.Email ?? string.Empty;
-                var sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+            <div class="mp-header__actions">
+                <a asp-action="Index" asp-controller="Wallet" class="btn btn--ghost mp-wallet-link">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15" aria-hidden="true">
+                        <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25z" />
+                        <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                    </svg>
+                    My Wallet
+                </a>
+                <a asp-action="Index" asp-controller="Home" class="btn btn--ghost mp-header__cta">
+                    Browse listings
+                </a>
+            </div>
+        </header>
 
-                string statusClass = order.Status switch
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div class="mp-toast mp-toast--success" id="mpToast" role="status">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
+                @successMsg
+            </div>
+        }
+        @if (TempData["InfoMessage"] is string infoMsg)
+        {
+            <div class="mp-toast mp-toast--info" id="mpToast" role="status">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                </svg>
+                @infoMsg
+            </div>
+        }
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div class="mp-toast mp-toast--error" id="mpToast" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                @errMsg
+            </div>
+        }
+
+        @if (!Model.Any())
+        {
+            <div class="mp-empty">
+                <div class="mp-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="8" y="16" width="48" height="36" rx="6" />
+                        <path d="M22 16v-4a10 10 0 0120 0v4" stroke-linecap="round" />
+                        <path d="M24 36h16" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h2 class="mp-empty__title">No purchases yet</h2>
+                <p class="mp-empty__body">Items you confirm will appear here.</p>
+                <a asp-action="Index" asp-controller="Home" class="btn btn--primary mp-empty__cta">
+                    Browse listings
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="mp-list">
+                @foreach (var order in Model)
                 {
-                    OrderStatus.Pending => "mp-status--pending",
-                    OrderStatus.Completed => "mp-status--completed",
-                    OrderStatus.Cancelled => "mp-status--cancelled",
-                    _ => ""
-                };
+                    var sellerEmail = order.Seller?.Email ?? string.Empty;
+                    var sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
 
-                string statusLabel = order.Status switch
-                {
-                    OrderStatus.Pending => "Pending",
-                    OrderStatus.Completed => "Completed",
-                    OrderStatus.Cancelled => "Cancelled",
-                    _ => order.Status.ToString()
-                };
+                    string statusClass = order.Status switch
+                    {
+                        OrderStatus.Pending => "mp-status--pending",
+                        OrderStatus.Completed => "mp-status--completed",
+                        OrderStatus.Cancelled => "mp-status--cancelled",
+                        _ => ""
+                    };
 
-                string payLabel = order.PaymentMethod switch
-                {
-                    PaymentMethod.Wallet => "Wallet (escrow)",
-                    PaymentMethod.Cash => "Cash on Delivery",
-                    _ => order.PaymentMethod.ToString()
-                };
+                    string statusLabel = order.Status switch
+                    {
+                        OrderStatus.Pending => "Pending",
+                        OrderStatus.Completed => "Completed",
+                        OrderStatus.Cancelled => "Cancelled",
+                        _ => order.Status.ToString()
+                    };
 
-                bool canMarkDelivered = order.Status == OrderStatus.Pending;
+                    string payLabel = order.PaymentMethod switch
+                    {
+                        PaymentMethod.Wallet => "Wallet (escrow)",
+                        PaymentMethod.Cash => "Cash on Delivery",
+                        _ => order.PaymentMethod.ToString()
+                    };
 
-                <article class="mp-row">
+                    bool canMarkDelivered = order.Status == OrderStatus.Pending;
 
-                    <div class="mp-row__img-wrap">
-                        @if (!string.IsNullOrEmpty(order.Item?.ImageUrl))
-                        {
-                            <img src="@order.Item.ImageUrl" alt="@order.Item?.Title"
-                                 class="mp-row__img" loading="lazy" />
-                        }
-                        else
-                        {
-                            <div class="mp-row__img mp-row__img--placeholder" aria-hidden="true">
-                                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4">
-                                    <rect x="3" y="5" width="26" height="22" rx="3" />
-                                    <circle cx="11" cy="13" r="3" />
-                                    <path d="M3 23l8-7 5 5 4-3 9 7" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </div>
-                        }
-                    </div>
+                    <article class="mp-row">
 
-                    <div class="mp-row__body">
-                        <div class="mp-row__top">
-                            <h3 class="mp-row__title">
-                                @(order.Item?.Title ?? "Item #" + order.ItemId)
-                            </h3>
-                            <span class="mp-status @statusClass">@statusLabel</span>
+                        <div class="mp-row__img-wrap">
+                            @if (!string.IsNullOrEmpty(order.Item?.ImageUrl))
+                            {
+                                <img src="@order.Item.ImageUrl" alt="@order.Item?.Title"
+                                     class="mp-row__img" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="mp-row__img mp-row__img--placeholder" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4">
+                                        <rect x="3" y="5" width="26" height="22" rx="3" />
+                                        <circle cx="11" cy="13" r="3" />
+                                        <path d="M3 23l8-7 5 5 4-3 9 7" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                            }
                         </div>
 
-                        <p class="mp-row__seller">Seller: @sellerDisplay</p>
+                        <div class="mp-row__body">
+                            <div class="mp-row__top">
+                                <h3 class="mp-row__title">
+                                    @(order.Item?.Title ?? "Item #" + order.ItemId)
+                                </h3>
+                                <span class="mp-status @statusClass">@statusLabel</span>
+                            </div>
 
-                        @* Payment method pill *@
-                        <p class="mp-row__pay">
-                            <span class="mp-pay-pill mp-pay-pill--@(order.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
-                                @if (order.PaymentMethod == PaymentMethod.Wallet)
-                                {
-                                    <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                        <path fill-rule="evenodd" d="M1 3.5A1.5 1.5 0 012.5 2h9A1.5 1.5 0 0113 3.5v7A1.5 1.5 0 0111.5 12h-9A1.5 1.5 0 011 10.5v-7zm10.5 2.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
-                                    </svg>
-                                }
-                                else
-                                {
-                                    <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                        <path d="M7 1a6 6 0 100 12A6 6 0 007 1zm.6 8.9H6.4V6.4h1.2v3.5zm0-4.6H6.4V4.1h1.2v1.2z" />
-                                    </svg>
-                                }
-                                @payLabel
-                            </span>
-                        </p>
+                            <p class="mp-row__seller">Seller: @sellerDisplay</p>
 
-                        <p class="mp-row__date">
-                            Ordered
-                            <time datetime="@order.OrderDate.ToString("yyyy-MM-ddTHH:mm:ssZ")">
-                                @order.OrderDate.ToString("MMMM d, yyyy · h:mm tt") UTC
-                            </time>
-                        </p>
+                            @* Payment method pill *@
+                            <p class="mp-row__pay">
+                                <span class="mp-pay-pill mp-pay-pill--@(order.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
+                                    @if (order.PaymentMethod == PaymentMethod.Wallet)
+                                    {
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M1 3.5A1.5 1.5 0 012.5 2h9A1.5 1.5 0 0113 3.5v7A1.5 1.5 0 0111.5 12h-9A1.5 1.5 0 011 10.5v-7zm10.5 2.5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                            <path d="M7 1a6 6 0 100 12A6 6 0 007 1zm.6 8.9H6.4V6.4h1.2v3.5zm0-4.6H6.4V4.1h1.2v1.2z" />
+                                        </svg>
+                                    }
+                                    @payLabel
+                                </span>
+                            </p>
 
-                        @* Mark Delivered — only visible on Pending orders *@
-                        @if (canMarkDelivered)
-                        {
-                            <form asp-action="MarkDelivered"
-                                  asp-controller="Orders"
-                                  asp-route-orderId="@order.Id"
-                                  method="post"
-                                  class="mp-deliver-form"
-                                  onsubmit="return confirm('Confirm delivery of this order? This will release payment to the seller.');">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="mp-deliver-btn">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
-                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                                    </svg>
-                                    I received this item
-                                </button>
-                            </form>
-                        }
-                    </div>
+                            <p class="mp-row__date">
+                                Ordered
+                                <time datetime="@order.OrderDate.ToString("yyyy-MM-ddTHH:mm:ssZ")">
+                                    @order.OrderDate.ToString("MMMM d, yyyy · h:mm tt") UTC
+                                </time>
+                            </p>
 
-                    <div class="mp-row__price-col">
-                        <span class="mp-row__price">₱@order.FinalPrice.ToString("N2")</span>
-                        <span class="mp-row__price-label">Final price</span>
-                    </div>
+                            @* Mark Delivered — only visible on Pending orders *@
+                            @if (canMarkDelivered)
+                            {
+                                <form asp-action="MarkDelivered"
+                                      asp-controller="Orders"
+                                      asp-route-orderId="@order.Id"
+                                      method="post"
+                                      class="mp-deliver-form"
+                                      onsubmit="return confirm('Confirm delivery of this order? This will release payment to the seller.');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="mp-deliver-btn">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                        </svg>
+                                        I received this item
+                                    </button>
+                                </form>
+                            }
+                        </div>
 
-                </article>
-            }
-        </div>
-    }
+                        <div class="mp-row__price-col">
+                            <span class="mp-row__price">₱@order.FinalPrice.ToString("N2")</span>
+                            <span class="mp-row__price-label">Final price</span>
+                        </div>
 
-</div>
-
-@section Scripts {
-    <style>
-        .mp-header__actions {
-            display: flex;
-            gap: 0.625rem;
-            align-items: center;
+                    </article>
+                }
+            </div>
         }
 
-        .mp-wallet-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        /* Toast variants */
-        .mp-toast {
-            display: flex;
-            align-items: center;
-            gap: 0.625rem;
-            padding: 0.875rem 1.125rem;
-            border-radius: 8px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 1.25rem;
-            transition: opacity 0.4s ease;
-        }
-
-        .mp-toast--success {
-            background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
-            border: 1px solid color-mix(in srgb, var(--color-primary, #2d5a27) 22%, transparent);
-            color: color-mix(in srgb, var(--color-primary, #2d5a27) 80%, #000);
-        }
-
-        .mp-toast--info {
-            background: color-mix(in srgb, #2563eb 8%, transparent);
-            border: 1px solid color-mix(in srgb, #2563eb 22%, transparent);
-            color: #1d4ed8;
-        }
-
-        .mp-toast--error {
-            background: color-mix(in srgb, #dc2626 8%, transparent);
-            border: 1px solid color-mix(in srgb, #dc2626 22%, transparent);
-            color: #b91c1c;
-        }
-
-        /* Payment method pill */
-        .mp-pay-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.03em;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-
-        .mp-pay-pill--wallet {
-            background: color-mix(in srgb, var(--color-primary, #2d5a27) 10%, transparent);
-            color: var(--color-primary, #2d5a27);
-        }
-
-        .mp-pay-pill--cod {
-            background: color-mix(in srgb, #b45309 10%, transparent);
-            color: #92400e;
-        }
-
-        /* Deliver button */
-        .mp-deliver-form {
-            margin-top: 0.5rem;
-        }
-
-        .mp-deliver-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.45rem 0.875rem;
-            background: var(--color-primary, #2d5a27);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.8125rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s ease;
-        }
-
-            .mp-deliver-btn:hover {
-                background: color-mix(in srgb, var(--color-primary, #2d5a27) 85%, #000);
-            }
-    </style>
+    </div>
 
     <script>
         (function () {
@@ -302,4 +222,5 @@
             }
         }());
     </script>
-}
+</body>
+</html>

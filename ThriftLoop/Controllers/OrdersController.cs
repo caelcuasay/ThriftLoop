@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Constants;
+using ThriftLoop.Data;
 using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
@@ -17,6 +19,7 @@ public class OrdersController : BaseController
     private readonly IOrderRepository _orderRepository;
     private readonly IWalletService _walletService;
     private readonly IOrderService _orderService;
+    private readonly ApplicationDbContext _context;
     private readonly ILogger<OrdersController> _logger;
 
     public OrdersController(
@@ -24,16 +27,18 @@ public class OrdersController : BaseController
         IOrderRepository orderRepository,
         IWalletService walletService,
         IOrderService orderService,
+        ApplicationDbContext context,
         ILogger<OrdersController> logger)
     {
         _itemRepository = itemRepository;
         _orderRepository = orderRepository;
         _walletService = walletService;
         _orderService = orderService;
+        _context = context;
         _logger = logger;
     }
 
-    // ── CHECKOUT ───────────────────────────────────────────────────────────
+    // ── P2P CHECKOUT (GET) ─────────────────────────────────────────────────
 
     [HttpGet]
     public async Task<IActionResult> Checkout(int itemId)
@@ -71,7 +76,7 @@ public class OrdersController : BaseController
         return View(BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance));
     }
 
-    // ── CONFIRM ORDER ──────────────────────────────────────────────────────
+    // ── P2P CONFIRM ORDER (POST) ───────────────────────────────────────────
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -170,6 +175,166 @@ public class OrdersController : BaseController
         return RedirectToAction(nameof(MyPurchases));
     }
 
+    // ── SHOP CHECKOUT / Option B (GET) ─────────────────────────────────────
+
+    /// <summary>
+    /// Renders the checkout page for a shop SKU purchase (Option B).
+    /// <paramref name="skuId"/> identifies the exact variant + size the buyer
+    /// selected on the Details page. <paramref name="quantity"/> comes from
+    /// the quantity picker and is clamped to available stock.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> ShopCheckout(int skuId, int quantity = 1)
+    {
+        var buyerId = ResolveUserId();
+        if (buyerId is null) return Unauthorized();
+
+        var sku = await _itemRepository.GetSkuByIdWithItemAsync(skuId);
+        if (sku?.Variant?.Item is null) return NotFound();
+
+        var item = sku.Variant.Item;
+
+        if (item.UserId == buyerId.Value)
+        {
+            TempData["ErrorMessage"] = "You cannot purchase your own listing.";
+            return RedirectToAction("Details", "Shop", new { id = item.Id });
+        }
+
+        if (sku.Status != SkuStatus.Available || sku.Quantity <= 0)
+        {
+            TempData["ErrorMessage"] = "Sorry, this variant is out of stock.";
+            return RedirectToAction("Details", "Shop", new { id = item.Id });
+        }
+
+        // Clamp to available stock — handles stale values from the picker
+        quantity = Math.Max(1, Math.Min(quantity, sku.Quantity));
+
+        var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
+        return View("Checkout", BuildShopCheckoutViewModel(item, sku, quantity, wallet.Balance));
+    }
+
+    // ── CONFIRM SHOP ORDER / Option B (POST) ──────────────────────────────
+
+    /// <summary>
+    /// Confirms a shop order for one SKU at a chosen quantity.
+    ///
+    /// Stock is decremented inside the same SaveChanges that creates the
+    /// order row — first confirm wins. If two buyers race, the one who
+    /// arrives second gets an out-of-stock error and is sent back to the
+    /// checkout page with the remaining quantity pre-filled.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmShopOrder(int skuId, int quantity, PaymentMethod paymentMethod)
+    {
+        var buyerId = ResolveUserId();
+        if (buyerId is null) return Unauthorized();
+
+        quantity = Math.Max(1, quantity);
+
+        // Load tracked so we can decrement stock in the same SaveChanges call
+        var sku = await _context.ItemVariantSkus
+            .Include(s => s.Variant)
+                .ThenInclude(v => v.Item)
+            .FirstOrDefaultAsync(s => s.Id == skuId);
+
+        if (sku?.Variant?.Item is null) return NotFound();
+        var item = sku.Variant.Item;
+
+        if (item.UserId == buyerId.Value) return Forbid();
+
+        // ── First-come-first-served stock check ────────────────────────────
+        // Re-read stock at confirmation time; the GET-time value may be stale.
+        if (sku.Status != SkuStatus.Available || sku.Quantity < quantity)
+        {
+            int remaining = Math.Max(0, sku.Quantity);
+            TempData["ErrorMessage"] = remaining == 0
+                ? "Sorry, this item just sold out while you were checking out."
+                : $"Only {remaining} unit(s) left. Please reduce your quantity.";
+
+            // Bounce back to checkout with corrected quantity
+            return RedirectToAction(nameof(ShopCheckout),
+                new { skuId, quantity = Math.Max(1, remaining) });
+        }
+
+        decimal finalPrice = sku.Price * quantity;
+
+        // ── Wallet path: create order → hold escrow → decrement stock ──────
+        if (paymentMethod == PaymentMethod.Wallet)
+        {
+            var tempOrder = new Order
+            {
+                ItemId = item.Id,
+                ItemVariantSkuId = sku.Id,
+                BuyerId = buyerId.Value,
+                SellerId = item.UserId,
+                FinalPrice = finalPrice,
+                Quantity = quantity,
+                OrderDate = DateTime.UtcNow,
+                Status = OrderStatus.Pending,
+                PaymentMethod = PaymentMethod.Wallet
+            };
+            await _orderRepository.AddAsync(tempOrder);
+
+            bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, finalPrice);
+            if (!held)
+            {
+                await _orderRepository.DeleteAsync(tempOrder.Id);
+                TempData["ErrorMessage"] =
+                    $"Insufficient wallet balance. You need ₱{finalPrice:N2}. " +
+                    "Please add funds or choose Cash on Delivery.";
+                return RedirectToAction(nameof(ShopCheckout), new { skuId, quantity });
+            }
+
+            // Decrement stock — if it hits zero, mark the SKU sold
+            sku.Quantity -= quantity;
+            if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Shop Order {OrderId} (Wallet) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
+                "Seller {SellerId}, ₱{FinalPrice}.",
+                tempOrder.Id, sku.Id, quantity, buyerId.Value, item.UserId, finalPrice);
+
+            TempData["SuccessMessage"] =
+                $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
+                "Funds are held in escrow and will be released once you confirm delivery.";
+
+            return RedirectToAction(nameof(MyPurchases));
+        }
+
+        // ── Cash on Delivery path ──────────────────────────────────────────
+        var order = new Order
+        {
+            ItemId = item.Id,
+            ItemVariantSkuId = sku.Id,
+            BuyerId = buyerId.Value,
+            SellerId = item.UserId,
+            FinalPrice = finalPrice,
+            Quantity = quantity,
+            OrderDate = DateTime.UtcNow,
+            Status = OrderStatus.Pending,
+            PaymentMethod = PaymentMethod.Cash,
+            CashCollectedByRider = false
+        };
+        await _orderRepository.AddAsync(order);
+
+        sku.Quantity -= quantity;
+        if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Shop Order {OrderId} (COD) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
+            "Seller {SellerId}, ₱{FinalPrice}.",
+            order.Id, sku.Id, quantity, buyerId.Value, item.UserId, finalPrice);
+
+        TempData["SuccessMessage"] =
+            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
+            "Please coordinate with the seller for delivery details.";
+
+        return RedirectToAction(nameof(MyPurchases));
+    }
+
     // ── MARK DELIVERED ─────────────────────────────────────────────────────
 
     [HttpPost]
@@ -237,6 +402,7 @@ public class OrdersController : BaseController
 
     // ── Private helpers ────────────────────────────────────────────────────
 
+    /// <summary>Builds the CheckoutViewModel for a P2P / Stealable item.</summary>
     private static CheckoutViewModel BuildCheckoutViewModel(Item item, int buyerId, decimal buyerBalance)
     {
         bool wasStolen = item.ListingType == ListingType.Stealable
@@ -266,6 +432,38 @@ public class OrdersController : BaseController
             WasStolen = wasStolen,
             IsStealable = item.ListingType == ListingType.Stealable,
             BuyerBalance = buyerBalance
+            // IsShopOrder defaults to false; SkuId / Quantity / MaxQuantity keep their defaults
+        };
+    }
+
+    /// <summary>Builds the CheckoutViewModel for a shop SKU purchase (Option B).</summary>
+    private static CheckoutViewModel BuildShopCheckoutViewModel(
+        Item item, ItemVariantSku sku, int quantity, decimal buyerBalance)
+    {
+        string sellerEmail = item.User?.Email ?? string.Empty;
+        string sellerDisplay = sellerEmail.Contains('@')
+            ? sellerEmail.Split('@')[0]
+            : sellerEmail;
+
+        return new CheckoutViewModel
+        {
+            ItemId = item.Id,
+            ItemTitle = item.Title,
+            ItemImageUrl = item.ImageUrl,
+            ItemCategory = item.Category,
+            ItemCondition = item.Condition,
+            SellerName = sellerDisplay,
+            SellerEmail = sellerEmail,
+            BasePrice = sku.Price,
+            IsShopOrder = true,
+            SkuId = sku.Id,
+            Quantity = quantity,
+            MaxQuantity = sku.Quantity, // stock at GET time — used to cap the stepper
+            SelectedVariantName = sku.Variant?.Name ?? string.Empty,
+            SelectedSize = sku.Size,
+            BuyerBalance = buyerBalance,
+            WasStolen = false,
+            IsStealable = false
         };
     }
 }

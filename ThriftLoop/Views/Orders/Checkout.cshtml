@@ -1,8 +1,9 @@
 ﻿@model ThriftLoop.ViewModels.CheckoutViewModel
 @using ThriftLoop.Models
+@using ThriftLoop.Enums
 @{
     ViewData["Title"] = "Confirm Purchase";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = null;
 
     string condClass = Model.ItemCondition switch
     {
@@ -14,429 +15,408 @@
     };
 }
 
-<div class="co-shell">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Orders.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
 
-    @* ── Back navigation ────────────────────────────────────────────────────── *@
-    <nav class="co-breadcrumb" aria-label="Breadcrumb">
-        <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
-           class="co-breadcrumb__link">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            Back to listing
-        </a>
-    </nav>
+    <div class="co-shell">
 
-    <header class="co-header">
-        <h1 class="co-header__title">
-            @(Model.WasStolen ? "Complete Your Steal" : "Confirm Your Purchase")
-        </h1>
-        <p class="co-header__subtitle">
-            @if (Model.WasStolen)
+        @* ── Back navigation ────────────────────────────────────────────────────── *@
+        <nav class="co-breadcrumb" aria-label="Breadcrumb">
+            @if (Model.IsShopOrder)
             {
-                @:You stole this item — complete checkout to secure it, or cancel to return it.
+                <a asp-action="Details" asp-controller="Shop" asp-route-id="@Model.ItemId"
+                   class="co-breadcrumb__link">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Back to listing
+                </a>
             }
             else
             {
-                @:Review the details below before finalising.
+                <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+                   class="co-breadcrumb__link">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Back to listing
+                </a>
             }
-        </p>
-    </header>
+        </nav>
 
-    @if (TempData["ErrorMessage"] is string errMsg)
-    {
-        <div class="co-alert co-alert--error" role="alert">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-            </svg>
-            @errMsg
-            @if (errMsg.Contains("wallet") || errMsg.Contains("balance"))
-            {
-                <a asp-action="AddFunds" asp-controller="Wallet" class="co-alert__link">Add funds →</a>
-            }
-        </div>
-    }
+        <header class="co-header">
+            <h1 class="co-header__title">
+                @(Model.WasStolen ? "Complete Your Steal" : "Confirm Your Purchase")
+            </h1>
+            <p class="co-header__subtitle">
+                @if (Model.WasStolen)
+                {
+                    @:You stole this item — complete checkout to secure it, or cancel to return it.
+                }
+                else
+                {
+                    @:Review the details below before finalising.
+                }
+            </p>
+        </header>
 
-    <div class="co-grid">
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div class="co-alert co-alert--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                @errMsg
+                @if (errMsg.Contains("wallet") || errMsg.Contains("balance"))
+                {
+                    <a asp-action="AddFunds" asp-controller="Wallet" class="co-alert__link">Add funds →</a>
+                }
+            </div>
+        }
 
-        @* ════════════ LEFT — Item summary ════════════ *@
-        <div class="co-summary-col">
+        <div class="co-grid">
 
-            <div class="co-item-card">
-                <div class="co-item-card__img-wrap">
-                    @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+            @* ════════════ LEFT — Item summary ════════════ *@
+            <div class="co-summary-col">
+
+                <div class="co-item-card">
+                    <div class="co-item-card__img-wrap">
+                        @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+                        {
+                            <img src="@Model.ItemImageUrl" alt="Photo of @Model.ItemTitle"
+                                 class="co-item-card__img" loading="eager" />
+                        }
+                        else
+                        {
+                            <div class="co-item-card__img co-item-card__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                                    <rect x="6" y="10" width="52" height="44" rx="6" />
+                                    <circle cx="22" cy="26" r="6" />
+                                    <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+                        @if (Model.IsStealable)
+                        {
+                            <span class="co-item-card__stealable-badge">
+                                <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
+                                    <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                                </svg>
+                                @(Model.WasStolen ? "Stolen" : "Stealable")
+                            </span>
+                        }
+                    </div>
+
+                    <div class="co-item-card__body">
+                        <div class="co-item-card__meta">
+                            <span class="co-item-card__category">@Model.ItemCategory</span>
+                            <span class="co-item-card__condition @condClass">@Model.ItemCondition</span>
+
+                            @* P2P: show item size if available *@
+                            @if (!Model.IsShopOrder && !string.IsNullOrEmpty(Model.ItemSize))
+                            {
+                                <span class="co-item-card__size">@Model.ItemSize</span>
+                            }
+
+                            @* Shop (Option B): show variant, size, and quantity chips *@
+                            @if (Model.IsShopOrder)
+                            {
+                                @if (!string.IsNullOrEmpty(Model.SelectedVariantName) && Model.SelectedVariantName != "Default")
+                                {
+                                    <span class="co-item-card__size co-chip--shop">@Model.SelectedVariantName</span>
+                                }
+                                @if (!string.IsNullOrEmpty(Model.SelectedSize))
+                                {
+                                    <span class="co-item-card__size co-chip--shop">@Model.SelectedSize</span>
+                                }
+                                <span class="co-item-card__size co-chip--qty">×@Model.Quantity</span>
+                            }
+                        </div>
+
+                        <h2 class="co-item-card__title">@Model.ItemTitle</h2>
+
+                        <div class="co-item-card__seller">
+                            <div class="co-item-card__seller-avatar" aria-hidden="true">
+                                @char.ToUpper(Model.SellerName.FirstOrDefault())
+                            </div>
+                            <div>
+                                <p class="co-item-card__seller-label">Sold by</p>
+                                <p class="co-item-card__seller-name">@Model.SellerName</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* ── Left-column notices ──────────────────────────────────────── *@
+                @if (Model.WasStolen)
+                {
+                    <div class="co-cancel-steal-notice" role="note">
+                        <div class="co-cancel-steal-notice__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 112 0v4a1 1 0 11-2 0V9zm1-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="co-cancel-steal-notice__body">
+                            <p class="co-cancel-steal-notice__heading">Changed your mind?</p>
+                            <p class="co-cancel-steal-notice__text">
+                                You can cancel the steal — the ₱50 premium is removed and the item returns to available for anyone to claim.
+                            </p>
+                            <form asp-action="CancelSteal" asp-controller="Items"
+                                  asp-route-id="@Model.ItemId" method="post" style="margin-top:10px">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="co-cancel-steal-btn">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                    </svg>
+                                    Cancel Steal &amp; Return Item
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+                else if (Model.IsShopOrder)
+                {
+                    <div class="co-p2p-notice" role="note">
+                        <div class="co-p2p-notice__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="co-p2p-notice__body">
+                            <p class="co-p2p-notice__heading">Shop order</p>
+                            <p class="co-p2p-notice__text">
+                                You're purchasing from <strong>@Model.SellerName</strong>'s shop.
+                                After confirming, coordinate for delivery or pick-up.
+                            </p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="co-p2p-notice" role="note">
+                        <div class="co-p2p-notice__icon" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="co-p2p-notice__body">
+                            <p class="co-p2p-notice__heading">This is a P2P transaction</p>
+                            <p class="co-p2p-notice__text">
+                                ThriftLoop connects buyers and sellers directly. After confirming,
+                                coordinate with <strong>@Model.SellerName</strong> for pickup or shipping.
+                            </p>
+                        </div>
+                    </div>
+                }
+
+            </div>
+
+            @* ════════════ RIGHT — Price breakdown + confirm ════════════ *@
+            <div class="co-order-col">
+
+                <div class="co-breakdown">
+
+                    <h2 class="co-breakdown__heading">Order Summary</h2>
+
+                    <div class="co-breakdown__rows">
+
+                        @if (Model.IsShopOrder)
+                        {
+                            @* Shop order: show unit price, and if qty > 1 a subtotal row *@
+                            <div class="co-breakdown__row">
+                                <span class="co-breakdown__label">
+                                    @Model.ItemTitle
+                                    @if (!string.IsNullOrEmpty(Model.SelectedVariantName) && Model.SelectedVariantName != "Default")
+                                    {
+                                        <text> — @Model.SelectedVariantName</text>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.SelectedSize))
+                                    {
+                                        <text> / @Model.SelectedSize</text>
+                                    }
+                                </span>
+                                <span class="co-breakdown__value">₱@Model.BasePrice.ToString("N2")</span>
+                            </div>
+
+                            @if (Model.Quantity > 1)
+                            {
+                                <div class="co-breakdown__row co-breakdown__row--qty">
+                                    <span class="co-breakdown__label co-breakdown__label--muted">
+                                        Quantity
+                                    </span>
+                                    <span class="co-breakdown__value co-breakdown__value--muted">
+                                        ×@Model.Quantity
+                                    </span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @* P2P order: base price row *@
+                            <div class="co-breakdown__row">
+                                <span class="co-breakdown__label">
+                                    @(Model.WasStolen ? "Base price" : Model.ItemTitle)
+                                </span>
+                                <span class="co-breakdown__value">₱@Model.BasePrice.ToString("N2")</span>
+                            </div>
+
+                            @if (Model.WasStolen)
+                            {
+                                <div class="co-breakdown__row co-breakdown__row--steal">
+                                    <span class="co-breakdown__label">
+                                        <svg viewBox="0 0 14 14" fill="currentColor" width="11" height="11"
+                                             aria-hidden="true" class="co-breakdown__steal-icon">
+                                            <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
+                                        </svg>
+                                        Steal premium
+                                    </span>
+                                    <span class="co-breakdown__value co-breakdown__value--steal">
+                                        +₱@Model.StealPremium.ToString("N2")
+                                    </span>
+                                </div>
+                            }
+                        }
+
+                    </div>
+
+                    <div class="co-breakdown__divider" aria-hidden="true"></div>
+
+                    <div class="co-breakdown__total-row">
+                        <span class="co-breakdown__total-label">Total</span>
+                        <span class="co-breakdown__total-value">₱@Model.FinalPrice.ToString("N2")</span>
+                    </div>
+
+                    @* ── Payment method selector ──────────────────────────────── *@
+                    <div class="co-pay-section">
+                        <h3 class="co-pay-section__heading">Payment method</h3>
+
+                        <div class="co-pay-options" id="payOptions">
+
+                            @* Wallet option *@
+                            <label class="co-pay-option @(Model.HasSufficientBalance ? "" : "co-pay-option--disabled")"
+                                   id="payWalletLabel">
+                                <input type="radio"
+                                       name="__payMethod"
+                                       value="Wallet"
+                                       class="co-pay-radio"
+                                       id="payWallet"
+                                       @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                                <div class="co-pay-option__icon">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                        <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25zM3.75 7A.75.75 0 013 6.25v-.5A2.75 2.75 0 015.75 3h8.5A2.75 2.75 0 0117 5.75v.5a.75.75 0 01-.75.75h-12.5z" />
+                                        <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="co-pay-option__body">
+                                    <p class="co-pay-option__name">ThriftLoop Wallet</p>
+                                    <p class="co-pay-option__detail">
+                                        Balance: <strong>₱@Model.BuyerBalance.ToString("N2")</strong>
+                                        @if (!Model.HasSufficientBalance)
+                                        {
+                                            <span class="co-pay-option__insufficient">
+                                                — insufficient
+                                                (<a asp-action="AddFunds" asp-controller="Wallet">add funds</a>)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <text> · funds held in escrow until delivery</text>
+                                        }
+                                    </p>
+                                </div>
+                            </label>
+
+                            @* Cash on Delivery option *@
+                            <label class="co-pay-option" id="payCodLabel">
+                                <input type="radio"
+                                       name="__payMethod"
+                                       value="Cash"
+                                       class="co-pay-radio"
+                                       id="payCod"
+                                       @(!Model.HasSufficientBalance ? "checked" : "") />
+                                <div class="co-pay-option__icon">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.798 7.45c.512-.67 1.135-.95 1.702-.95s1.19.28 1.702.95a.75.75 0 001.192-.91C12.637 5.55 11.596 5 10.5 5s-2.137.55-2.894 1.54A4.501 4.501 0 007 9.5c0 1.079.37 2.077 1 2.879V14a.75.75 0 001.5 0v-1.734c-.35-.588-.5-1.14-.5-1.766 0-.863.275-1.61.798-2.05zM10 14.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="co-pay-option__body">
+                                    <p class="co-pay-option__name">Cash on Delivery</p>
+                                    <p class="co-pay-option__detail">Pay cash when your item arrives</p>
+                                </div>
+                            </label>
+
+                        </div>
+                    </div>
+
+                    @* ── Confirm form: routes to the right action based on order type ── *@
+                    @if (Model.IsShopOrder)
                     {
-                        <img src="@Model.ItemImageUrl" alt="Photo of @Model.ItemTitle"
-                             class="co-item-card__img" loading="eager" />
+                        <form asp-action="ConfirmShopOrder" asp-controller="Orders"
+                              method="post" id="confirmForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="skuId" value="@Model.SkuId" />
+                            <input type="hidden" name="quantity" value="@Model.Quantity" />
+                            <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                                   value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+
+                            <button type="submit" class="co-confirm-btn" id="confirmBtn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                </svg>
+                                Confirm Purchase
+                            </button>
+                        </form>
+
+                        <a asp-action="Details" asp-controller="Shop" asp-route-id="@Model.ItemId"
+                           class="co-cancel-link">
+                            Cancel and go back
+                        </a>
                     }
                     else
                     {
-                        <div class="co-item-card__img co-item-card__img--placeholder" aria-hidden="true">
-                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
-                                <rect x="6" y="10" width="52" height="44" rx="6" />
-                                <circle cx="22" cy="26" r="6" />
-                                <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </div>
-                    }
-                    @if (Model.IsStealable)
-                    {
-                        <span class="co-item-card__stealable-badge">
-                            <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
-                            </svg>
-                            @(Model.WasStolen ? "Stolen" : "Stealable")
-                        </span>
-                    }
-                </div>
-
-                <div class="co-item-card__body">
-                    <div class="co-item-card__meta">
-                        <span class="co-item-card__category">@Model.ItemCategory</span>
-                        <span class="co-item-card__condition @condClass">@Model.ItemCondition</span>
-                        @if (!string.IsNullOrEmpty(Model.ItemSize))
-                        {
-                            <span class="co-item-card__size">@Model.ItemSize</span>
-                        }
-                    </div>
-                    <h2 class="co-item-card__title">@Model.ItemTitle</h2>
-                    <div class="co-item-card__seller">
-                        <div class="co-item-card__seller-avatar" aria-hidden="true">
-                            @char.ToUpper(Model.SellerName.FirstOrDefault())
-                        </div>
-                        <div>
-                            <p class="co-item-card__seller-label">Sold by</p>
-                            <p class="co-item-card__seller-name">@Model.SellerName</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @* Cancel Steal option — only shown when the buyer has stolen the item
-               and has not yet confirmed the order. Cancelling reverts the item. *@
-            @if (Model.WasStolen)
-            {
-                <div class="co-cancel-steal-notice" role="note">
-                    <div class="co-cancel-steal-notice__icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 112 0v4a1 1 0 11-2 0V9zm1-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="co-cancel-steal-notice__body">
-                        <p class="co-cancel-steal-notice__heading">Changed your mind?</p>
-                        <p class="co-cancel-steal-notice__text">
-                            You can cancel the steal — the ₱50 premium is removed and the item returns to available for anyone to claim.
-                        </p>
-                        <form asp-action="CancelSteal" asp-controller="Items" asp-route-id="@Model.ItemId" method="post" style="margin-top:10px">
+                        <form asp-action="ConfirmOrder" asp-controller="Orders"
+                              method="post" id="confirmForm">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="co-cancel-steal-btn">
-                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
-                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                            <input type="hidden" name="itemId" value="@Model.ItemId" />
+                            <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                                   value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+
+                            <button type="submit" class="co-confirm-btn" id="confirmBtn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                 </svg>
-                                Cancel Steal &amp; Return Item
+                                @(Model.WasStolen ? "Confirm Steal Purchase" : "Confirm Purchase")
                             </button>
                         </form>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="co-p2p-notice" role="note">
-                    <div class="co-p2p-notice__icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="co-p2p-notice__body">
-                        <p class="co-p2p-notice__heading">This is a P2P transaction</p>
-                        <p class="co-p2p-notice__text">
-                            ThriftLoop connects buyers and sellers directly. After confirming,
-                            coordinate with <strong>@Model.SellerName</strong> for pickup or shipping.
-                        </p>
-                    </div>
-                </div>
-            }
 
-        </div>
-
-        @* ════════════ RIGHT — Price breakdown + confirm ════════════ *@
-        <div class="co-order-col">
-
-            <div class="co-breakdown">
-
-                <h2 class="co-breakdown__heading">Order Summary</h2>
-
-                <div class="co-breakdown__rows">
-                    <div class="co-breakdown__row">
-                        <span class="co-breakdown__label">
-                            @(Model.WasStolen ? "Base price" : Model.ItemTitle)
-                        </span>
-                        <span class="co-breakdown__value">₱@Model.BasePrice.ToString("N2")</span>
-                    </div>
-
-                    @if (Model.WasStolen)
-                    {
-                        <div class="co-breakdown__row co-breakdown__row--steal">
-                            <span class="co-breakdown__label">
-                                <svg viewBox="0 0 14 14" fill="currentColor" width="11" height="11"
-                                     aria-hidden="true" class="co-breakdown__steal-icon">
-                                    <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
-                                </svg>
-                                Steal premium
-                            </span>
-                            <span class="co-breakdown__value co-breakdown__value--steal">
-                                +₱@Model.StealPremium.ToString("N2")
-                            </span>
-                        </div>
+                        @if (!Model.WasStolen)
+                        {
+                            <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
+                               class="co-cancel-link">
+                                Cancel and go back
+                            </a>
+                        }
                     }
+
                 </div>
-
-                <div class="co-breakdown__divider" aria-hidden="true"></div>
-
-                <div class="co-breakdown__total-row">
-                    <span class="co-breakdown__total-label">Total</span>
-                    <span class="co-breakdown__total-value">₱@Model.FinalPrice.ToString("N2")</span>
-                </div>
-
-                @* ── Payment method selector ──────────────────────────────── *@
-                <div class="co-pay-section">
-                    <h3 class="co-pay-section__heading">Payment method</h3>
-
-                    <div class="co-pay-options" id="payOptions">
-
-                        @* Wallet option *@
-                        <label class="co-pay-option @(Model.HasSufficientBalance ? "" : "co-pay-option--disabled")"
-                               id="payWalletLabel">
-                            <input type="radio"
-                                   name="__payMethod"
-                                   value="Wallet"
-                                   class="co-pay-radio"
-                                   id="payWallet"
-                                   @(Model.HasSufficientBalance ? "checked" : "disabled") />
-                            <div class="co-pay-option__icon">
-                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                                    <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25zM3.75 7A.75.75 0 013 6.25v-.5A2.75 2.75 0 015.75 3h8.5A2.75 2.75 0 0117 5.75v.5a.75.75 0 01-.75.75h-12.5z" />
-                                    <path fill-rule="evenodd" d="M1 8.5v6A2.5 2.5 0 003.5 17h13a2.5 2.5 0 002.5-2.5v-6A2.5 2.5 0 0016.5 6h-13A2.5 2.5 0 001 8.5zm14.5 3a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="co-pay-option__body">
-                                <p class="co-pay-option__name">ThriftLoop Wallet</p>
-                                <p class="co-pay-option__detail">
-                                    Balance: <strong>₱@Model.BuyerBalance.ToString("N2")</strong>
-                                    @if (!Model.HasSufficientBalance)
-                                    {
-                                        <span class="co-pay-option__insufficient">
-                                            — insufficient
-                                            (<a asp-action="AddFunds" asp-controller="Wallet">add funds</a>)
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <text> · funds held in escrow until delivery</text>
-                                    }
-                                </p>
-                            </div>
-                        </label>
-
-                        @* Cash on Delivery option *@
-                        <label class="co-pay-option" id="payCodLabel">
-                            <input type="radio"
-                                   name="__payMethod"
-                                   value="Cash"
-                                   class="co-pay-radio"
-                                   id="payCod"
-                                   @(!Model.HasSufficientBalance ? "checked" : "") />
-                            <div class="co-pay-option__icon">
-                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.798 7.45c.512-.67 1.135-.95 1.702-.95s1.19.28 1.702.95a.75.75 0 001.192-.91C12.637 5.55 11.596 5 10.5 5s-2.137.55-2.894 1.54A4.501 4.501 0 007 9.5c0 1.079.37 2.077 1 2.879V14a.75.75 0 001.5 0v-1.734c-.35-.588-.5-1.14-.5-1.766 0-.863.275-1.61.798-2.05zM10 14.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="co-pay-option__body">
-                                <p class="co-pay-option__name">Cash on Delivery</p>
-                                <p class="co-pay-option__detail">Pay cash when your item arrives</p>
-                            </div>
-                        </label>
-
-                    </div>
-                </div>
-
-                @* Confirm form *@
-                <form asp-action="ConfirmOrder" asp-controller="Orders" method="post" id="confirmForm">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="itemId" value="@Model.ItemId" />
-                    <input type="hidden" name="paymentMethod" id="paymentMethodInput"
-                           value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
-
-                    <button type="submit" class="co-confirm-btn" id="confirmBtn">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                        </svg>
-                        @(Model.WasStolen ? "Confirm Steal Purchase" : "Confirm Purchase")
-                    </button>
-                </form>
-
-                @if (!Model.WasStolen)
-                {
-                    <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
-                       class="co-cancel-link">
-                        Cancel and go back
-                    </a>
-                }
 
             </div>
 
         </div>
 
     </div>
-
-</div>
-
-@section Scripts {
-    <style>
-        .co-alert--info {
-            background: var(--c-info-bg, #eff6ff);
-            color: var(--c-info, #1d4ed8);
-            border: 1px solid #b9d5ff;
-        }
-
-        /* ── Cancel Steal notice card ──────────────────────────────────────── */
-        .co-cancel-steal-notice {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            background: #fff7ed;
-            border: 1px solid #fdba74;
-            border-radius: 8px;
-            padding: 12px 14px;
-        }
-
-        .co-cancel-steal-notice__icon {
-            color: #c2410c;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .co-cancel-steal-notice__heading {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #9a3412;
-            margin: 0 0 3px;
-        }
-
-        .co-cancel-steal-notice__text {
-            font-size: 0.75rem;
-            color: #7c2d12;
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        .co-cancel-steal-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 14px;
-            background: #fff;
-            color: #c2410c;
-            border: 1.5px solid #fdba74;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s ease, border-color 0.15s ease;
-        }
-
-            .co-cancel-steal-btn:hover {
-                background: #fff7ed;
-                border-color: #c2410c;
-            }
-
-        /* ── Payment method selector ───────────────────────────────────────── */
-        .co-alert__link {
-            margin-left: 0.75rem;
-            font-weight: 600;
-            color: inherit;
-            text-decoration: underline;
-        }
-
-        .co-pay-section {
-            margin-top: 1.25rem;
-        }
-
-        .co-pay-section__heading {
-            font-size: 0.8125rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--c-muted);
-            margin: 0 0 0.75rem;
-        }
-
-        .co-pay-options {
-            display: flex;
-            flex-direction: column;
-            gap: 0.625rem;
-        }
-
-        .co-pay-option {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 0.875rem 1rem;
-            border: 1.5px solid var(--c-border);
-            border-radius: 10px;
-            background: #fff;
-            cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
-        }
-
-            .co-pay-option:has(.co-pay-radio:checked) {
-                border-color: var(--c-primary);
-                background: color-mix(in srgb, var(--c-primary) 4%, transparent);
-            }
-
-        .co-pay-option--disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-        }
-
-        .co-pay-radio {
-            display: none;
-        }
-
-        .co-pay-option__icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            background: color-mix(in srgb, var(--c-primary) 10%, transparent);
-            color: var(--c-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .co-pay-option__name {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--c-text);
-            margin: 0 0 2px;
-        }
-
-        .co-pay-option__detail {
-            font-size: 0.8rem;
-            color: var(--c-muted);
-            margin: 0;
-        }
-
-        .co-pay-option__insufficient {
-            color: #b91c1c;
-        }
-
-            .co-pay-option__insufficient a {
-                color: #b91c1c;
-                font-weight: 600;
-            }
-    </style>
 
     <script>
         (function () {
@@ -447,12 +427,14 @@
             var form        = document.getElementById('confirmForm');
             var btn         = document.getElementById('confirmBtn');
 
+            // Keep the hidden paymentMethod input in sync with whichever radio is selected
             radios.forEach(function (radio) {
                 radio.addEventListener('change', function () {
                     if (hiddenInput) hiddenInput.value = radio.value;
                 });
             });
 
+            // Disable button + show spinner on submit to prevent double-confirm
             if (form && btn) {
                 form.addEventListener('submit', function () {
                     btn.disabled = true;
@@ -467,4 +449,5 @@
 
         }());
     </script>
-}
+</body>
+</html>

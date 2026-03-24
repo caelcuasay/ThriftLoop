@@ -2,277 +2,291 @@
 @using ThriftLoop.Models
 @{
     ViewData["Title"] = "List an Item";
+    Layout = null;
 }
 
-<div class="container">
-    <div class="create-page">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Items.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
 
-        <div class="create-header">
-            <a asp-controller="Home" asp-action="Index" class="create-header__back">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
-                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                Back
-            </a>
-            <div>
-                <h1 class="create-header__title">List a new item</h1>
-                <p class="create-header__subtitle">Fill in the details below</p>
-            </div>
-        </div>
+    <div class="container">
+        <div class="create-page">
 
-        @if (TempData["SuccessMessage"] is string successMsg)
-        {
-            <div class="create-toast">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
-                </svg>
-                @successMsg
-            </div>
-        }
-
-        <!-- Client-side validation error banner (hidden until JS shows it) -->
-        <div class="create-error-banner" id="validationBanner" style="display:none">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-            </svg>
-            <span id="validationBannerText">Please fix the highlighted fields before posting.</span>
-        </div>
-
-        <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
-            @Html.AntiForgeryToken()
-
-            <div class="create-grid">
-
-                @* ── Photo Column ─────────────────────────────────────────── *@
-                <div class="create-photo-col">
-                    <p class="create-section-label">
-                        Photos <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.6rem">(up to 5)</span>
-                    </p>
-
-                    <!-- Thumbnail grid - populated by JS -->
-                    <div id="photoThumbs" class="photo-thumbs"></div>
-
-                    <!-- Compact add zone -->
-                    <div class="photo-add-zone" id="photoAddZone">
-                        <input type="file" id="photosInput" name="Images" multiple
-                               accept="image/jpeg,image/png,image/webp" style="display:none" />
-                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" style="opacity:.5">
-                            <path d="M3 16.5v-9A1.5 1.5 0 014.5 6h1l1-2h7l1 2h1A1.5 1.5 0 0117 7.5v9A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5z" stroke-linecap="round" stroke-linejoin="round" />
-                            <circle cx="10" cy="12" r="2.5" stroke-linecap="round" />
-                        </svg>
-                        <span class="photo-add-zone__cta">Click or drag to add photos</span>
-                        <span class="photo-add-zone__hint">JPEG · PNG · max 5 MB each</span>
-                    </div>
-                    <span class="field__error" id="photoErr"></span>
-
-                    <div class="create-tips">
-                        <p class="create-tips__heading">Quick tips</p>
-                        <ul class="create-tips__list">
-                            <li>First photo is the cover shown on cards</li>
-                            <li>Use natural light for best results</li>
-                            <li>Show any wear honestly</li>
-                        </ul>
-                    </div>
+            <div class="create-header">
+                <a asp-controller="Home" asp-action="Index" class="create-header__back">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
+                        <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Back
+                </a>
+                <div>
+                    <h1 class="create-header__title">List a new item</h1>
+                    <p class="create-header__subtitle">Fill in the details below</p>
                 </div>
+            </div>
 
-                @* ── Form Column ──────────────────────────────────────────── *@
-                <div class="create-form-col">
+            @if (TempData["SuccessMessage"] is string successMsg)
+            {
+                <div class="create-toast">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                    </svg>
+                    @successMsg
+                </div>
+            }
 
-                    @* Title *@
-                    <div class="create-field">
-                        <div class="create-field__top">
-                            <label asp-for="Title" class="create-field__label">Title</label>
-                            <span class="create-field__counter" id="titleCounter">0/100</span>
+            <!-- Client-side validation error banner (hidden until JS shows it) -->
+            <div class="create-error-banner" id="validationBanner" style="display:none">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+                <span id="validationBannerText">Please fix the highlighted fields before posting.</span>
+            </div>
+
+            <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
+                @Html.AntiForgeryToken()
+
+                <div class="create-grid">
+
+                    @* ── Photo Column ─────────────────────────────────────────── *@
+                    <div class="create-photo-col">
+                        <p class="create-section-label">
+                            Photos <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.6rem">(up to 5)</span>
+                        </p>
+
+                        <!-- Thumbnail grid - populated by JS -->
+                        <div id="photoThumbs" class="photo-thumbs"></div>
+
+                        <!-- Compact add zone -->
+                        <div class="photo-add-zone" id="photoAddZone">
+                            <input type="file" id="photosInput" name="Images" multiple
+                                   accept="image/jpeg,image/png,image/webp" style="display:none" />
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" style="opacity:.5">
+                                <path d="M3 16.5v-9A1.5 1.5 0 014.5 6h1l1-2h7l1 2h1A1.5 1.5 0 0117 7.5v9A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5z" stroke-linecap="round" stroke-linejoin="round" />
+                                <circle cx="10" cy="12" r="2.5" stroke-linecap="round" />
+                            </svg>
+                            <span class="photo-add-zone__cta">Click or drag to add photos</span>
+                            <span class="photo-add-zone__hint">JPEG · PNG · max 5 MB each</span>
                         </div>
-                        <input asp-for="Title" class="create-field__input" id="titleInput"
-                               placeholder="e.g. Vintage Levi's 501" maxlength="100" />
-                        <span class="field__error" id="titleErr"></span>
-                    </div>
+                        <span class="field__error" id="photoErr"></span>
 
-                    @* Description *@
-                    <div class="create-field">
-                        <div class="create-field__top">
-                            <label asp-for="Description" class="create-field__label">Description</label>
-                            <span class="create-field__counter" id="descCounter">0/1000</span>
-                        </div>
-                        <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
-                                  id="descInput" rows="3" maxlength="1000"
-                                  placeholder="Describe the item — colour, fit, any flaws…"></textarea>
-                        <span class="field__error" id="descErr"></span>
-                    </div>
-
-                    @* Price *@
-                    <div class="create-field">
-                        <label asp-for="Price" class="create-field__label">Price</label>
-                        <div class="create-price-wrap" id="priceWrap">
-                            <span class="create-price-wrap__symbol">₱</span>
-                            <input asp-for="Price" id="priceInput"
-                                   class="create-field__input create-price-wrap__input"
-                                   type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
-                        </div>
-                        <span class="field__error" id="priceErr"></span>
-                    </div>
-
-                    @* Category *@
-                    <div class="create-field">
-                        <label class="create-field__label">Category</label>
-                        <select asp-for="Category" class="create-hidden-select" id="categorySelect">
-                            <option value=""></option>
-                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
-                            {
-                                <option value="@cat">@cat</option>
-                            }
-                        </select>
-                        <div class="create-chips" id="categoryChips">
-                            @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
-                            {
-                                <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
-                                        data-value="@cat" data-target="categorySelect">
-                                    @cat
-                                </button>
-                            }
-                        </div>
-                        <span class="field__error" id="categoryErr"></span>
-                    </div>
-
-                    @* Condition *@
-                    <div class="create-field">
-                        <label class="create-field__label">Condition</label>
-                        <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
-                            <option value=""></option>
-                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
-                            {
-                                <option value="@cond">@cond</option>
-                            }
-                        </select>
-                        <div class="create-condition" id="conditionPills">
-                            @{
-                                var icons = new[] { "✦", "★", "◆", "▲", "●" };
-                                var idx = 0;
-                            }
-                            @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
-                            {
-                                <button type="button"
-                                        class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
-                                        data-value="@cond" data-target="conditionSelect">
-                                    <span>@icons[idx]</span> <span>@cond</span>
-                                </button>
-                                idx++;
-                            }
-                        </div>
-                        <span class="field__error" id="conditionErr"></span>
-                    </div>
-
-                    @* Size — optional *@
-                    <div class="create-field">
-                        <div class="create-field__top">
-                            <label class="create-field__label">Size</label>
-                            <span class="create-field__optional">optional</span>
-                        </div>
-                        <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
-                            <option value=""></option>
-                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
-                            {
-                                <option value="@size">@size</option>
-                            }
-                        </select>
-                        <div class="create-chips" id="sizeChips">
-                            @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
-                            {
-                                <button type="button"
-                                        class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
-                                        data-value="@size" data-target="sizeSelect">
-                                    @size
-                                </button>
-                            }
+                        <div class="create-tips">
+                            <p class="create-tips__heading">Quick tips</p>
+                            <ul class="create-tips__list">
+                                <li>First photo is the cover shown on cards</li>
+                                <li>Use natural light for best results</li>
+                                <li>Show any wear honestly</li>
+                            </ul>
                         </div>
                     </div>
 
-                    @* ── Stealable Listing Section ─────────────────────────── *@
-                    <div class="create-field create-field--stealable">
-                        <div class="create-stealable-header">
-                            <div>
-                                <p class="create-field__label">Listing Type</p>
-                                <p class="create-stealable-header__sub">
-                                    Stealable listings let buyers compete — one claims it, another can steal it.
-                                </p>
+                    @* ── Form Column ──────────────────────────────────────────── *@
+                    <div class="create-form-col">
+
+                        @* Title *@
+                        <div class="create-field">
+                            <div class="create-field__top">
+                                <label asp-for="Title" class="create-field__label">Title</label>
+                                <span class="create-field__counter" id="titleCounter">0/100</span>
+                            </div>
+                            <input asp-for="Title" class="create-field__input" id="titleInput"
+                                   placeholder="e.g. Vintage Levi's 501" maxlength="100" />
+                            <span class="field__error" id="titleErr"></span>
+                        </div>
+
+                        @* Description *@
+                        <div class="create-field">
+                            <div class="create-field__top">
+                                <label asp-for="Description" class="create-field__label">Description</label>
+                                <span class="create-field__counter" id="descCounter">0/1000</span>
+                            </div>
+                            <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
+                                      id="descInput" rows="3" maxlength="1000"
+                                      placeholder="Describe the item — colour, fit, any flaws…"></textarea>
+                            <span class="field__error" id="descErr"></span>
+                        </div>
+
+                        @* Price *@
+                        <div class="create-field">
+                            <label asp-for="Price" class="create-field__label">Price</label>
+                            <div class="create-price-wrap" id="priceWrap">
+                                <span class="create-price-wrap__symbol">₱</span>
+                                <input asp-for="Price" id="priceInput"
+                                       class="create-field__input create-price-wrap__input"
+                                       type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
+                            </div>
+                            <span class="field__error" id="priceErr"></span>
+                        </div>
+
+                        @* Category *@
+                        <div class="create-field">
+                            <label class="create-field__label">Category</label>
+                            <select asp-for="Category" class="create-hidden-select" id="categorySelect">
+                                <option value=""></option>
+                                @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </select>
+                            <div class="create-chips" id="categoryChips">
+                                @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
+                                {
+                                    <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
+                                            data-value="@cat" data-target="categorySelect">
+                                        @cat
+                                    </button>
+                                }
+                            </div>
+                            <span class="field__error" id="categoryErr"></span>
+                        </div>
+
+                        @* Condition *@
+                        <div class="create-field">
+                            <label class="create-field__label">Condition</label>
+                            <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
+                                <option value=""></option>
+                                @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                                {
+                                    <option value="@cond">@cond</option>
+                                }
+                            </select>
+                            <div class="create-condition" id="conditionPills">
+                                @{
+                                    var icons = new[] { "✦", "★", "◆", "▲", "●" };
+                                    var idx = 0;
+                                }
+                                @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
+                                {
+                                    <button type="button"
+                                            class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
+                                            data-value="@cond" data-target="conditionSelect">
+                                        <span>@icons[idx]</span> <span>@cond</span>
+                                    </button>
+                                    idx++;
+                                }
+                            </div>
+                            <span class="field__error" id="conditionErr"></span>
+                        </div>
+
+                        @* Size — optional *@
+                        <div class="create-field">
+                            <div class="create-field__top">
+                                <label class="create-field__label">Size</label>
+                                <span class="create-field__optional">optional</span>
+                            </div>
+                            <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
+                                <option value=""></option>
+                                @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                                {
+                                    <option value="@size">@size</option>
+                                }
+                            </select>
+                            <div class="create-chips" id="sizeChips">
+                                @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
+                                {
+                                    <button type="button"
+                                            class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
+                                            data-value="@size" data-target="sizeSelect">
+                                        @size
+                                    </button>
+                                }
                             </div>
                         </div>
 
-                        <label class="stealable-toggle" for="IsStealable">
-                            <span class="stealable-toggle__track">
-                                <input asp-for="IsStealable" id="IsStealable" type="checkbox"
-                                       class="stealable-toggle__input" />
-                                <span class="stealable-toggle__thumb" aria-hidden="true"></span>
-                            </span>
-                            <span class="stealable-toggle__label-group">
-                                <span class="stealable-toggle__name">Make this a Stealable listing</span>
-                                <span class="stealable-toggle__badge" aria-hidden="true">
-                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
-                                        <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
-                                    </svg>
-                                    NEW
-                                </span>
-                            </span>
-                        </label>
-
-                        <div class="stealable-duration-panel" id="stealDurationPanel"
-                             @(Model.IsStealable ? "" : "hidden") aria-live="polite">
-                            <div class="stealable-duration-inner">
-                                <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
-                                </svg>
-                                <div class="stealable-duration-body">
-                                    <label asp-for="StealDurationHours" class="create-field__label">Steal Window Duration</label>
-                                    <p class="stealable-duration-body__hint">
-                                        How long a buyer has before another can steal the item.
-                                        After the window closes, the original buyer gets a 2-hour grace period.
+                        @* ── Stealable Listing Section ─────────────────────────── *@
+                        <div class="create-field create-field--stealable">
+                            <div class="create-stealable-header">
+                                <div>
+                                    <p class="create-field__label">Listing Type</p>
+                                    <p class="create-stealable-header__sub">
+                                        Stealable listings let buyers compete — one claims it, another can steal it.
                                     </p>
-                                    <select asp-for="StealDurationHours" class="create-hidden-select" id="stealDurationSelect">
-                                        <option value=""></option>
-                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
-                                        {
-                                            <option value="@hours">@hours hours</option>
-                                        }
-                                    </select>
-                                    <div class="create-chips" id="durationChips">
-                                        @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
-                                        {
-                                            <button type="button"
-                                                    class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
-                                                    data-value="@hours" data-target="stealDurationSelect">
-                                                @hours hr
-                                            </button>
-                                        }
+                                </div>
+                            </div>
+
+                            <label class="stealable-toggle" for="IsStealable">
+                                <span class="stealable-toggle__track">
+                                    <input asp-for="IsStealable" id="IsStealable" type="checkbox"
+                                           class="stealable-toggle__input" />
+                                    <span class="stealable-toggle__thumb" aria-hidden="true"></span>
+                                </span>
+                                <span class="stealable-toggle__label-group">
+                                    <span class="stealable-toggle__name">Make this a Stealable listing</span>
+                                    <span class="stealable-toggle__badge" aria-hidden="true">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                            <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
+                                        </svg>
+                                        NEW
+                                    </span>
+                                </span>
+                            </label>
+
+                            <div class="stealable-duration-panel" id="stealDurationPanel"
+                                 @(Model.IsStealable ? "" : "hidden") aria-live="polite">
+                                <div class="stealable-duration-inner">
+                                    <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                                    </svg>
+                                    <div class="stealable-duration-body">
+                                        <label asp-for="StealDurationHours" class="create-field__label">Steal Window Duration</label>
+                                        <p class="stealable-duration-body__hint">
+                                            How long a buyer has before another can steal the item.
+                                            After the window closes, the original buyer gets a 2-hour grace period.
+                                        </p>
+                                        <select asp-for="StealDurationHours" class="create-hidden-select" id="stealDurationSelect">
+                                            <option value=""></option>
+                                            @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                            {
+                                                <option value="@hours">@hours hours</option>
+                                            }
+                                        </select>
+                                        <div class="create-chips" id="durationChips">
+                                            @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                            {
+                                                <button type="button"
+                                                        class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
+                                                        data-value="@hours" data-target="stealDurationSelect">
+                                                    @hours hr
+                                                </button>
+                                            }
+                                        </div>
+                                        <span class="field__error" id="durationErr"></span>
                                     </div>
-                                    <span class="field__error" id="durationErr"></span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    @* Actions *@
-                    <div class="create-actions">
-                        <button type="submit" class="btn btn--primary" id="submitBtn">
-                            <svg viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
-                            </svg>
-                            Post Listing
-                        </button>
-                        <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
-                    </div>
+                        @* Actions *@
+                        <div class="create-actions">
+                            <button type="submit" class="btn btn--primary" id="submitBtn">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
+                                </svg>
+                                Post Listing
+                            </button>
+                            <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
+                        </div>
 
+                    </div>
                 </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
-</div>
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     <script>
         (function () {
             'use strict';
@@ -620,4 +634,5 @@
 
         }());
     </script>
-}
+</body>
+</html>

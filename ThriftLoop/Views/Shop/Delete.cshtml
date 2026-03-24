@@ -1,76 +1,87 @@
 ﻿@model ThriftLoop.Models.Item
 @{
     ViewData["Title"] = "Delete Listing";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = null;
 }
 
-<div class="container">
-    <div class="confirm-shell">
-        <div class="confirm-card">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Shop.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
 
-            <div class="confirm-card__icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
-                             2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697
-                             16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
-            </div>
+    <div class="container">
+        <div class="confirm-shell">
+            <div class="confirm-card">
 
-            <h1 class="confirm-card__title">Delete this listing?</h1>
-            <p class="confirm-card__body">
-                This action is permanent and cannot be undone.
-                All variants and SKUs will be removed.
-            </p>
-
-            <div class="confirm-item">
-                @if (!string.IsNullOrEmpty(Model.ImageUrl))
-                {
-                    <img src="@Model.ImageUrl" alt="@Model.Title" class="confirm-item__img" />
-                }
-                else
-                {
-                    <div class="confirm-item__img confirm-item__img--placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <rect x="3" y="3" width="18" height="18" rx="3" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <path d="M21 15l-5-5L5 21" />
-                        </svg>
-                    </div>
-                }
-                <div>
-                    <p class="confirm-item__title">@Model.Title</p>
-                    <p class="confirm-item__price">From ₱@Model.Price.ToString("N2")</p>
+                <div class="confirm-card__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
                 </div>
-            </div>
 
-            <div class="confirm-actions">
-                <a asp-controller="Shop" asp-action="Details"
-                   asp-route-id="@Model.Id" class="btn btn--ghost">Cancel</a>
-                <form asp-action="Delete" asp-route-id="@Model.Id"
-                      method="post" id="deleteForm">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn--danger" id="deleteBtn">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                            <path fill-rule="evenodd"
-                                  d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0
+                <h1 class="confirm-card__title">Delete this listing?</h1>
+                <p class="confirm-card__body">
+                    This action is permanent and cannot be undone.
+                    All variants and SKUs will be removed.
+                </p>
+
+                <div class="confirm-item">
+                    @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                    {
+                        <img src="@Model.ImageUrl" alt="@Model.Title" class="confirm-item__img" />
+                    }
+                    else
+                    {
+                        <div class="confirm-item__img confirm-item__img--placeholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <rect x="3" y="3" width="18" height="18" rx="3" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <path d="M21 15l-5-5L5 21" />
+                            </svg>
+                        </div>
+                    }
+                    <div>
+                        <p class="confirm-item__title">@Model.Title</p>
+                        <p class="confirm-item__price">From ₱@Model.Price.ToString("N2")</p>
+                    </div>
+                </div>
+
+                <div class="confirm-actions">
+                    <a asp-controller="Shop" asp-action="Details"
+                       asp-route-id="@Model.Id" class="tl-btn tl-btn--ghost">Cancel</a>
+                    <form asp-action="Delete" asp-route-id="@Model.Id"
+                          method="post" id="deleteForm">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="tl-btn tl-btn--danger" id="deleteBtn">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path fill-rule="evenodd"
+                                      d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0
                                      10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0
                                      002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014
                                      4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69
                                      0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0
                                      00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0
                                      10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                        </svg>
-                        Yes, Delete
-                    </button>
-                </form>
+                            </svg>
+                            Yes, Delete
+                        </button>
+                    </form>
+                </div>
             </div>
-
         </div>
     </div>
-</div>
 
-@section Scripts {
     <script>
         document.getElementById('deleteForm')?.addEventListener('submit', function () {
             const btn = document.getElementById('deleteBtn');
@@ -78,4 +89,5 @@
             btn.textContent = 'Deleting…';
         });
     </script>
-}
+</body>
+</html>

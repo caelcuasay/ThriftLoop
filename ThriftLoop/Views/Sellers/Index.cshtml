@@ -1,17 +1,17 @@
-﻿@model ThriftLoop.ViewModels.HomeIndexViewModel
+﻿@model ThriftLoop.ViewModels.SellersViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.ViewModels
-@using System.Text.Json
 @using ThriftLoop.Enums
+@using System.Text.Json
 @{
-    ViewData["Title"] = "For You";
+    ViewData["Title"] = "Sellers";
     Layout = null;
 
     var categories = ItemCreateViewModel.Categories;
     var conditions = ItemCreateViewModel.Conditions;
-
-    @* Derive global price bounds from the item set for the range slider *@
-    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
+    var maxPrice = Model.Items.Any()
+        ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price))
+        : 100000;
 }
 
 <!DOCTYPE html>
@@ -23,31 +23,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Home.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Sellers.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
-    <style>
-        /* Additional navbar positioning styles */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px 32px 48px;
-        }
-        
-        /* Ensure navbar is full width above container */
-        body {
-            margin: 0;
-            padding: 0;
-        }
-    </style>
 </head>
 <body>
-    @* Include the navbar partial *@
     @await Html.PartialAsync("_Navbar")
 
     <div class="container">
         <div class="fy-shell">
 
-            @* ── Left: sticky filter sidebar ──────────────────────────────────────── *@
+            @* ── Left: filter sidebar (mirrors Home) ─────────────────────────────── *@
             <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
 
                 <div class="fy-sidebar__header">
@@ -55,39 +40,36 @@
                     <button type="button" class="fy-sidebar__reset" id="resetFilters">Clear all</button>
                 </div>
 
-                @* Search *@
                 <div class="fy-filter-group">
                     <label class="fy-filter-group__label" for="searchInput">Search</label>
                     <div class="fy-search-wrap">
-                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                             stroke-width="1.6" aria-hidden="true">
                             <circle cx="8.5" cy="8.5" r="5.5" />
                             <path d="M13.5 13.5L18 18" stroke-linecap="round" />
                         </svg>
-                        <input type="search"
-                               id="searchInput"
-                               class="fy-search-input"
-                               placeholder="Title or description…"
-                               autocomplete="off" />
+                        <input type="search" id="searchInput" class="fy-search-input"
+                               placeholder="Title, description or shop…" autocomplete="off" />
                     </div>
                 </div>
 
-                @* Price range *@
                 <div class="fy-filter-group">
                     <label class="fy-filter-group__label">Price</label>
                     <div class="fy-price-row">
                         <div class="fy-price-field">
                             <span class="fy-price-field__sym">₱</span>
-                            <input type="number" id="priceMin" class="fy-price-input" placeholder="0" min="0" max="@maxPrice" value="0" />
+                            <input type="number" id="priceMin" class="fy-price-input"
+                                   placeholder="0" min="0" max="@maxPrice" value="0" />
                         </div>
                         <span class="fy-price-sep">–</span>
                         <div class="fy-price-field">
                             <span class="fy-price-field__sym">₱</span>
-                            <input type="number" id="priceMax" class="fy-price-input" placeholder="@maxPrice" min="0" max="@maxPrice" value="@maxPrice" />
+                            <input type="number" id="priceMax" class="fy-price-input"
+                                   placeholder="@maxPrice" min="0" max="@maxPrice" value="@maxPrice" />
                         </div>
                     </div>
                 </div>
 
-                @* Category *@
                 <div class="fy-filter-group">
                     <p class="fy-filter-group__label">Category</p>
                     <ul class="fy-check-list" id="catFilters">
@@ -104,7 +86,6 @@
                     </ul>
                 </div>
 
-                @* Condition *@
                 <div class="fy-filter-group">
                     <p class="fy-filter-group__label">Condition</p>
                     <ul class="fy-check-list" id="condFilters">
@@ -127,15 +108,55 @@
             <main class="fy-main" id="fyMain">
 
                 <header class="fy-feed-header">
-                    <h1 class="fy-feed-title">For You</h1>
+                    <h1 class="fy-feed-title">Sellers</h1>
                     <p class="fy-feed-meta" id="feedMeta">
                         <span id="visibleCount">@Model.Items.Count</span>&nbsp;listings
                     </p>
                 </header>
 
+                @* ── Shop suggestion row ──────────────────────────────────────────── *@
+                @if (Model.Shops.Any())
+                {
+                    <div class="sl-shops-section">
+                        <p class="sl-shops-section__label">Shops</p>
+                        <div class="sl-shops-row" id="shopsRow">
+                            @foreach (var shop in Model.Shops)
+                            {
+                                <a asp-controller="Shop" asp-action="Index"
+                                   asp-route-id="@shop.Id"
+                                   class="sl-shop-card"
+                                   data-shop-name="@shop.ShopName.ToLower()">
+
+                                    @* Logo *@
+                                    @if (!string.IsNullOrWhiteSpace(shop.LogoUrl))
+                                    {
+                                        <img src="@shop.LogoUrl" alt="@shop.ShopName"
+                                             class="sl-shop-card__logo" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <div class="sl-shop-card__logo sl-shop-card__logo--placeholder"
+                                             aria-hidden="true">
+                                            @char.ToUpper(shop.ShopName.FirstOrDefault())
+                                        </div>
+                                    }
+
+                                    <span class="sl-shop-card__name">@shop.ShopName</span>
+
+                                    @if (!string.IsNullOrWhiteSpace(shop.Bio))
+                                    {
+                                        <span class="sl-shop-card__bio">@shop.Bio</span>
+                                    }
+
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* ── Items feed ───────────────────────────────────────────────────── *@
                 @if (!Model.Items.Any())
                 {
-                    @* Global empty state — no items at all in the database *@
                     <div class="fy-empty" id="globalEmpty">
                         <div class="fy-empty__icon" aria-hidden="true">
                             <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
@@ -144,61 +165,52 @@
                                 <path d="M24 33h16M32 25v16" stroke-linecap="round" />
                             </svg>
                         </div>
-                        <h2 class="fy-empty__title">Nothing listed yet</h2>
-                        <p class="fy-empty__body">Be the first to post an item.</p>
-                        <a asp-action="Create" asp-controller="Items" class="btn btn--primary fy-empty__cta">
-                            Post an item
-                        </a>
+                        <h2 class="fy-empty__title">No shop listings yet</h2>
+                        <p class="fy-empty__body">Sellers haven't posted any items.</p>
                     </div>
                 }
                 else
                 {
-                    @* Filter empty state — shown by JS when all cards are filtered out *@
                     <div class="fy-empty fy-empty--hidden" id="filterEmpty" aria-live="polite">
                         <div class="fy-empty__icon" aria-hidden="true">
                             <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
                                 <circle cx="28" cy="28" r="18" />
                                 <path d="M42 42l14 14" stroke-linecap="round" />
                                 <path d="M22 28h12M28 22v12" stroke-linecap="round" />
-                                <path d="M37 19l4-4M19 37l-4 4" stroke-linecap="round" opacity=".4" />
                             </svg>
                         </div>
                         <h2 class="fy-empty__title">No matches</h2>
                         <p class="fy-empty__body">Try adjusting or clearing your filters.</p>
-                        <button type="button" class="fy-empty__reset-btn" id="resetFilters2">Clear filters</button>
+                        <button type="button" class="fy-empty__reset-btn" id="resetFilters2">
+                            Clear filters
+                        </button>
                     </div>
 
-                    @* Item grid *@
                     <div class="fy-grid" id="itemGrid">
                         @foreach (var item in Model.Items)
                         {
-                            var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
-                            var isStealable = item.ListingType == ListingType.Stealable;
-                            var isReserved = item.Status == ItemStatus.Reserved;
-                            var isSold = item.Status == ItemStatus.Sold;
-                            var isShopItem = item.ShopId.HasValue;
-
-                            @* Serialise the full image list for JS hover cycling *@
+                            var isOwner = Model.CurrentUserId.HasValue
+                            && item.UserId == Model.CurrentUserId.Value;
                             var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
 
-                            <article class="fy-card @(isSold ? "fy-card--sold" : "") @(isShopItem ? "fy-card--shop" : "")"
+                            @* Resolve shop name for search / display *@
+                            var shopName = item.Shop?.ShopName ?? string.Empty;
+
+                            <article class="fy-card fy-card--shop"
                                      data-category="@item.Category"
                                      data-condition="@item.Condition"
                                      data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
                                      data-title="@item.Title.ToLower()"
-                                     data-desc="@item.Description.ToLower()">
+                                     data-desc="@item.Description.ToLower()"
+                                     data-shop="@shopName.ToLower()">
 
-                                @* ── Image wrap — houses the cycling image + all overlays ── *@
                                 <div class="fy-card__img-wrap" data-images="@imagesJson">
 
                                     @if (item.ImageUrls.Count > 0)
                                     {
-                                        <img src="@item.ImageUrls[0]"
-                                             alt="@item.Title"
-                                             class="fy-card__img"
-                                             loading="lazy" />
+                                        <img src="@item.ImageUrls[0]" alt="@item.Title"
+                                             class="fy-card__img" loading="lazy" />
 
-                                        @* Progress dots — only shown when there are multiple images *@
                                         @if (item.ImageUrls.Count > 1)
                                         {
                                             <div class="fy-card__dots" aria-hidden="true">
@@ -215,57 +227,23 @@
                                             <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
                                                 <rect x="4" y="8" width="40" height="32" rx="4" />
                                                 <circle cx="17" cy="20" r="4" />
-                                                <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                                <path d="M4 36l12-10 8 8 6-5 14 11"
+                                                      stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
                                     }
 
-                                    @* Condition chip overlaid on image *@
                                     <span class="fy-card__condition-badge">@item.Condition</span>
+                                    <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
 
-                                    @* Stealable badge *@
-                                    @if (isStealable)
-                                    {
-                                        <span class="fy-card__stealable-badge"
-                                              aria-label="Stealable listing — @item.StealDurationHours hr window">
-                                            @if (isReserved)
-                                            {
-                                                <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                                    <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm.5 3.25a.5.5 0 00-1 0V7c0 .276.224.5.5.5h2.75a.5.5 0 000-1H7.5V4.25z" clip-rule="evenodd" />
-                                                </svg>
-                                                <span>Reserved</span>
-                                            }
-                                            else if (isSold)
-                                            {
-                                                <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                                    <path fill-rule="evenodd" d="M7 1a6 6 0 100 12A6 6 0 007 1zm2.97 4.47a.75.75 0 00-1.19-.94L6.5 7.28 5.28 6.06a.75.75 0 00-1.06 1.06l1.75 1.75a.75.75 0 001.12-.06l2.88-3.34z" clip-rule="evenodd" />
-                                                </svg>
-                                                <span>Sold</span>
-                                            }
-                                            else
-                                            {
-                                                <svg viewBox="0 0 14 14" fill="currentColor" width="10" height="10" aria-hidden="true">
-                                                    <path d="M7.75 1.5L2.5 8h4.25L5.5 12.5 11.5 6H7.25L7.75 1.5z" />
-                                                </svg>
-                                                <span>Stealable</span>
-                                            }
-                                        </span>
-                                    }
-
-                                    @* Shop badge *@
-                                    @if (isShopItem)
-                                    {
-                                        <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
-                                    }
-
-                                    @* Owner badge *@
                                     @if (isOwner)
                                     {
-                                        <span class="fy-card__owner-badge" aria-label="Your listing">Your listing</span>
+                                        <span class="fy-card__owner-badge" aria-label="Your listing">
+                                            Your listing
+                                        </span>
                                     }
                                 </div>
 
-                                @* Body *@
                                 <div class="fy-card__body">
                                     <div class="fy-card__top">
                                         <span class="fy-card__category">@item.Category</span>
@@ -273,49 +251,33 @@
                                     </div>
 
                                     <h2 class="fy-card__title">@item.Title</h2>
+
                                     <p class="fy-card__price">
-                                        @if (isShopItem)
-                                        {
-                                            <span class="fy-card__from-label">From </span>
-                                        }
+                                        <span class="fy-card__from-label">From </span>
                                         ₱@item.Price.ToString("N2")
-                                        @if (isStealable && item.Status == ItemStatus.Available)
-                                        {
-                                            <span class="fy-card__steal-hint">+₱50 if stolen</span>
-                                        }
                                     </p>
 
-                                    @if (isShopItem)
+                                    @* Shop attribution line *@
+                                    @if (!string.IsNullOrWhiteSpace(shopName))
                                     {
-                                        <a asp-action="Details" asp-controller="Shop"
-                                           asp-route-id="@item.Id" class="fy-card__link"
-                                           aria-label="View details for @item.Title"></a>
+                                        <p class="fy-card__shop-attr">@shopName</p>
                                     }
-                                    else
-                                    {
-                                        <a asp-action="Details" asp-controller="Items"
-                                           asp-route-id="@item.Id" class="fy-card__link"
-                                           aria-label="View details for @item.Title"></a>
-                                    }
+
+                                    <a asp-controller="Shop" asp-action="Details"
+                                       asp-route-id="@item.Id"
+                                       class="fy-card__link"
+                                       aria-label="View details for @item.Title">
+                                    </a>
                                 </div>
 
                                 @if (isOwner)
                                 {
                                     <div class="fy-card__actions fy-card__actions--owner">
-                                        @if (isShopItem)
-                                        {
-                                            <a asp-action="Edit" asp-controller="Shop"
-                                               asp-route-id="@item.Id" class="fy-btn fy-btn--manage">
-                                                Manage listing
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <a asp-action="Edit" asp-controller="Items"
-                                               asp-route-id="@item.Id" class="fy-btn fy-btn--manage">
-                                                Manage listing
-                                            </a>
-                                        }
+                                        <a asp-controller="Shop" asp-action="Edit"
+                                           asp-route-id="@item.Id"
+                                           class="fy-btn fy-btn--manage">
+                                            Manage listing
+                                        </a>
                                     </div>
                                 }
 
@@ -325,7 +287,6 @@
                 }
 
             </main>
-
         </div>
     </div>
 
@@ -333,8 +294,8 @@
         (function () {
             'use strict';
 
-            // ── Element references ─────────────────────────────────────────────
             var grid         = document.getElementById('itemGrid');
+            var shopsRow     = document.getElementById('shopsRow');
             var filterEmpty  = document.getElementById('filterEmpty');
             var visibleCount = document.getElementById('visibleCount');
             var searchInput  = document.getElementById('searchInput');
@@ -343,115 +304,89 @@
             var catChecks    = document.querySelectorAll('#catFilters .fy-check');
             var condChecks   = document.querySelectorAll('#condFilters .fy-check');
 
-            if (!grid) return;
+            var cards     = grid     ? Array.prototype.slice.call(grid.querySelectorAll('.fy-card'))          : [];
+            var shopCards = shopsRow ? Array.prototype.slice.call(shopsRow.querySelectorAll('.sl-shop-card')) : [];
 
-            var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
-
-            // ── Multi-image hover cycling ──────────────────────────────────────
+            // ── Multi-image hover cycling ─────────────────────────────────────
             cards.forEach(function (card) {
                 var wrap   = card.querySelector('.fy-card__img-wrap');
                 var img    = card.querySelector('.fy-card__img');
                 var dotsEl = card.querySelector('.fy-card__dots');
-
                 if (!wrap || !img) return;
 
-                var raw = wrap.getAttribute('data-images');
                 var images = [];
-                try { images = JSON.parse(raw); } catch(e) {}
-
-                // Nothing to cycle if 0 or 1 image
+                try { images = JSON.parse(wrap.getAttribute('data-images') || '[]'); } catch(e) {}
                 if (images.length < 2) return;
 
-                var dots     = dotsEl ? Array.prototype.slice.call(dotsEl.querySelectorAll('.fy-card__dot')) : [];
-                var current  = 0;
-                var timer    = null;
-                var INTERVAL = 900; // ms between image switches
+                var dots    = dotsEl ? Array.prototype.slice.call(dotsEl.querySelectorAll('.fy-card__dot')) : [];
+                var current = 0;
+                var timer   = null;
 
                 function goTo(idx) {
-                    // Cross-fade: fade out → swap src → fade in
                     img.classList.add('fy-img--fading');
                     setTimeout(function () {
                         img.src = images[idx];
                         img.classList.remove('fy-img--fading');
                     }, 220);
-
-                    // Update dots
-                    dots.forEach(function (d, i) {
-                        d.classList.toggle('fy-card__dot--active', i === idx);
-                    });
-
+                    dots.forEach(function (d, i) { d.classList.toggle('fy-card__dot--active', i === idx); });
                     current = idx;
                 }
 
-                function startCycle() {
+                card.addEventListener('mouseenter', function () {
                     if (timer) return;
-                    timer = setInterval(function () {
-                        var next = (current + 1) % images.length;
-                        goTo(next);
-                    }, INTERVAL);
-                }
-
-                function stopCycle() {
+                    timer = setInterval(function () { goTo((current + 1) % images.length); }, 900);
+                });
+                card.addEventListener('mouseleave', function () {
                     if (timer) { clearInterval(timer); timer = null; }
-                    // Smoothly reset to first image
                     if (current !== 0) goTo(0);
-                }
-
-                card.addEventListener('mouseenter', startCycle);
-                card.addEventListener('mouseleave', stopCycle);
-                // Touch support: tap cycles forward
-                card.addEventListener('touchstart', function (e) {
-                    // Only cycle — don't hijack the tap-to-navigate link
-                    if (images.length > 1) {
-                        var next = (current + 1) % images.length;
-                        goTo(next);
-                    }
-                }, { passive: true });
+                });
             });
 
-            // ── Core filter function ───────────────────────────────────────────
+            // ── Filter ────────────────────────────────────────────────────────
             function applyFilters() {
                 var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
                 var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
                 var maxVal = priceMax    ? parseFloat(priceMax.value) || Infinity : Infinity;
 
-                var activeCats = [];
-                catChecks.forEach(function (cb) { if (cb.checked) activeCats.push(cb.value); });
-
+                var activeCats  = [];
                 var activeConds = [];
+                catChecks.forEach(function (cb)  { if (cb.checked) activeCats.push(cb.value); });
                 condChecks.forEach(function (cb) { if (cb.checked) activeConds.push(cb.value); });
 
                 var shown = 0;
 
                 cards.forEach(function (card) {
-                    var cat   = card.dataset.category;
-                    var cond  = card.dataset.condition;
                     var price = parseFloat(card.dataset.price);
-                    var title = card.dataset.title || '';
-                    var desc  = card.dataset.desc  || '';
-
-                    var catOk   = activeCats.length  === 0 || activeCats.indexOf(cat)   !== -1;
-                    var condOk  = activeConds.length === 0 || activeConds.indexOf(cond) !== -1;
+                    var catOk   = activeCats.length  === 0 || activeCats.indexOf(card.dataset.category)  !== -1;
+                    var condOk  = activeConds.length === 0 || activeConds.indexOf(card.dataset.condition) !== -1;
                     var priceOk = price >= minVal && price <= maxVal;
-                    var textOk  = !query || title.indexOf(query) !== -1 || desc.indexOf(query) !== -1;
+                    var textOk  = !query
+                        || (card.dataset.title  || '').indexOf(query) !== -1
+                        || (card.dataset.desc   || '').indexOf(query) !== -1
+                        || (card.dataset.shop   || '').indexOf(query) !== -1;
 
                     var visible = catOk && condOk && priceOk && textOk;
                     card.classList.toggle('fy-card--hidden', !visible);
                     if (visible) shown++;
                 });
 
+                // Also filter shop cards in the suggestion row by search text
+                shopCards.forEach(function (sc) {
+                    var name = sc.dataset.shopName || '';
+                    sc.classList.toggle('sl-shop-card--hidden',
+                        query.length > 0 && name.indexOf(query) === -1);
+                });
+
                 if (visibleCount) visibleCount.textContent = shown;
                 if (filterEmpty)  filterEmpty.classList.toggle('fy-empty--hidden', shown > 0);
             }
 
-            // ── Wire up all controls ───────────────────────────────────────────
             if (searchInput) searchInput.addEventListener('input',  applyFilters);
             if (priceMin)    priceMin.addEventListener('input',     applyFilters);
             if (priceMax)    priceMax.addEventListener('input',     applyFilters);
             catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
             condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
 
-            // ── Reset ──────────────────────────────────────────────────────────
             function resetAll() {
                 if (searchInput) searchInput.value = '';
                 if (priceMin)    priceMin.value    = priceMin.min  || 0;
@@ -461,12 +396,11 @@
                 applyFilters();
             }
 
-            var resetBtn  = document.getElementById('resetFilters');
-            var resetBtn2 = document.getElementById('resetFilters2');
-            if (resetBtn)  resetBtn.addEventListener('click',  resetAll);
-            if (resetBtn2) resetBtn2.addEventListener('click', resetAll);
+            var rb1 = document.getElementById('resetFilters');
+            var rb2 = document.getElementById('resetFilters2');
+            if (rb1) rb1.addEventListener('click', resetAll);
+            if (rb2) rb2.addEventListener('click', resetAll);
 
-            // ── Mobile sidebar toggle ──────────────────────────────────────────
             var toggleBtn = document.getElementById('fyFilterToggle');
             var sidebar   = document.getElementById('fySidebar');
             if (toggleBtn && sidebar) {
@@ -476,7 +410,6 @@
                         sidebar.classList.contains('fy-sidebar--open').toString());
                 });
             }
-
         }());
     </script>
 </body>

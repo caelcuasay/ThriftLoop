@@ -1,133 +1,143 @@
 ﻿@model ThriftLoop.DTOs.Auth.RegisterDTO
 @{
     ViewData["Title"] = "Create Account";
-    ViewData["HideNavbar"] = true;
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = null;
 }
 
-<div class="auth-shell">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth-shell">
 
-    <aside class="auth-panel auth-panel--brand">
-        <div class="brand-wordmark">ThriftLoop</div>
-        <p class="brand-tagline">Join thousands of<br>sustainable shoppers.</p>
-        <div class="brand-decoration" aria-hidden="true">
-            <span class="deco-ring deco-ring--lg"></span>
-            <span class="deco-ring deco-ring--md"></span>
-            <span class="deco-ring deco-ring--sm"></span>
-        </div>
-    </aside>
-
-    <main class="auth-panel auth-panel--form">
-        <div class="form-card">
-
-            <header class="form-card__header">
-                <h1 class="form-card__title">Create your account</h1>
-                <p class="form-card__subtitle">It's free and takes under a minute</p>
-            </header>
-
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="alert alert--error" role="alert">
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
-                    <div asp-validation-summary="ModelOnly"></div>
-                </div>
-            }
-
-            @* Google sign-up *@
-            <a asp-action="GoogleLogin" asp-controller="Auth" class="btn btn--google">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Continue with Google
-            </a>
-
-            <div class="auth-divider">
-                <span>or register with email</span>
+        <aside class="auth-panel auth-panel--brand">
+            <div class="brand-wordmark">ThriftLoop</div>
+            <p class="brand-tagline">Join thousands of<br>sustainable shoppers.</p>
+            <div class="brand-decoration" aria-hidden="true">
+                <span class="deco-ring deco-ring--lg"></span>
+                <span class="deco-ring deco-ring--md"></span>
+                <span class="deco-ring deco-ring--sm"></span>
             </div>
+        </aside>
 
-            <form asp-action="Register" asp-controller="Auth"
-                  method="post" novalidate class="auth-form">
-                @Html.AntiForgeryToken()
+        <main class="auth-panel auth-panel--form">
+            <div class="form-card">
 
-                <div class="field">
-                    <label asp-for="Email" class="field__label"></label>
-                    <input asp-for="Email"
-                           class="field__input"
-                           type="email"
-                           autocomplete="email"
-                           placeholder="you@example.com"
-                           spellcheck="false" />
-                    <span asp-validation-for="Email" class="field__error"></span>
+                <header class="form-card__header">
+                    <h1 class="form-card__title">Create your account</h1>
+                    <p class="form-card__subtitle">It's free and takes under a minute</p>
+                </header>
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert--error" role="alert">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                        <div asp-validation-summary="ModelOnly"></div>
+                    </div>
+                }
+
+                @* Google sign-up *@
+                <a asp-action="GoogleLogin" asp-controller="Auth" class="btn btn--google">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continue with Google
+                </a>
+
+                <div class="auth-divider">
+                    <span>or register with email</span>
                 </div>
 
-                <div class="field">
-                    <label asp-for="Password" class="field__label"></label>
-                    <div class="field__input-wrapper">
-                        <input asp-for="Password"
-                               id="passwordInput"
+                <form asp-action="Register" asp-controller="Auth"
+                      method="post" novalidate class="auth-form">
+                    @Html.AntiForgeryToken()
+
+                    <div class="field">
+                        <label asp-for="Email" class="field__label"></label>
+                        <input asp-for="Email"
                                class="field__input"
-                               type="password"
-                               autocomplete="new-password"
-                               placeholder="Min. 8 characters" />
-                        <button type="button" class="toggle-password" aria-label="Toggle password visibility"
-                                onclick="togglePassword('passwordInput')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                        </button>
+                               type="email"
+                               autocomplete="email"
+                               placeholder="you@example.com"
+                               spellcheck="false" />
+                        <span asp-validation-for="Email" class="field__error"></span>
                     </div>
-                    <span asp-validation-for="Password" class="field__error"></span>
-                    <div class="strength-bar" aria-hidden="true">
-                        <span class="strength-bar__fill" id="strengthFill"></span>
+
+                    <div class="field">
+                        <label asp-for="Password" class="field__label"></label>
+                        <div class="field__input-wrapper">
+                            <input asp-for="Password"
+                                   id="passwordInput"
+                                   class="field__input"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="Min. 8 characters" />
+                            <button type="button" class="toggle-password" aria-label="Toggle password visibility"
+                                    onclick="togglePassword('passwordInput')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="Password" class="field__error"></span>
+                        <div class="strength-bar" aria-hidden="true">
+                            <span class="strength-bar__fill" id="strengthFill"></span>
+                        </div>
                     </div>
-                </div>
 
-                <div class="field">
-                    <label asp-for="ConfirmPassword" class="field__label"></label>
-                    <div class="field__input-wrapper">
-                        <input asp-for="ConfirmPassword"
-                               id="confirmPasswordInput"
-                               class="field__input"
-                               type="password"
-                               autocomplete="new-password"
-                               placeholder="Repeat your password" />
-                        <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility"
-                                onclick="togglePassword('confirmPasswordInput')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                        </button>
+                    <div class="field">
+                        <label asp-for="ConfirmPassword" class="field__label"></label>
+                        <div class="field__input-wrapper">
+                            <input asp-for="ConfirmPassword"
+                                   id="confirmPasswordInput"
+                                   class="field__input"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="Repeat your password" />
+                            <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility"
+                                    onclick="togglePassword('confirmPasswordInput')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="ConfirmPassword" class="field__error"></span>
                     </div>
-                    <span asp-validation-for="ConfirmPassword" class="field__error"></span>
-                </div>
 
-                <p class="legal-note">
-                    By registering, you agree to our
-                    <a href="#" class="footer-link">Terms of Service</a> and
-                    <a href="#" class="footer-link">Privacy Policy</a>.
-                </p>
+                    <p class="legal-note">
+                        By registering, you agree to our
+                        <a href="#" class="footer-link">Terms of Service</a> and
+                        <a href="#" class="footer-link">Privacy Policy</a>.
+                    </p>
 
-                <button type="submit" class="btn btn--primary">
-                    Create Account
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
-                </button>
-            </form>
+                    <button type="submit" class="btn btn--primary">
+                        Create Account
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                    </button>
+                </form>
 
-            <footer class="form-card__footer">
-                <p>
-                    Already have an account?
-                    <a asp-action="Login" asp-controller="Auth" class="footer-link">Sign in</a>
-                </p>
-            </footer>
+                <footer class="form-card__footer">
+                    <p>
+                        Already have an account?
+                        <a asp-action="Login" asp-controller="Auth" class="footer-link">Sign in</a>
+                    </p>
+                </footer>
 
-        </div>
-    </main>
+            </div>
+        </main>
 
-</div>
+    </div>
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     <script>
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
@@ -152,4 +162,5 @@
             else                    fill.classList.add('strength-bar__fill--strong');
         });
     </script>
-}
+</body>
+</html>
