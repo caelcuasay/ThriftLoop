@@ -17,18 +17,20 @@ public class ShopRepository : IShopRepository
 
     public async Task<SellerProfile?> GetByUserIdAsync(int userId)
         => await _context.SellerProfiles
-                         .AsNoTracking()
+                         .AsNoTracking()  // This is fine for read-only operations
                          .FirstOrDefaultAsync(sp => sp.UserId == userId);
 
     public async Task<SellerProfile?> GetByIdAsync(int id)
-        => await _context.SellerProfiles
-                         .AsNoTracking()
-                         .FirstOrDefaultAsync(sp => sp.Id == id);
+    {
+        // Remove AsNoTracking() so EF tracks changes
+        return await _context.SellerProfiles
+                             .FirstOrDefaultAsync(sp => sp.Id == id);
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<SellerProfile>> GetAllApprovedAsync()
         => await _context.SellerProfiles
-                         .AsNoTracking()
+                         .AsNoTracking()  // Read-only is fine
                          .Where(sp => sp.ApplicationStatus == ApplicationStatus.Approved)
                          .OrderBy(sp => sp.ShopName)
                          .ToListAsync();
@@ -41,7 +43,8 @@ public class ShopRepository : IShopRepository
 
     public async Task UpdateAsync(SellerProfile shop)
     {
-        _context.SellerProfiles.Update(shop);
+        // No need to call Update() if the entity is already tracked
+        // Just save changes
         await _context.SaveChangesAsync();
     }
 }

@@ -33,32 +33,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Shop.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shop.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/navbar.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
-    <div class="ic-shell">
-
-        <nav class="detail-breadcrumb" aria-label="Breadcrumb">
-            <a asp-controller="Shop" asp-action="Details" asp-route-id="@Model.ItemId"
-               class="detail-breadcrumb__link">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                Back to listing
-            </a>
-        </nav>
-
-        <div class="ic-header">
-            <h1 class="ic-header__title">Edit Listing</h1>
-            <p class="ic-header__sub">@Model.ShopName</p>
+    <div class="edit-container">
+        <div class="edit-header">
+            <div class="edit-header__content">
+                <a asp-controller="Shop" asp-action="Details" asp-route-id="@Model.ItemId" class="edit-back-link">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Back to listing
+                </a>
+                <div class="edit-header__info">
+                    <h1 class="edit-header__title">Edit Listing</h1>
+                    <p class="edit-header__subtitle">@Model.ShopName</p>
+                </div>
+            </div>
         </div>
 
-        <div class="ic-alert ic-alert--error" id="globalError" hidden>
-            <svg viewBox="0 0 16 16" fill="currentColor" width="15" height="15" aria-hidden="true">
-                <path fill-rule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm-.75-9.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        <div class="edit-alert edit-alert--error" id="globalError" hidden>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18ZM9.25 7.75C9.25 7.33579 9.58579 7 10 7C10.4142 7 10.75 7.33579 10.75 7.75V11.75C10.75 12.1642 10.4142 12.5 10 12.5C9.58579 12.5 9.25 12.1642 9.25 11.75V7.75ZM10 14.5C9.44772 14.5 9 14.9477 9 15.5C9 16.0523 9.44772 16.5 10 16.5C10.5523 16.5 11 16.0523 11 15.5C11 14.9477 10.5523 14.5 10 14.5Z" fill="currentColor"/>
             </svg>
             <span id="globalErrorText"></span>
         </div>
@@ -67,122 +66,143 @@
         <input type="hidden" id="itemId" value="@Model.ItemId" />
         <input type="hidden" id="shopId" value="@Model.ShopId" />
 
-        @* ══ Item Details ════════════════════════════════════════════════════════ *@
-        <div class="ic-card">
-            <div class="ic-card__label">Item Details</div>
-            <div class="ic-grid">
+        <div class="edit-grid">
+            <div class="edit-main">
+                @* Basic Details Card *@
+                <div class="edit-card">
+                    <div class="edit-card__header">
+                        <h2 class="edit-card__title">Basic Details</h2>
+                    </div>
+                    <div class="edit-card__body">
+                        <div class="edit-field">
+                            <label class="edit-field__label" for="itemTitle">Title</label>
+                            <input id="itemTitle" type="text" class="edit-field__input" 
+                                   value="@Model.Title" maxlength="100" placeholder="e.g., Vintage Levi's Denim Jacket" />
+                            <p class="edit-field__error" id="errTitle" hidden></p>
+                        </div>
 
-                <div class="ic-field ic-field--full">
-                    <label class="ic-field__label" for="itemTitle">Title</label>
-                    <input id="itemTitle" type="text" class="ic-field__input"
-                           value="@Model.Title" maxlength="100" />
-                    <p class="ic-field__error" id="errTitle" hidden></p>
+                        <div class="edit-field">
+                            <label class="edit-field__label" for="itemDesc">Description</label>
+                            <textarea id="itemDesc" class="edit-field__textarea" rows="5" 
+                                      maxlength="1000" placeholder="Describe your item in detail...">@Model.Description</textarea>
+                            <p class="edit-field__error" id="errDesc" hidden></p>
+                        </div>
+
+                        <div class="edit-field-group">
+                            <div class="edit-field">
+                                <label class="edit-field__label" for="itemCategory">Category</label>
+                                <select id="itemCategory" class="edit-field__select">
+                                    @foreach (var cat in ShopItemEditViewModel.Categories)
+                                    {
+                                        @if (Model.Category == cat)
+                                        {
+                                            <option value="@cat" selected>@cat</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@cat">@cat</option>
+                                        }
+                                    }
+                                </select>
+                                <p class="edit-field__error" id="errCategory" hidden></p>
+                            </div>
+
+                            <div class="edit-field">
+                                <label class="edit-field__label" for="itemCondition">Condition</label>
+                                <select id="itemCondition" class="edit-field__select">
+                                    @foreach (var cond in ShopItemEditViewModel.Conditions)
+                                    {
+                                        @if (Model.Condition == cond)
+                                        {
+                                            <option value="@cond" selected>@cond</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@cond">@cond</option>
+                                        }
+                                    }
+                                </select>
+                                <p class="edit-field__error" id="errCondition" hidden></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="ic-field ic-field--full">
-                    <label class="ic-field__label" for="itemDesc">Description</label>
-                    <textarea id="itemDesc" class="ic-field__textarea" rows="4"
-                              maxlength="1000">@Model.Description</textarea>
-                    <p class="ic-field__error" id="errDesc" hidden></p>
+                @* Images Card *@
+                <div class="edit-card">
+                    <div class="edit-card__header">
+                        <h2 class="edit-card__title">Images</h2>
+                        <span class="edit-card__badge">Up to @ItemConstants.MaxImagesPerListing</span>
+                    </div>
+                    <div class="edit-card__body">
+                        <div class="edit-images" id="imageGrid"></div>
+                        <p class="edit-field__error" id="errImages" hidden></p>
+                    </div>
                 </div>
 
-                <div class="ic-field">
-                    <label class="ic-field__label" for="itemCategory">Category</label>
-                    <select id="itemCategory" class="ic-field__select">
-                        @foreach (var cat in ShopItemEditViewModel.Categories)
-                        {
-                            @if (Model.Category == cat)
-                            {
-                                <option value="@cat" selected>@cat</option>
-                            }
-                            else
-                            {
-                                <option value="@cat">@cat</option>
-                            }
-                        }
-                    </select>
-                    <p class="ic-field__error" id="errCategory" hidden></p>
+                @* Variants Card *@
+                <div class="edit-card">
+                    <div class="edit-card__header">
+                        <div>
+                            <h2 class="edit-card__title">Variants & Inventory</h2>
+                            <p class="edit-card__hint">Variants with existing orders will have stock zeroed instead of deleted</p>
+                        </div>
+                        <button type="button" class="edit-btn edit-btn--outline" id="addVariantBtn">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.75v4.25a.75.75 0 01-1.5 0V8.5H3a.75.75 0 010-1.5h4.25V2.75A.75.75 0 018 2z"/>
+                            </svg>
+                            Add Variant
+                        </button>
+                    </div>
+                    <div class="edit-card__body">
+                        <div id="variantList" class="edit-variant-list"></div>
+                        <p class="edit-field__error" id="errVariants" hidden></p>
+                    </div>
                 </div>
+            </div>
 
-                <div class="ic-field">
-                    <label class="ic-field__label" for="itemCondition">Condition</label>
-                    <select id="itemCondition" class="ic-field__select">
-                        @foreach (var cond in ShopItemEditViewModel.Conditions)
-                        {
-                            @if (Model.Condition == cond)
-                            {
-                                <option value="@cond" selected>@cond</option>
-                            }
-                            else
-                            {
-                                <option value="@cond">@cond</option>
-                            }
-                        }
-                    </select>
-                    <p class="ic-field__error" id="errCondition" hidden></p>
+            <div class="edit-sidebar">
+                <div class="edit-card edit-card--sticky">
+                    <div class="edit-card__body">
+                        <div class="edit-sidebar__actions">
+                            <a asp-controller="Shop" asp-action="Details" asp-route-id="@Model.ItemId" 
+                               class="edit-btn edit-btn--ghost edit-btn--full">Cancel</a>
+                            <button type="button" class="edit-btn edit-btn--primary edit-btn--full" id="saveBtn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.25 1.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zM11.5 4.5a.75.75 0 010 1.5h-7a.75.75 0 010-1.5h7zM9.25 7.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zM7.5 10.5a.75.75 0 010 1.5h-3a.75.75 0 010-1.5h3z"/>
+                                </svg>
+                                Save Changes
+                            </button>
+                        </div>
+                        <div class="edit-sidebar__info">
+                            <p class="edit-sidebar__text">Changes are saved immediately when you click Save.</p>
+                        </div>
+                    </div>
                 </div>
-
             </div>
         </div>
-
-        @* ══ Images ══════════════════════════════════════════════════════════════ *@
-        <div class="ic-card">
-            <div class="ic-card__label">
-                Images
-                <span class="ic-card__label-hint">Up to @ItemConstants.MaxImagesPerListing · Changes save immediately</span>
-            </div>
-            <div class="ic-images" id="imageGrid"></div>
-            <p class="ic-field__error" id="errImages" hidden></p>
-        </div>
-
-        @* ══ Variants ════════════════════════════════════════════════════════════ *@
-        <div class="ic-card">
-            <div class="ic-card__label-row">
-                <div>
-                    <div class="ic-card__label">Variants</div>
-                    <p class="ic-card__label-hint ic-card__label-hint--block">
-                        Removed variants with existing orders will have their stock zeroed instead of deleted.
-                    </p>
-                </div>
-                <button type="button" class="tl-btn tl-btn--ghost" id="addVariantBtn">
-                    <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
-                        <path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z" />
-                    </svg>
-                    Add Variant
-                </button>
-            </div>
-            <div id="variantList" class="ic-variant-list"></div>
-            <p class="ic-field__error" id="errVariants" hidden></p>
-        </div>
-
-        <div class="ic-footer">
-            <a asp-controller="Shop" asp-action="Details" asp-route-id="@Model.ItemId"
-               class="tl-btn tl-btn--ghost">Cancel</a>
-            <button type="button" class="tl-btn tl-btn--primary" id="saveBtn">Save Changes</button>
-        </div>
-
     </div>
 
     @* SKU row template *@
     <template id="skuTemplate">
-        <div class="ic-sku-row">
-            <select class="ic-field__select ic-sku__size">
+        <div class="edit-sku-row">
+            <select class="edit-field__select edit-sku__size">
                 <option value="">No size</option>
                 @foreach (var sz in ShopItemEditViewModel.Sizes)
                 {
                     <option value="@sz">@sz</option>
                 }
             </select>
-            <div class="ic-sku__price-wrap">
-                <span class="ic-sku__currency">₱</span>
-                <input type="number" class="ic-field__input ic-sku__price"
+            <div class="edit-price-input">
+                <span class="edit-price-input__symbol">₱</span>
+                <input type="number" class="edit-field__input edit-sku__price"
                        placeholder="0.00" min="0.01" step="0.01" />
             </div>
-            <input type="number" class="ic-field__input ic-sku__qty"
+            <input type="number" class="edit-field__input edit-sku__qty"
                    placeholder="Qty" min="1" max="9999" step="1" />
-            <button type="button" class="ic-sku__remove" aria-label="Remove SKU">
-                <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13">
-                    <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+            <button type="button" class="edit-sku__remove" aria-label="Remove SKU">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
                 </svg>
             </button>
         </div>
@@ -253,46 +273,39 @@
                 imageGrid.innerHTML = '';
                 imageSlots.forEach((slot, i) => {
                     const label = document.createElement('label');
-                    label.className = 'ic-image-slot' + (i === 0 ? ' ic-image-slot--cover' : '');
+                    label.className = 'edit-image-slot' + (i === 0 ? ' edit-image-slot--cover' : '');
 
                     if (slot.type === 'empty') {
                         const input = document.createElement('input');
                         input.type = 'file';
                         input.accept = 'image/jpeg,image/png,image/webp,image/gif';
-                        input.className = 'ic-image-slot__input';
+                        input.className = 'edit-image-slot__input';
                         input.addEventListener('change', () => handleNewImage(i, input.files[0]));
                         label.appendChild(input);
 
                         const empty = document.createElement('div');
-                        empty.className = 'ic-image-slot__empty';
-                        empty.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="1.5" width="22" height="22">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0
-                                     01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0
-                                     013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
-                        </svg><span>${i === 0 ? 'Cover' : '+'}</span>`;
+                        empty.className = 'edit-image-slot__empty';
+                        empty.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
+                        </svg><span>${i === 0 ? 'Cover' : 'Add'}</span>`;
                         label.appendChild(empty);
-
                     } else {
                         const img = document.createElement('img');
                         img.src = slot.type === 'existing' ? slot.url : URL.createObjectURL(slot.file);
-                        img.className = 'ic-image-slot__preview';
+                        img.className = 'edit-image-slot__preview';
                         label.appendChild(img);
 
                         if (i === 0) {
                             const badge = document.createElement('span');
-                            badge.className = 'ic-image-slot__badge';
+                            badge.className = 'edit-image-slot__badge';
                             badge.textContent = 'Cover';
                             label.appendChild(badge);
                         }
 
-                        label.style.cursor = 'default';
-
                         const removeBtn = document.createElement('button');
                         removeBtn.type = 'button';
-                        removeBtn.className = 'ic-image-slot__remove';
-                        removeBtn.innerHTML = '&times;';
+                        removeBtn.className = 'edit-image-slot__remove';
+                        removeBtn.innerHTML = '×';
                         removeBtn.addEventListener('click', e => { e.preventDefault(); removeSlot(i); });
                         label.appendChild(removeBtn);
                     }
@@ -303,7 +316,7 @@
 
             async function handleNewImage(slot, file) {
                 if (!file) return;
-                if (file.size > 5 * 1024 * 1024) { showError('errImages', `Image exceeds 5 MB.`); return; }
+                if (file.size > 5 * 1024 * 1024) { showError('errImages', 'Image exceeds 5 MB.'); return; }
                 showError('errImages', '');
 
                 const fd = new FormData();
@@ -341,59 +354,73 @@
 
             function addVariant(existingVariant) {
                 const card = document.createElement('div');
-                card.className = 'ic-variant-card';
+                card.className = 'edit-variant-card';
 
                 const vId = existingVariant?.variantId ?? null;
                 if (vId) card.dataset.variantId = vId;
 
                 card.innerHTML = `
-                    <div class="ic-variant-header">
-                        <div class="ic-field" style="flex:1">
-                            <label class="ic-field__label">Variant Name</label>
-                            <input type="text" class="ic-field__input ic-variant__name"
-                                   value="${existingVariant?.name ?? ''}"
-                                   placeholder="e.g. Red, Navy, Classic Fit" maxlength="50" />
-                            <p class="ic-field__error ic-variant__name-error" hidden></p>
+                    <div class="edit-variant-header">
+                        <div class="edit-variant-name">
+                            <label class="edit-field__label">Variant Name</label>
+                            <input type="text" class="edit-field__input edit-variant__name"
+                                   value="${escapeHtml(existingVariant?.name ?? '')}"
+                                   placeholder="e.g., Red, Navy, Classic Fit" maxlength="50" />
+                            <p class="edit-field__error edit-variant__name-error" hidden></p>
                         </div>
-                        <button type="button" class="ic-variant__remove" aria-label="Remove variant">
-                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                        <button type="button" class="edit-variant__remove" aria-label="Remove variant">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M11 1.75V3h2.25a.75.75 0 010 1.5H2.75a.75.75 0 010-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75zM4.496 6.675a.75.75 0 10-1.492.15l.66 6.6A1.75 1.75 0 005.405 15h5.19a1.75 1.75 0 001.741-1.575l.66-6.6a.75.75 0 10-1.492-.15l-.66 6.6a.25.25 0 01-.249.225H5.405a.25.25 0 01-.249-.225l-.66-6.6z"/>
                             </svg>
                         </button>
                     </div>
-                    <div class="ic-sku-list">
-                        <div class="ic-sku-header">
-                            <span>Size</span><span>Price</span><span>Quantity</span><span></span>
+                    <div class="edit-sku-table">
+                        <div class="edit-sku-table__header">
+                            <span>Size</span>
+                            <span>Price</span>
+                            <span>Quantity</span>
+                            <span></span>
                         </div>
+                        <div class="edit-sku-table__body"></div>
                     </div>
-                    <button type="button" class="tl-btn tl-btn--ghost ic-add-sku">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
-                            <path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z"/>
+                    <button type="button" class="edit-btn edit-btn--small edit-btn--outline edit-add-sku">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.75v4.25a.75.75 0 01-1.5 0V8.5H3a.75.75 0 010-1.5h4.25V2.75A.75.75 0 018 2z"/>
                         </svg>
-                        Add Size / SKU
+                        Add SKU
                     </button>
-                    <p class="ic-field__error ic-variant__sku-error" hidden></p>`;
+                    <p class="edit-field__error edit-variant__sku-error" hidden></p>`;
 
-                card.querySelector('.ic-variant__remove').addEventListener('click', () => card.remove());
-                card.querySelector('.ic-add-sku').addEventListener('click', () =>
-                    addSku(card.querySelector('.ic-sku-list'), null));
+                const skuBody = card.querySelector('.edit-sku-table__body');
+                card.querySelector('.edit-variant__remove').addEventListener('click', () => card.remove());
+                card.querySelector('.edit-add-sku').addEventListener('click', () => addSku(skuBody, null));
 
                 variantList.appendChild(card);
 
                 if (existingVariant?.skus?.length) {
-                    existingVariant.skus.forEach(s => addSku(card.querySelector('.ic-sku-list'), s));
+                    existingVariant.skus.forEach(s => addSku(skuBody, s));
                 } else {
-                    addSku(card.querySelector('.ic-sku-list'), null);
+                    addSku(skuBody, null);
                 }
             }
 
-            function addSku(skuList, existingSku) {
-                const row = skuTemplate.content.cloneNode(true).querySelector('.ic-sku-row');
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    return m;
+                });
+            }
+
+            function addSku(skuBody, existingSku) {
+                const row = skuTemplate.content.cloneNode(true).querySelector('.edit-sku-row');
                 if (existingSku?.skuId) row.dataset.skuId = existingSku.skuId;
 
-                const sizeSelect = row.querySelector('.ic-sku__size');
-                const priceInput = row.querySelector('.ic-sku__price');
-                const qtyInput   = row.querySelector('.ic-sku__qty');
+                const sizeSelect = row.querySelector('.edit-sku__size');
+                const priceInput = row.querySelector('.edit-sku__price');
+                const qtyInput   = row.querySelector('.edit-sku__qty');
 
                 if (existingSku) {
                     if (existingSku.size) sizeSelect.value = existingSku.size;
@@ -401,8 +428,8 @@
                     qtyInput.value   = existingSku.quantity;
                 }
 
-                row.querySelector('.ic-sku__remove').addEventListener('click', () => row.remove());
-                skuList.appendChild(row);
+                row.querySelector('.edit-sku__remove').addEventListener('click', () => row.remove());
+                skuBody.appendChild(row);
             }
 
             EXISTING_VARIANTS.forEach(v => addVariant(v));
@@ -431,24 +458,24 @@
                 if (!category)  { showError('errCategory', 'Please select a category.');   valid = false; }
                 if (!condition) { showError('errCondition','Please select a condition.');   valid = false; }
 
-                const variantCards = variantList.querySelectorAll('.ic-variant-card');
+                const variantCards = variantList.querySelectorAll('.edit-variant-card');
                 if (!variantCards.length) { showError('errVariants', 'Add at least one variant.'); valid = false; }
 
                 const variants = [];
                 variantCards.forEach(card => {
-                    const nameInput = card.querySelector('.ic-variant__name');
-                    const nameErr   = card.querySelector('.ic-variant__name-error');
-                    const skuErr    = card.querySelector('.ic-variant__sku-error');
+                    const nameInput = card.querySelector('.edit-variant__name');
+                    const nameErr   = card.querySelector('.edit-variant__name-error');
+                    const skuErr    = card.querySelector('.edit-variant__sku-error');
                     nameErr.hidden = skuErr.hidden = true;
 
                     const name = nameInput.value.trim();
                     if (!name) { nameErr.textContent = 'Variant name is required.'; nameErr.hidden = false; valid = false; }
 
                     const skus = [];
-                    card.querySelectorAll('.ic-sku-row').forEach(row => {
-                        const price = parseFloat(row.querySelector('.ic-sku__price').value);
-                        const qty   = parseInt(row.querySelector('.ic-sku__qty').value, 10);
-                        const size  = row.querySelector('.ic-sku__size').value;
+                    card.querySelectorAll('.edit-sku-row').forEach(row => {
+                        const price = parseFloat(row.querySelector('.edit-sku__price').value);
+                        const qty   = parseInt(row.querySelector('.edit-sku__qty').value, 10);
+                        const size  = row.querySelector('.edit-sku__size').value;
 
                         if (isNaN(price) || price <= 0) { skuErr.textContent = 'All SKUs need a valid price.'; skuErr.hidden = false; valid = false; return; }
                         if (isNaN(qty)   || qty < 1)    { skuErr.textContent = 'All SKUs need a valid quantity.'; skuErr.hidden = false; valid = false; return; }
@@ -474,18 +501,17 @@
 
                 const btn = document.getElementById('saveBtn');
                 btn.disabled    = true;
-                btn.textContent = 'Saving…';
-
+                btn.innerHTML   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Saving...';
+                
                 const res = await postJson(EDIT_URL, payload);
 
                 btn.disabled    = false;
-                btn.textContent = 'Save Changes';
+                btn.innerHTML   = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.25 1.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zM11.5 4.5a.75.75 0 010 1.5h-7a.75.75 0 010-1.5h7zM9.25 7.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zM7.5 10.5a.75.75 0 010 1.5h-3a.75.75 0 010-1.5h3z"/></svg>Save Changes';
 
                 if (!res.ok) { showGlobal(res.error ?? 'Failed to save changes.'); return; }
 
                 window.location.href = `/Shop/Details/@Model.ItemId`;
             });
-
         }());
     </script>
 </body>

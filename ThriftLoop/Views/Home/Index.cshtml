@@ -272,32 +272,35 @@
                                         <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
                                     </div>
 
+                                    @* Price display section in the card body *@
                                     <h2 class="fy-card__title">@item.Title</h2>
                                     <p class="fy-card__price">
                                         @if (isShopItem)
                                         {
                                             <span class="fy-card__from-label">From </span>
+                                            @if (Model.ShopItemPriceDisplay.ContainsKey(item.Id))
+                                            {
+                                                @Model.ShopItemPriceDisplay[item.Id]
+                                            }
+                                            else
+                                            {
+                                                <span>₱@item.Price.ToString("N2")</span>
+                                            }
+        
+                                            @if (isStealable && item.Status == ItemStatus.Available)
+                                            {
+                                                <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                            }
                                         }
-                                        ₱@item.Price.ToString("N2")
-                                        @if (isStealable && item.Status == ItemStatus.Available)
+                                        else
                                         {
-                                            <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                            <span>₱@item.Price.ToString("N2")</span>
+                                            @if (isStealable && item.Status == ItemStatus.Available)
+                                            {
+                                                <span class="fy-card__steal-hint">+₱50 if stolen</span>
+                                            }
                                         }
                                     </p>
-
-                                    @if (isShopItem)
-                                    {
-                                        <a asp-action="Details" asp-controller="Shop"
-                                           asp-route-id="@item.Id" class="fy-card__link"
-                                           aria-label="View details for @item.Title"></a>
-                                    }
-                                    else
-                                    {
-                                        <a asp-action="Details" asp-controller="Items"
-                                           asp-route-id="@item.Id" class="fy-card__link"
-                                           aria-label="View details for @item.Title"></a>
-                                    }
-                                </div>
 
                                 @if (isOwner)
                                 {

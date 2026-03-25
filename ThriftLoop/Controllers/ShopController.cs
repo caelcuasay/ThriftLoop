@@ -136,37 +136,79 @@ public class ShopController : Controller
     [RequestSizeLimit(ItemConstants.MaxImageSizeBytes + 1024)]
     public async Task<IActionResult> SaveImage(int shopId, string field, IFormFile? file)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null) return Json(new { ok = false, error = "Not authenticated." });
+        _logger.LogInformation($"SaveImage called - ShopId: {shopId}, Field: {field}, File: {file?.FileName ?? "null"}");
 
-        var (fileErr, _) = ValidateImageFile(file);
-        if (fileErr is not null) return Json(new { ok = false, error = fileErr });
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            _logger.LogWarning("User not authenticated");
+            return Json(new { ok = false, error = "Not authenticated." });
+        }
+
+        var (fileErr, validatedFile) = ValidateImageFile(file);
+        if (fileErr is not null)
+        {
+            _logger.LogWarning($"File validation failed: {fileErr}");
+            return Json(new { ok = false, error = fileErr });
+        }
 
         if (field is not ("BannerUrl" or "LogoUrl"))
+        {
+            _logger.LogWarning($"Invalid field: {field}");
             return Json(new { ok = false, error = "Unknown image field." });
+        }
 
         var shop = await _shopRepo.GetByIdAsync(shopId);
         if (shop is null || shop.UserId != userId.Value)
+        {
+            _logger.LogWarning($"Permission denied - Shop exists: {shop != null}, User matches: {shop?.UserId == userId.Value}");
             return Json(new { ok = false, error = "Permission denied." });
+        }
 
-        var ext = Path.GetExtension(file!.FileName).ToLowerInvariant();
+        var ext = Path.GetExtension(validatedFile!.FileName).ToLowerInvariant();
         var fileName = field == "BannerUrl" ? $"banner{ext}" : $"logo{ext}";
         var folder = Path.Combine(_env.WebRootPath, "uploads", "shops", shopId.ToString());
 
-        Directory.CreateDirectory(folder);
-        var filePath = Path.Combine(folder, fileName);
+        _logger.LogInformation($"Saving to folder: {folder}, fileName: {fileName}");
 
-        PurgeSlot(folder, Path.GetFileNameWithoutExtension(fileName), filePath);
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var filePath = Path.Combine(folder, fileName);
 
-        await using (var s = new FileStream(filePath, FileMode.Create))
-            await file.CopyToAsync(s);
+            // Delete old files with same base name but different extension
+            PurgeSlot(folder, Path.GetFileNameWithoutExtension(fileName), filePath);
 
-        var url = $"/uploads/shops/{shopId}/{fileName}";
-        if (field == "BannerUrl") shop.BannerUrl = url;
-        else shop.LogoUrl = url;
+            // Save the new file
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+                await validatedFile.CopyToAsync(stream);
 
-        await _shopRepo.UpdateAsync(shop);
-        return Json(new { ok = true, url });
+            var url = $"/uploads/shops/{shopId}/{fileName}";
+            _logger.LogInformation($"Generated URL: {url}");
+
+            // Update the shop entity
+            if (field == "BannerUrl")
+            {
+                shop.BannerUrl = url;
+                _logger.LogInformation($"Updated shop.BannerUrl to: {url}");
+            }
+            else
+            {
+                shop.LogoUrl = url;
+                _logger.LogInformation($"Updated shop.LogoUrl to: {url}");
+            }
+
+            // Save changes - now the entity is tracked because we removed AsNoTracking()
+            await _shopRepo.UpdateAsync(shop);
+            _logger.LogInformation($"Shop updated successfully");
+
+            return Json(new { ok = true, url });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving image for shop {ShopId}", shopId);
+            return Json(new { ok = false, error = "Failed to save image. Please try again." });
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -297,7 +339,7 @@ public class ShopController : Controller
         var userId = GetCurrentUserId();
         if (userId is null) return Json(new { ok = false, error = "Not authenticated." });
 
-        var (fileErr, _) = ValidateImageFile(file);
+        var (fileErr, validatedFile) = ValidateImageFile(file);
         if (fileErr is not null) return Json(new { ok = false, error = fileErr });
 
         if (slot < 0 || slot >= ItemConstants.MaxImagesPerListing)
@@ -307,7 +349,7 @@ public class ShopController : Controller
         if (item is null || item.UserId != userId.Value)
             return Json(new { ok = false, error = "Permission denied." });
 
-        var ext = Path.GetExtension(file!.FileName).ToLowerInvariant();
+        var ext = Path.GetExtension(validatedFile!.FileName).ToLowerInvariant();
         var fileName = $"{slot}{ext}";
         var folder = Path.Combine(_env.WebRootPath, "uploads", "items", itemId.ToString());
 
@@ -316,7 +358,7 @@ public class ShopController : Controller
         PurgeSlot(folder, slot.ToString(), filePath);
 
         await using (var s = new FileStream(filePath, FileMode.Create))
-            await file.CopyToAsync(s);
+            await validatedFile.CopyToAsync(s);
 
         var url = $"/uploads/items/{itemId}/{fileName}";
 
@@ -607,9 +649,23 @@ public class ShopController : Controller
     /// </summary>
     private static void PurgeSlot(string folder, string baseName, string keepPath)
     {
+        if (!Directory.Exists(folder)) return;
+
         foreach (var old in Directory.GetFiles(folder, $"{baseName}.*"))
+        {
             if (!old.Equals(keepPath, StringComparison.OrdinalIgnoreCase))
-                System.IO.File.Delete(old);
+            {
+                try
+                {
+                    System.IO.File.Delete(old);
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't throw - we can continue with the new file
+                    Console.WriteLine($"Failed to delete old file {old}: {ex.Message}");
+                }
+            }
+        }
     }
 
     private void DeleteListingImageFile(string? url)
@@ -619,6 +675,16 @@ public class ShopController : Controller
         var segments = url.TrimStart('/').Split('/');
         if (segments.Length < 3) return;
         var fullPath = Path.Combine(_env.WebRootPath, Path.Combine(segments));
-        if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
+        if (System.IO.File.Exists(fullPath))
+        {
+            try
+            {
+                System.IO.File.Delete(fullPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete image file: {Path}", fullPath);
+            }
+        }
     }
 }

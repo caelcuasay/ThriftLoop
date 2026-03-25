@@ -88,7 +88,28 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// Configure static files with cache control for uploads
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Disable caching for uploaded images to ensure they always show the latest version
+        if (ctx.Context.Request.Path.StartsWithSegments("/uploads"))
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+            ctx.Context.Response.Headers.Append("Pragma", "no-cache");
+            ctx.Context.Response.Headers.Append("Expires", "0");
+        }
+        // For CSS/JS files, use versioning (already handled by asp-append-version)
+        else if (ctx.Context.Request.Path.StartsWithSegments("/css") ||
+                 ctx.Context.Request.Path.StartsWithSegments("/js"))
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=31536000");
+        }
+    }
+});
+
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();

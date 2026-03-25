@@ -25,13 +25,58 @@ public class HomeController : BaseController
     /// </summary>
     public async Task<IActionResult> Index()
     {
+        var items = await _itemRepository.GetAllAsync();
+
+        // Calculate price ranges for shop items
+        var priceDisplayDict = new Dictionary<int, string>();
+        foreach (var item in items.Where(i => i.ShopId.HasValue))
+        {
+            priceDisplayDict[item.Id] = await GetItemPriceDisplayAsync(item);
+        }
+
         var viewModel = new HomeIndexViewModel
         {
-            Items = await _itemRepository.GetAllAsync(),
-            CurrentUserId = ResolveUserId()
+            Items = items,
+            CurrentUserId = ResolveUserId(),
+            ShopItemPriceDisplay = priceDisplayDict
         };
 
         return View(viewModel);
+    }
+
+    private async Task<string> GetItemPriceDisplayAsync(Item item)
+    {
+        if (!item.ShopId.HasValue)
+        {
+            return $"₱{item.Price:N2}";
+        }
+
+        // Load variants and SKUs for price calculation
+        var itemWithVariants = await _itemRepository.GetByIdWithVariantsAsync(item.Id);
+        if (itemWithVariants == null || !itemWithVariants.Variants.Any())
+        {
+            return $"₱{item.Price:N2}";
+        }
+
+        var allSkus = itemWithVariants.Variants
+            .SelectMany(v => v.Skus)
+            .Where(s => s.Status == Enums.SkuStatus.Available)
+            .ToList();
+
+        if (!allSkus.Any())
+        {
+            return $"₱{item.Price:N2}";
+        }
+
+        var minPrice = allSkus.Min(s => s.Price);
+        var maxPrice = allSkus.Max(s => s.Price);
+
+        if (Math.Abs(minPrice - maxPrice) < 0.01m)
+        {
+            return $"₱{minPrice:N2}";
+        }
+
+        return $"₱{minPrice:N2} - ₱{maxPrice:N2}";
     }
 
     public IActionResult Privacy() => View();

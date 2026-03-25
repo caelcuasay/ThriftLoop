@@ -15,4 +15,10 @@ public class HomeIndexViewModel
     /// The authenticated user's ID, or null if the request is anonymous.
     /// </summary>
     public int? CurrentUserId { get; init; }
+
+    /// <summary>
+    /// Price display info for shop items (min-max range)
+    /// Key: Item Id, Value: formatted price string (e.g., "₱500 - ₱1,200" or just "₱500")
+    /// </summary>
+    public Dictionary<int, string> ShopItemPriceDisplay { get; init; } = new();
 }
