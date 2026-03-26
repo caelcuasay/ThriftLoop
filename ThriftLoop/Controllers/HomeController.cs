@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
@@ -20,11 +22,19 @@ public class HomeController : BaseController
 
     /// <summary>
     /// GET / — public feed showing all listed items.
+    /// Riders are redirected to their dashboard.
     /// Authenticated users see ownership state per card (no buy buttons on own items).
     /// Anonymous visitors see buy buttons on every card.
     /// </summary>
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+        {
+            _logger.LogInformation("Rider attempted to access Home/Index, redirecting to Rider dashboard.");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var items = await _itemRepository.GetAllAsync();
 
         // Calculate price ranges for shop items

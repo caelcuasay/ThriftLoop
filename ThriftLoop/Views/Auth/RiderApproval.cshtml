@@ -1,0 +1,91 @@
+﻿@{
+    ViewData["Title"] = "Rider Application Status";
+    Layout = null;
+    var isApproved = ViewBag.IsApproved ?? false;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth-shell">
+
+        <aside class="auth-panel auth-panel--brand">
+            <div class="brand-wordmark">ThriftLoop</div>
+            <p class="brand-tagline">@(isApproved ? "Welcome aboard!" : "Application pending")</p>
+            <div class="brand-decoration" aria-hidden="true">
+                <span class="deco-ring deco-ring--lg"></span>
+                <span class="deco-ring deco-ring--md"></span>
+                <span class="deco-ring deco-ring--sm"></span>
+            </div>
+        </aside>
+
+        <main class="auth-panel auth-panel--form">
+            <div class="form-card">
+
+                @if (isApproved)
+                {
+                    <header class="form-card__header">
+                        <h1 class="form-card__title">Application Approved!</h1>
+                        <p class="form-card__subtitle">
+                            Your rider account has been approved. You can now access the rider dashboard.
+                        </p>
+                    </header>
+
+                    <div class="confirm-icon" aria-hidden="true" style="color: #10b981;">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
+                            <path d="M14 24l6 6 14-14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+
+                    <div class="form-card__footer">
+                        <a asp-controller="Rider" asp-action="Index" class="btn btn--primary" style="text-decoration: none; display: inline-block;">
+                            Go to Dashboard
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <header class="form-card__header">
+                        <h1 class="form-card__title">Application Submitted</h1>
+                        <p class="form-card__subtitle">
+                            Thank you for applying to become a ThriftLoop rider.
+                        </p>
+                    </header>
+
+                    <div class="confirm-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
+                            <path d="M24 12v12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3" />
+                        </svg>
+                    </div>
+
+                    <div class="alert alert--info" role="alert" style="background: #eff6ff; border-color: #3b82f6; color: #1e3a8a;">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20" style="flex-shrink: 0;"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
+                        <span>Your application is pending review. An administrator will review it shortly. You'll receive an email notification once approved.</span>
+                    </div>
+
+                    <footer class="form-card__footer">
+                        <p>
+                            <a asp-action="Login" asp-controller="Auth" class="footer-link">Return to sign in</a>
+                        </p>
+                    </footer>
+                }
+
+            </div>
+        </main>
+
+    </div>
+</body>
+</html>

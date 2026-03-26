@@ -13,16 +13,21 @@ namespace ThriftLoop.Controllers;
 public class AuthController : Controller
 {
     private readonly IAuthService _authService;
+    private readonly IRiderAuthService _riderAuthService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(
+        IAuthService authService,
+        IRiderAuthService riderAuthService,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
+        _riderAuthService = riderAuthService;
         _logger = logger;
     }
 
     // ─────────────────────────────────────────
-    //  REGISTER
+    //  REGISTER (Regular User)
     // ─────────────────────────────────────────
 
     [HttpGet]
@@ -58,7 +63,68 @@ public class AuthController : Controller
     }
 
     // ─────────────────────────────────────────
-    //  LOGIN
+    //  RIDER REGISTER
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult RiderRegister()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToAction("Index", "Home");
+
+        return View();
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RiderRegister(RiderRegisterDTO dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
+
+        var rider = await _riderAuthService.RegisterAsync(dto);
+
+        if (rider is null)
+        {
+            ModelState.AddModelError(nameof(dto.Email), "An account with this email already exists.");
+            return View(dto);
+        }
+
+        await SignInRiderAsync(rider, rememberMe: false);
+
+        _logger.LogInformation("Rider {RiderId} registered and signed in.", rider.Id);
+        return RedirectToAction("RiderApproval");
+    }
+
+    // ─────────────────────────────────────────
+    //  RIDER APPROVAL STATUS
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> RiderApproval()
+    {
+        var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(riderIdClaim, out var riderId))
+        {
+            return RedirectToAction("Login");
+        }
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login");
+        }
+
+        ViewBag.IsApproved = rider.IsApproved;
+        return View();
+    }
+
+    // ─────────────────────────────────────────
+    //  LOGIN (Handles both User and Rider)
     // ─────────────────────────────────────────
 
     [HttpGet]
@@ -66,7 +132,19 @@ public class AuthController : Controller
     public IActionResult Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
+        {
+            // Check if authenticated user is a rider
+            var isRider = User.HasClaim(c => c.Type == "IsRider");
+            if (isRider)
+            {
+                var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(riderIdClaim, out var riderId))
+                {
+                    return RedirectToAction("Index", "Rider");
+                }
+            }
             return RedirectToLocal(returnUrl);
+        }
 
         ViewData["ReturnUrl"] = returnUrl;
         return View();
@@ -82,18 +160,33 @@ public class AuthController : Controller
         if (!ModelState.IsValid)
             return View(dto);
 
+        // First try to authenticate as a regular user
         var user = await _authService.ValidateCredentialsAsync(dto);
-
-        if (user is null)
+        if (user is not null)
         {
-            ModelState.AddModelError(string.Empty, "Invalid email or password.");
-            return View(dto);
+            await SignInUserAsync(user, dto.RememberMe);
+            _logger.LogInformation("User {UserId} logged in.", user.Id);
+            return RedirectToLocal(returnUrl);
         }
 
-        await SignInUserAsync(user, dto.RememberMe);
+        // Then try as a rider
+        var rider = await _riderAuthService.ValidateCredentialsAsync(dto);
+        if (rider is not null)
+        {
+            if (!rider.IsApproved)
+            {
+                await SignInRiderAsync(rider, dto.RememberMe);
+                _logger.LogInformation("Rider {RiderId} logged in but not approved, redirecting to approval page.", rider.Id);
+                return RedirectToAction("RiderApproval");
+            }
 
-        _logger.LogInformation("User {UserId} logged in.", user.Id);
-        return RedirectToLocal(returnUrl);
+            await SignInRiderAsync(rider, dto.RememberMe);
+            _logger.LogInformation("Rider {RiderId} logged in.", rider.Id);
+            return RedirectToAction("Index", "Rider");
+        }
+
+        ModelState.AddModelError(string.Empty, "Invalid email or password.");
+        return View(dto);
     }
 
     // ─────────────────────────────────────────
@@ -125,7 +218,6 @@ public class AuthController : Controller
 
         await _authService.ForgotPasswordAsync(dto, resetUrl);
 
-        // Always show the confirmation — never reveal whether the email exists
         TempData["ForgotPasswordConfirm"] =
             "If an account with that email exists, a reset link has been sent.";
 
@@ -246,13 +338,6 @@ public class AuthController : Controller
     //  HELPERS
     // ─────────────────────────────────────────
 
-    /// <summary>
-    /// Issues the auth cookie with all identity claims.
-    /// Role is stamped here so that [Authorize(Roles = "Seller")] works on every
-    /// subsequent request without hitting the database. If a user's role changes
-    /// (e.g. they get approved as a Seller), they need to log out and back in
-    /// for the new role to take effect — this is expected and intentional.
-    /// </summary>
     private async Task SignInUserAsync(User user, bool rememberMe)
     {
         var claims = new List<Claim>
@@ -260,10 +345,36 @@ public class AuthController : Controller
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email,          user.Email),
             new(ClaimTypes.Name,           user.Email),
+            new(ClaimTypes.Role,           user.Role.ToString()),
+            new("IsRider", "false")
+        };
 
-            // Stamp the role so [Authorize(Roles = "Seller")] works without a DB hit.
-            // Role name matches the enum member name (e.g. "User", "Seller", "Rider", "Admin").
-            new(ClaimTypes.Role,           user.Role.ToString())
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        var authProperties = new AuthenticationProperties
+        {
+            IsPersistent = rememberMe,
+            ExpiresUtc = rememberMe
+                ? DateTimeOffset.UtcNow.AddDays(30)
+                : DateTimeOffset.UtcNow.AddHours(2)
+        };
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            authProperties);
+    }
+
+    private async Task SignInRiderAsync(Rider rider, bool rememberMe)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, rider.Id.ToString()),
+            new(ClaimTypes.Email,          rider.Email),
+            new(ClaimTypes.Name,           rider.Email),
+            new("IsRider", "true"),
+            new("FullName", rider.FullName ?? rider.Email)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

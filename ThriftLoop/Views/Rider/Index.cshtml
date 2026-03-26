@@ -1,0 +1,72 @@
+﻿@{
+    ViewData["Title"] = "Rider Dashboard";
+    var riderName = ViewBag.RiderName as string ?? "Rider";
+    Layout = null; // Explicitly set Layout to null to prevent double navbar
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    <partial name="_Navbar" />
+
+    <main class="container" style="max-width: 1280px; margin: 2rem auto; padding: 0 1rem;">
+        <div class="dashboard-header" style="margin-bottom: 2rem;">
+            <h1 style="font-size: 2rem; font-weight: 700; color: #111827;">Welcome, @riderName!</h1>
+            <p style="color: #6b7280; margin-top: 0.5rem;">This is your rider dashboard. Manage deliveries and track your earnings here.</p>
+        </div>
+
+        <div class="dashboard-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Available Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #3b82f6; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Orders ready for pickup</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Active Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #f59e0b; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Currently in progress</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Completed Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #10b981; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Successfully delivered</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Total Earnings</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #059669; margin: 0.5rem 0;">₦0.00</p>
+                <p style="color: #6b7280;">Lifetime earnings</p>
+            </div>
+        </div>
+
+        <div class="recent-activity" style="margin-top: 2rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Recent Activity</h2>
+            <div class="activity-list" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <p style="color: #6b7280; text-align: center; padding: 2rem;">No delivery activity yet. Check back for available deliveries.</p>
+            </div>
+        </div>
+    </main>
+
+    <style>
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</body>
+</html>

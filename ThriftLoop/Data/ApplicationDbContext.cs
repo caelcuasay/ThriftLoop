@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
 
     // ── DbSets ────────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
+    public DbSet<Rider> Riders => Set<Rider>();  // ← NEW
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
@@ -52,10 +53,30 @@ public class ApplicationDbContext : DbContext
                   .IsRequired(false).HasColumnType("datetime2");
 
             // ── Role ───────────────────────────────────────────────────────────
-            // MIGRATION: Add-Migration AddRolesAndSellerProfile → Update-Database
             entity.Property(u => u.Role)
                   .IsRequired()
                   .HasDefaultValue(UserRole.User);
+        });
+
+        // ── Riders ─────────────────────────────────────────────────────────────
+        modelBuilder.Entity<Rider>(entity =>
+        {
+            entity.ToTable("Riders");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Id).ValueGeneratedOnAdd();
+            entity.Property(r => r.Email)
+                  .IsRequired().HasMaxLength(256).IsUnicode(false);
+            entity.HasIndex(r => r.Email).IsUnique().HasDatabaseName("UQ_Riders_Email");
+            entity.Property(r => r.PasswordHash)
+                  .IsRequired(false).HasMaxLength(512).IsUnicode(false);
+            entity.Property(r => r.FullName)
+                  .IsRequired().HasMaxLength(100);
+            entity.Property(r => r.PhoneNumber)
+                  .IsRequired().HasMaxLength(20);
+            entity.Property(r => r.IsApproved)
+                  .IsRequired().HasDefaultValue(false);
+            entity.Property(r => r.CreatedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
         });
 
         // ── SellerProfiles ────────────────────────────────────────────────────
@@ -65,7 +86,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(sp => sp.Id);
             entity.Property(sp => sp.Id).ValueGeneratedOnAdd();
 
-            // One user → at most one seller profile.
             entity.HasIndex(sp => sp.UserId)
                   .IsUnique()
                   .HasDatabaseName("UQ_SellerProfiles_UserId");
@@ -92,13 +112,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(sp => sp.LogoUrl)
                   .IsRequired(false).HasMaxLength(512).IsUnicode(false);
 
-            // SellerProfile → User (1:1 from SellerProfile's side)
             entity.HasOne(sp => sp.User)
                   .WithOne(u => u.SellerProfile)
                   .HasForeignKey<SellerProfile>(sp => sp.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // SellerProfile → Items (1:many — a shop's listings)
             entity.HasMany(sp => sp.Items)
                   .WithOne(i => i.Shop)
                   .HasForeignKey(i => i.ShopId)
@@ -120,7 +138,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.Condition).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Size).IsRequired(false).HasMaxLength(10);
 
-            // ── ImageUrls: stored as a JSON array ─────────────────────────────
             var imageUrlsComparer = new ValueComparer<List<string>>(
                 (a, b) => a != null && b != null && a.SequenceEqual(b),
                 c => c.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
@@ -155,8 +172,6 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(i => i.IsInFinalizeWindow);
             entity.Ignore(i => i.FinalizeDeadline);
 
-            // ShopId is nullable — null means P2P listing.
-            // The SellerProfile relationship is configured on the SellerProfile side above.
             entity.Property(i => i.ShopId).IsRequired(false);
 
             entity.HasOne(i => i.User)
@@ -164,7 +179,6 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(i => i.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Item → ItemVariants (1:many)
             entity.HasMany(i => i.Variants)
                   .WithOne(v => v.Item)
                   .HasForeignKey(v => v.ItemId)
@@ -177,13 +191,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ItemVariants");
             entity.HasKey(v => v.Id);
             entity.Property(v => v.Id).ValueGeneratedOnAdd();
-
-            entity.Property(v => v.Name)
-                  .IsRequired().HasMaxLength(50);
-
-            // Relationship back to Item is configured on the Item side above.
-
-            // ItemVariant → ItemVariantSkus (1:many)
+            entity.Property(v => v.Name).IsRequired().HasMaxLength(50);
             entity.HasMany(v => v.Skus)
                   .WithOne(s => s.Variant)
                   .HasForeignKey(s => s.VariantId)
@@ -196,20 +204,10 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ItemVariantSkus");
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Id).ValueGeneratedOnAdd();
-
-            entity.Property(s => s.Size)
-                  .IsRequired(false).HasMaxLength(20);
-
-            entity.Property(s => s.Price)
-                  .IsRequired().HasColumnType("decimal(10,2)");
-
-            entity.Property(s => s.Quantity)
-                  .IsRequired().HasDefaultValue(1);
-
-            entity.Property(s => s.Status)
-                  .IsRequired().HasDefaultValue(SkuStatus.Available);
-
-            // Relationship back to ItemVariant is configured on the ItemVariant side above.
+            entity.Property(s => s.Size).IsRequired(false).HasMaxLength(20);
+            entity.Property(s => s.Price).IsRequired().HasColumnType("decimal(10,2)");
+            entity.Property(s => s.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(s => s.Status).IsRequired().HasDefaultValue(SkuStatus.Available);
         });
 
         // ── Orders ────────────────────────────────────────────────────────────
@@ -231,9 +229,6 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(o => o.ItemId)
                   .OnDelete(DeleteBehavior.NoAction);
 
-            // Order → ItemVariantSku
-            // IsRequired(false) because orders created before the variant system
-            // have no SKU to reference. All new orders must set this at checkout.
             entity.HasOne(o => o.ItemVariantSku)
                   .WithMany(s => s.Orders)
                   .HasForeignKey(o => o.ItemVariantSkuId)
@@ -261,8 +256,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(w => w.PendingBalance).IsRequired().HasColumnType("decimal(12,2)").HasDefaultValue(0m);
             entity.Property(w => w.UpdatedAt)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // UserId and RiderId are mutually exclusive - one of them is null, the other has a value
             entity.HasIndex(w => w.UserId).IsUnique().HasDatabaseName("UQ_Wallets_UserId");
-            entity.HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(w => w.RiderId).IsUnique().HasDatabaseName("UQ_Wallets_RiderId");
+
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(w => w.Rider)
+                  .WithOne(r => r.Wallet)
+                  .HasForeignKey<Wallet>(w => w.RiderId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── Transactions ──────────────────────────────────────────────────────

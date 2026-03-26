@@ -30,11 +30,24 @@ public class ItemsController : Controller
         _context = context;
     }
 
+    // ── Helper to check if current user is a rider ───────────────────────────
+    private bool IsRider()
+    {
+        return User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+    }
+
     // ── INDEX ─────────────────────────────────────────────────────────────────
 
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Index");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -60,9 +73,6 @@ public class ItemsController : Controller
         ViewBag.IsAnonymous = !currentUserId.HasValue;
         ViewBag.CurrentUserId = currentUserId;
         ViewBag.IsCurrentWinner = currentUserId.HasValue && item.CurrentWinnerId == currentUserId.Value;
-        // True when the visiting user is the original getter whose item is
-        // currently being stolen (StolenPendingCheckout). Used in the view
-        // to show a "your reservation is being contested" notice.
         ViewBag.IsOriginalGetter = currentUserId.HasValue && item.OriginalGetterUserId == currentUserId.Value;
 
         _logger.LogInformation("Item {ItemId} details viewed by user {UserId}.",
@@ -75,17 +85,41 @@ public class ItemsController : Controller
 
     [HttpGet]
     public IActionResult BuyNow(int id)
-        => RedirectToAction("Checkout", "Orders", new { itemId = id });
+    {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/BuyNow");
+            return RedirectToAction("Index", "Rider");
+        }
+        return RedirectToAction("Checkout", "Orders", new { itemId = id });
+    }
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
     [HttpGet]
-    public IActionResult Create() => View(new ItemCreateViewModel());
+    public IActionResult Create()
+    {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Create");
+            return RedirectToAction("Index", "Rider");
+        }
+        return View(new ItemCreateViewModel());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ItemCreateViewModel viewModel)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Create (POST)");
+            return RedirectToAction("Index", "Rider");
+        }
+
         if (!ModelState.IsValid) return View(viewModel);
 
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -140,6 +174,13 @@ public class ItemsController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Edit");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
         return View(MapToEditViewModel(item!));
@@ -149,6 +190,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, ItemEditViewModel viewModel)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Edit (POST)");
+            return RedirectToAction("Index", "Rider");
+        }
+
         if (id != viewModel.Id) return BadRequest();
         if (!ModelState.IsValid) return View(viewModel);
 
@@ -200,6 +248,13 @@ public class ItemsController : Controller
     [HttpGet]
     public async Task<IActionResult> Delete(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Delete");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
         return View(item);
@@ -209,6 +264,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/DeleteConfirmed");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
 
@@ -236,6 +298,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GetItem(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/GetItem");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int buyerId)) return Unauthorized();
 
@@ -257,7 +326,7 @@ public class ItemsController : Controller
         }
 
         item.CurrentWinnerId = buyerId;
-        item.OriginalGetterUserId = null; // fresh claim
+        item.OriginalGetterUserId = null;
         item.Status = ItemStatus.Reserved;
         item.StealEndsAt = DateTime.UtcNow.AddHours(item.StealDurationHours!.Value);
 
@@ -275,15 +344,17 @@ public class ItemsController : Controller
 
     // ── CANCEL GET ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Allows the original getter (User A) to release their reservation while
-    /// the steal window is still open. Not allowed once IsInFinalizeWindow is
-    /// true — at that point they should complete checkout, not cancel.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelGet(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/CancelGet");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -302,7 +373,6 @@ public class ItemsController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        // Once the finalize window opens the user should complete — not cancel.
         if (item.IsInFinalizeWindow)
         {
             TempData["ErrorMessage"] =
@@ -330,18 +400,17 @@ public class ItemsController : Controller
 
     // ── STEAL ITEM ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Marks the item as StolenPendingCheckout and redirects the stealer to
-    /// checkout. The item does NOT become Sold until ConfirmOrder succeeds.
-    ///
-    /// OriginalGetterUserId is saved before CurrentWinnerId is overwritten.
-    /// StealEndsAt is intentionally preserved so CancelSteal can restore
-    /// the reservation window for the original getter.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> StealItem(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/StealItem");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int stealerId)) return Unauthorized();
 
@@ -376,9 +445,8 @@ public class ItemsController : Controller
 
         item.Price += StealPremium;
         item.Status = ItemStatus.StolenPendingCheckout;
-        item.OriginalGetterUserId = previousWinnerId; // saved for restore on cancel
+        item.OriginalGetterUserId = previousWinnerId;
         item.CurrentWinnerId = stealerId;
-        // StealEndsAt preserved intentionally — needed to restore correct window on cancel
 
         await _itemRepository.UpdateAsync(item);
 
@@ -396,16 +464,17 @@ public class ItemsController : Controller
 
     // ── CANCEL STEAL ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Allows the stealer (User B) to back out before completing checkout.
-    /// Restores the item to Reserved for the ORIGINAL GETTER (User A) rather
-    /// than returning it to Available. StealEndsAt is preserved so User A
-    /// lands in the correct steal/finalize window phase.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelSteal(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/CancelSteal");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -429,10 +498,9 @@ public class ItemsController : Controller
         int restoredGetterId = item.OriginalGetterUserId!.Value;
 
         item.Price -= StealPremium;
-        item.Status = ItemStatus.Reserved;      // back to Reserved, NOT Available
-        item.CurrentWinnerId = restoredGetterId;         // original getter reclaims
-        item.OriginalGetterUserId = null;                     // cleared — no longer needed
-        // StealEndsAt left unchanged so the original getter's window is intact
+        item.Status = ItemStatus.Reserved;
+        item.CurrentWinnerId = restoredGetterId;
+        item.OriginalGetterUserId = null;
 
         await _itemRepository.UpdateAsync(item);
 

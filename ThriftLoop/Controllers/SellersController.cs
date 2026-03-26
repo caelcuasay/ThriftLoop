@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
@@ -9,6 +10,7 @@ namespace ThriftLoop.Controllers;
 /// <summary>
 /// Public Sellers discovery page — no authentication required.
 /// Shows all shop listings and a horizontal row of shop profiles to visit.
+/// Riders are redirected to their dashboard.
 /// </summary>
 public class SellersController : Controller
 {
@@ -30,6 +32,13 @@ public class SellersController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+        {
+            _logger.LogInformation("Rider attempted to access Sellers/Index, redirecting to Rider dashboard.");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var items = await _itemRepo.GetAllShopItemsAsync();
         var shops = await _shopRepo.GetAllApprovedAsync();
 

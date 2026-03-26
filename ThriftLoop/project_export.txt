@@ -1,9 +1,9 @@
-﻿Project Structure: C:\Users\LENOVO\source\repos\ThriftLoop\ThriftLoop
-Project Export
-Excludes: .css
+﻿Project: C:\Users\juhnl\source\repos\ThriftLoop\ThriftLoop
+ThriftLoop Export
+Mode: Full Export (no filter)
+Exclude: .css, .cshtml.cs
 
 =========================================
-
 |-- Constants
 |   |-- ItemConstants.cs
 |   +-- WalletConstants.cs
@@ -13,6 +13,7 @@ Excludes: .css
 |   |-- HomeController.cs
 |   |-- ItemController.cs
 |   |-- OrdersController.cs
+|   |-- RiderController.cs
 |   |-- SellersController.cs
 |   |-- ShopController.cs
 |   +-- WalletController.cs
@@ -22,7 +23,8 @@ Excludes: .css
 |   |-- ForgotPasswordDTO.cs
 |   |-- LoginDto.cs
 |   |-- RegisterDto.cs
-|   +-- ResetPasswordDTO.cs
+|   |-- ResetPasswordDTO.cs
+|   +-- RiderRegisterDTO.cs
 |-- Enums
 |   |-- ItemEnums.cs
 |   |-- OrderEnums.cs
@@ -35,6 +37,7 @@ Excludes: .css
 |   |-- ItemVariant.cs
 |   |-- ItemVariantSku.cs
 |   |-- Order.cs
+|   |-- Rider.cs
 |   |-- SellerProfile.cs
 |   |-- Transaction.cs
 |   |-- User.cs
@@ -44,6 +47,7 @@ Excludes: .css
 |   |-- Implementation
 |   |   |-- ItemRepository.cs
 |   |   |-- OrderRepository.cs
+|   |   |-- RiderRepository.cs
 |   |   |-- ShopRepository.cs
 |   |   |-- TransactionRepository.cs
 |   |   |-- UserRepository.cs
@@ -52,6 +56,7 @@ Excludes: .css
 |   +-- Interface
 |       |-- IItemRepository.cs
 |       |-- IOrderRepository.cs
+|       |-- IRiderRepository.cs
 |       |-- IShopRepository.cs
 |       |-- ITransactionRepository.cs
 |       |-- IUserRepository.cs
@@ -62,11 +67,13 @@ Excludes: .css
 |   |   |-- AuthService.cs
 |   |   |-- EmailService.cs
 |   |   |-- OrderService.cs
+|   |   |-- RiderAuthService.cs
 |   |   +-- WalletService.cs
 |   +-- Interface
 |       |-- IAuthService.cs
 |       |-- IEmailService.cs
 |       |-- IOrderService.cs
+|       |-- IRiderAuthService.cs
 |       +-- IWalletService.cs
 |-- ViewModels
 |   |-- CheckOutViewModel.cs
@@ -80,93 +87,57 @@ Excludes: .css
 |-- Views
 |   |-- Auth
 |   |   |-- ForgotPassword.cshtml
-|   |   |-- ForgotPassword.cshtml.cs
 |   |   |-- ForgotPasswordConfirmation.cshtml
-|   |   |-- ForgotPasswordConfirmation.cshtml.cs
 |   |   |-- Login.cshtml
-|   |   |-- Login.cshtml.cs
 |   |   |-- Register.cshtml
-|   |   |-- Register.cshtml.cs
 |   |   |-- ResetPassword.cshtml
-|   |   +-- ResetPassword.cshtml.cs
+|   |   |-- RiderApproval.cshtml
+|   |   +-- RiderRegister.cshtml
 |   |-- Home
 |   |   |-- Index.cshtml
 |   |   +-- Privacy.cshtml
 |   |-- Items
 |   |   |-- Create.cshtml
-|   |   |-- Create.cshtml.cs
 |   |   |-- Delete.cshtml
-|   |   |-- Delete.cshtml.cs
 |   |   |-- Details.cshtml
-|   |   |-- Details.cshtml.cs
 |   |   |-- Edit.cshtml
-|   |   |-- Edit.cshtml.cs
-|   |   |-- Index.cshtml
-|   |   +-- Index.cshtml.cs
+|   |   +-- Index.cshtml
 |   |-- Orders
 |   |   |-- Checkout.cshtml
-|   |   |-- MyPurchases.cshtml
-|   |   +-- MyPurchases.cshtml.cs
+|   |   +-- MyPurchases.cshtml
+|   |-- Rider
+|   |   +-- Index.cshtml
 |   |-- Sellers
-|   |   |-- Index.cshtml
-|   |   +-- Index.cshtml.cs
+|   |   +-- Index.cshtml
 |   |-- Shared
 |   |   |-- _Layout.cshtml
-|   |   |-- _Layout.cshtml.css
 |   |   |-- _Navbar.cshtml
-|   |   |-- _Navbar.cshtml.cs
 |   |   |-- _ValidationScriptsPartial.cshtml
 |   |   +-- Error.cshtml
 |   |-- Shop
 |   |   |-- Create.cshtml
-|   |   |-- Create.cshtml.cs
 |   |   |-- Delete.cshtml
-|   |   |-- Delete.cshtml.cs
 |   |   |-- Details.cshtml
-|   |   |-- Details.cshtml.cs
 |   |   |-- Edit.cshtml
-|   |   |-- Edit.cshtml.cs
-|   |   |-- Index.cshtml
-|   |   +-- Index.cshtml.cs
+|   |   +-- Index.cshtml
 |   |-- Wallet
 |   |   |-- AddFunds.cshtml
-|   |   |-- AddFunds.cshtml.cs
 |   |   |-- Index.cshtml
-|   |   |-- Index.cshtml.cs
-|   |   |-- Withdraw.cshtml
-|   |   +-- Withdraw.cshtml.cs
+|   |   +-- Withdraw.cshtml
 |   |-- _ViewImports.cshtml
 |   +-- _ViewStart.cshtml
 |-- wwwroot
-|   |-- css
-|   |   |-- Auth.css
-|   |   |-- Home.css
-|   |   |-- Items.css
-|   |   |-- navbar.css
-|   |   |-- Orders.css
-|   |   |-- Sellers.css
-|   |   |-- Shop.css
-|   |   +-- site.css
-|   |-- js
-|   |   +-- site.js
-|   +-- favicon.ico
+|   +-- js
+|       +-- site.js
 |-- appsettings.Development.json
 |-- appsettings.json
-|-- export-project.ps1
-|-- Program.cs
-|-- project_export.txt
-|-- ThriftLoop.csproj
-+-- ThriftLoop.csproj.user
-
++-- Program.cs
 
 =========================================
 FILE CONTENTS
 =========================================
 
-
-
 --- appsettings.Development.json ---
-
 {
   "Logging": {
     "LogLevel": {
@@ -177,9 +148,7 @@ FILE CONTENTS
 }
 
 
-
 --- appsettings.json ---
-
 {
   "ConnectionStrings": {
     "DefaultConnection": "Server=.;Database=ThriftLoopDB;User Id=sa;Password=3ed2ws1qa!!!;TrustServerCertificate=True;"
@@ -207,9 +176,7 @@ FILE CONTENTS
   "AllowedHosts": "*"
 }
 
-
 --- Program.cs ---
-
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
@@ -277,15 +244,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRiderRepository, RiderRepository>();  // â† NEW
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
-builder.Services.AddScoped<IShopRepository, ShopRepository>();   // â† Shop
+builder.Services.AddScoped<IShopRepository, ShopRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();  // â† NEW
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -332,9 +301,7 @@ app.MapControllerRoute(
 
 app.Run();
 
-
 --- Constants/ItemConstants.cs ---
-
 namespace ThriftLoop.Constants;
 
 /// <summary>
@@ -383,9 +350,7 @@ public static class ItemConstants
     public const long MaxImageSizeBytes = 5 * 1024 * 1024;
 }
 
-
 --- Constants/WalletConstants.cs ---
-
 namespace ThriftLoop.Constants;
 
 /// <summary>
@@ -406,9 +371,7 @@ public static class WalletConstants
     public const int RecentTransactionCount = 30;
 }
 
-
 --- Controllers/AuthController.cs ---
-
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -424,16 +387,21 @@ namespace ThriftLoop.Controllers;
 public class AuthController : Controller
 {
     private readonly IAuthService _authService;
+    private readonly IRiderAuthService _riderAuthService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(
+        IAuthService authService,
+        IRiderAuthService riderAuthService,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
+        _riderAuthService = riderAuthService;
         _logger = logger;
     }
 
     // ─────────────────────────────────────────
-    //  REGISTER
+    //  REGISTER (Regular User)
     // ─────────────────────────────────────────
 
     [HttpGet]
@@ -469,7 +437,68 @@ public class AuthController : Controller
     }
 
     // ─────────────────────────────────────────
-    //  LOGIN
+    //  RIDER REGISTER
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult RiderRegister()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToAction("Index", "Home");
+
+        return View();
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RiderRegister(RiderRegisterDTO dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
+
+        var rider = await _riderAuthService.RegisterAsync(dto);
+
+        if (rider is null)
+        {
+            ModelState.AddModelError(nameof(dto.Email), "An account with this email already exists.");
+            return View(dto);
+        }
+
+        await SignInRiderAsync(rider, rememberMe: false);
+
+        _logger.LogInformation("Rider {RiderId} registered and signed in.", rider.Id);
+        return RedirectToAction("RiderApproval");
+    }
+
+    // ─────────────────────────────────────────
+    //  RIDER APPROVAL STATUS
+    // ─────────────────────────────────────────
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> RiderApproval()
+    {
+        var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(riderIdClaim, out var riderId))
+        {
+            return RedirectToAction("Login");
+        }
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login");
+        }
+
+        ViewBag.IsApproved = rider.IsApproved;
+        return View();
+    }
+
+    // ─────────────────────────────────────────
+    //  LOGIN (Handles both User and Rider)
     // ─────────────────────────────────────────
 
     [HttpGet]
@@ -477,7 +506,19 @@ public class AuthController : Controller
     public IActionResult Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
+        {
+            // Check if authenticated user is a rider
+            var isRider = User.HasClaim(c => c.Type == "IsRider");
+            if (isRider)
+            {
+                var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(riderIdClaim, out var riderId))
+                {
+                    return RedirectToAction("Index", "Rider");
+                }
+            }
             return RedirectToLocal(returnUrl);
+        }
 
         ViewData["ReturnUrl"] = returnUrl;
         return View();
@@ -493,18 +534,33 @@ public class AuthController : Controller
         if (!ModelState.IsValid)
             return View(dto);
 
+        // First try to authenticate as a regular user
         var user = await _authService.ValidateCredentialsAsync(dto);
-
-        if (user is null)
+        if (user is not null)
         {
-            ModelState.AddModelError(string.Empty, "Invalid email or password.");
-            return View(dto);
+            await SignInUserAsync(user, dto.RememberMe);
+            _logger.LogInformation("User {UserId} logged in.", user.Id);
+            return RedirectToLocal(returnUrl);
         }
 
-        await SignInUserAsync(user, dto.RememberMe);
+        // Then try as a rider
+        var rider = await _riderAuthService.ValidateCredentialsAsync(dto);
+        if (rider is not null)
+        {
+            if (!rider.IsApproved)
+            {
+                await SignInRiderAsync(rider, dto.RememberMe);
+                _logger.LogInformation("Rider {RiderId} logged in but not approved, redirecting to approval page.", rider.Id);
+                return RedirectToAction("RiderApproval");
+            }
 
-        _logger.LogInformation("User {UserId} logged in.", user.Id);
-        return RedirectToLocal(returnUrl);
+            await SignInRiderAsync(rider, dto.RememberMe);
+            _logger.LogInformation("Rider {RiderId} logged in.", rider.Id);
+            return RedirectToAction("Index", "Rider");
+        }
+
+        ModelState.AddModelError(string.Empty, "Invalid email or password.");
+        return View(dto);
     }
 
     // ─────────────────────────────────────────
@@ -536,7 +592,6 @@ public class AuthController : Controller
 
         await _authService.ForgotPasswordAsync(dto, resetUrl);
 
-        // Always show the confirmation — never reveal whether the email exists
         TempData["ForgotPasswordConfirm"] =
             "If an account with that email exists, a reset link has been sent.";
 
@@ -657,13 +712,6 @@ public class AuthController : Controller
     //  HELPERS
     // ─────────────────────────────────────────
 
-    /// <summary>
-    /// Issues the auth cookie with all identity claims.
-    /// Role is stamped here so that [Authorize(Roles = "Seller")] works on every
-    /// subsequent request without hitting the database. If a user's role changes
-    /// (e.g. they get approved as a Seller), they need to log out and back in
-    /// for the new role to take effect — this is expected and intentional.
-    /// </summary>
     private async Task SignInUserAsync(User user, bool rememberMe)
     {
         var claims = new List<Claim>
@@ -671,10 +719,36 @@ public class AuthController : Controller
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email,          user.Email),
             new(ClaimTypes.Name,           user.Email),
+            new(ClaimTypes.Role,           user.Role.ToString()),
+            new("IsRider", "false")
+        };
 
-            // Stamp the role so [Authorize(Roles = "Seller")] works without a DB hit.
-            // Role name matches the enum member name (e.g. "User", "Seller", "Rider", "Admin").
-            new(ClaimTypes.Role,           user.Role.ToString())
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        var authProperties = new AuthenticationProperties
+        {
+            IsPersistent = rememberMe,
+            ExpiresUtc = rememberMe
+                ? DateTimeOffset.UtcNow.AddDays(30)
+                : DateTimeOffset.UtcNow.AddHours(2)
+        };
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            authProperties);
+    }
+
+    private async Task SignInRiderAsync(Rider rider, bool rememberMe)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, rider.Id.ToString()),
+            new(ClaimTypes.Email,          rider.Email),
+            new(ClaimTypes.Name,           rider.Email),
+            new("IsRider", "true"),
+            new("FullName", rider.FullName ?? rider.Email)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -703,9 +777,7 @@ public class AuthController : Controller
     }
 }
 
-
 --- Controllers/BaseController.cs ---
-
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -735,10 +807,10 @@ public abstract class BaseController : Controller
         => ResolveUserId() ?? throw new UnauthorizedAccessException("User is not authenticated.");
 }
 
-
 --- Controllers/HomeController.cs ---
-
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
@@ -760,11 +832,19 @@ public class HomeController : BaseController
 
     /// <summary>
     /// GET / â€” public feed showing all listed items.
+    /// Riders are redirected to their dashboard.
     /// Authenticated users see ownership state per card (no buy buttons on own items).
     /// Anonymous visitors see buy buttons on every card.
     /// </summary>
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+        {
+            _logger.LogInformation("Rider attempted to access Home/Index, redirecting to Rider dashboard.");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var items = await _itemRepository.GetAllAsync();
 
         // Calculate price ranges for shop items
@@ -828,9 +908,7 @@ public class HomeController : BaseController
     });
 }
 
-
 --- Controllers/ItemController.cs ---
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -863,11 +941,24 @@ public class ItemsController : Controller
         _context = context;
     }
 
+    // ── Helper to check if current user is a rider ───────────────────────────
+    private bool IsRider()
+    {
+        return User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+    }
+
     // ── INDEX ─────────────────────────────────────────────────────────────────
 
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Index");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -893,9 +984,6 @@ public class ItemsController : Controller
         ViewBag.IsAnonymous = !currentUserId.HasValue;
         ViewBag.CurrentUserId = currentUserId;
         ViewBag.IsCurrentWinner = currentUserId.HasValue && item.CurrentWinnerId == currentUserId.Value;
-        // True when the visiting user is the original getter whose item is
-        // currently being stolen (StolenPendingCheckout). Used in the view
-        // to show a "your reservation is being contested" notice.
         ViewBag.IsOriginalGetter = currentUserId.HasValue && item.OriginalGetterUserId == currentUserId.Value;
 
         _logger.LogInformation("Item {ItemId} details viewed by user {UserId}.",
@@ -908,17 +996,41 @@ public class ItemsController : Controller
 
     [HttpGet]
     public IActionResult BuyNow(int id)
-        => RedirectToAction("Checkout", "Orders", new { itemId = id });
+    {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/BuyNow");
+            return RedirectToAction("Index", "Rider");
+        }
+        return RedirectToAction("Checkout", "Orders", new { itemId = id });
+    }
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
     [HttpGet]
-    public IActionResult Create() => View(new ItemCreateViewModel());
+    public IActionResult Create()
+    {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Create");
+            return RedirectToAction("Index", "Rider");
+        }
+        return View(new ItemCreateViewModel());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ItemCreateViewModel viewModel)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Create (POST)");
+            return RedirectToAction("Index", "Rider");
+        }
+
         if (!ModelState.IsValid) return View(viewModel);
 
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -973,6 +1085,13 @@ public class ItemsController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Edit");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
         return View(MapToEditViewModel(item!));
@@ -982,6 +1101,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, ItemEditViewModel viewModel)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Edit (POST)");
+            return RedirectToAction("Index", "Rider");
+        }
+
         if (id != viewModel.Id) return BadRequest();
         if (!ModelState.IsValid) return View(viewModel);
 
@@ -1033,6 +1159,13 @@ public class ItemsController : Controller
     [HttpGet]
     public async Task<IActionResult> Delete(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/Delete");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
         return View(item);
@@ -1042,6 +1175,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/DeleteConfirmed");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
 
@@ -1069,6 +1209,13 @@ public class ItemsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GetItem(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/GetItem");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int buyerId)) return Unauthorized();
 
@@ -1090,7 +1237,7 @@ public class ItemsController : Controller
         }
 
         item.CurrentWinnerId = buyerId;
-        item.OriginalGetterUserId = null; // fresh claim
+        item.OriginalGetterUserId = null;
         item.Status = ItemStatus.Reserved;
         item.StealEndsAt = DateTime.UtcNow.AddHours(item.StealDurationHours!.Value);
 
@@ -1108,15 +1255,17 @@ public class ItemsController : Controller
 
     // ── CANCEL GET ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Allows the original getter (User A) to release their reservation while
-    /// the steal window is still open. Not allowed once IsInFinalizeWindow is
-    /// true — at that point they should complete checkout, not cancel.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelGet(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/CancelGet");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -1135,7 +1284,6 @@ public class ItemsController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        // Once the finalize window opens the user should complete — not cancel.
         if (item.IsInFinalizeWindow)
         {
             TempData["ErrorMessage"] =
@@ -1163,18 +1311,17 @@ public class ItemsController : Controller
 
     // ── STEAL ITEM ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Marks the item as StolenPendingCheckout and redirects the stealer to
-    /// checkout. The item does NOT become Sold until ConfirmOrder succeeds.
-    ///
-    /// OriginalGetterUserId is saved before CurrentWinnerId is overwritten.
-    /// StealEndsAt is intentionally preserved so CancelSteal can restore
-    /// the reservation window for the original getter.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> StealItem(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/StealItem");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int stealerId)) return Unauthorized();
 
@@ -1209,9 +1356,8 @@ public class ItemsController : Controller
 
         item.Price += StealPremium;
         item.Status = ItemStatus.StolenPendingCheckout;
-        item.OriginalGetterUserId = previousWinnerId; // saved for restore on cancel
+        item.OriginalGetterUserId = previousWinnerId;
         item.CurrentWinnerId = stealerId;
-        // StealEndsAt preserved intentionally — needed to restore correct window on cancel
 
         await _itemRepository.UpdateAsync(item);
 
@@ -1229,16 +1375,17 @@ public class ItemsController : Controller
 
     // ── CANCEL STEAL ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Allows the stealer (User B) to back out before completing checkout.
-    /// Restores the item to Reserved for the ORIGINAL GETTER (User A) rather
-    /// than returning it to Available. StealEndsAt is preserved so User A
-    /// lands in the correct steal/finalize window phase.
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelSteal(int id)
     {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/CancelSteal");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
 
@@ -1262,10 +1409,9 @@ public class ItemsController : Controller
         int restoredGetterId = item.OriginalGetterUserId!.Value;
 
         item.Price -= StealPremium;
-        item.Status = ItemStatus.Reserved;      // back to Reserved, NOT Available
-        item.CurrentWinnerId = restoredGetterId;         // original getter reclaims
-        item.OriginalGetterUserId = null;                     // cleared — no longer needed
-        // StealEndsAt left unchanged so the original getter's window is intact
+        item.Status = ItemStatus.Reserved;
+        item.CurrentWinnerId = restoredGetterId;
+        item.OriginalGetterUserId = null;
 
         await _itemRepository.UpdateAsync(item);
 
@@ -1336,9 +1482,7 @@ public class ItemsController : Controller
     };
 }
 
-
 --- Controllers/OrdersController.cs ---
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -1809,9 +1953,51 @@ public class OrdersController : BaseController
     }
 }
 
+--- Controllers/RiderController.cs ---
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using ThriftLoop.Services.Auth.Interface;
+
+namespace ThriftLoop.Controllers;
+
+[Authorize]
+public class RiderController : BaseController
+{
+    private readonly IRiderAuthService _riderAuthService;
+    private readonly ILogger<RiderController> _logger;
+
+    public RiderController(
+        IRiderAuthService riderAuthService,
+        ILogger<RiderController> logger)
+    {
+        _riderAuthService = riderAuthService;
+        _logger = logger;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var riderId))
+        {
+            _logger.LogWarning("Rider attempted to access dashboard without valid ID claim.");
+            return RedirectToAction("Login", "Auth");
+        }
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null)
+        {
+            _logger.LogWarning("Rider {RiderId} not found in database.", riderId);
+            return RedirectToAction("Login", "Auth");
+        }
+
+        ViewBag.RiderName = rider.FullName;
+        return View();
+    }
+}
 
 --- Controllers/SellersController.cs ---
-
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using ThriftLoop.Models;
@@ -1823,6 +2009,7 @@ namespace ThriftLoop.Controllers;
 /// <summary>
 /// Public Sellers discovery page — no authentication required.
 /// Shows all shop listings and a horizontal row of shop profiles to visit.
+/// Riders are redirected to their dashboard.
 /// </summary>
 public class SellersController : Controller
 {
@@ -1844,6 +2031,13 @@ public class SellersController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        // Redirect riders to their dashboard
+        if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+        {
+            _logger.LogInformation("Rider attempted to access Sellers/Index, redirecting to Rider dashboard.");
+            return RedirectToAction("Index", "Rider");
+        }
+
         var items = await _itemRepo.GetAllShopItemsAsync();
         var shops = await _shopRepo.GetAllApprovedAsync();
 
@@ -1902,9 +2096,7 @@ public class SellersController : Controller
     }
 }
 
-
 --- Controllers/ShopController.cs ---
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -2596,9 +2788,7 @@ public class ShopController : Controller
     }
 }
 
-
 --- Controllers/WalletController.cs ---
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ThriftLoop.Constants;
@@ -2740,9 +2930,7 @@ public class WalletController : BaseController
     }
 }
 
-
 --- Data/ApplicationDbContext.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
@@ -2758,6 +2946,7 @@ public class ApplicationDbContext : DbContext
 
     // ── DbSets ────────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
+    public DbSet<Rider> Riders => Set<Rider>();  // ← NEW
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
@@ -2797,10 +2986,30 @@ public class ApplicationDbContext : DbContext
                   .IsRequired(false).HasColumnType("datetime2");
 
             // ── Role ───────────────────────────────────────────────────────────
-            // MIGRATION: Add-Migration AddRolesAndSellerProfile → Update-Database
             entity.Property(u => u.Role)
                   .IsRequired()
                   .HasDefaultValue(UserRole.User);
+        });
+
+        // ── Riders ─────────────────────────────────────────────────────────────
+        modelBuilder.Entity<Rider>(entity =>
+        {
+            entity.ToTable("Riders");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Id).ValueGeneratedOnAdd();
+            entity.Property(r => r.Email)
+                  .IsRequired().HasMaxLength(256).IsUnicode(false);
+            entity.HasIndex(r => r.Email).IsUnique().HasDatabaseName("UQ_Riders_Email");
+            entity.Property(r => r.PasswordHash)
+                  .IsRequired(false).HasMaxLength(512).IsUnicode(false);
+            entity.Property(r => r.FullName)
+                  .IsRequired().HasMaxLength(100);
+            entity.Property(r => r.PhoneNumber)
+                  .IsRequired().HasMaxLength(20);
+            entity.Property(r => r.IsApproved)
+                  .IsRequired().HasDefaultValue(false);
+            entity.Property(r => r.CreatedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
         });
 
         // ── SellerProfiles ────────────────────────────────────────────────────
@@ -2810,7 +3019,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(sp => sp.Id);
             entity.Property(sp => sp.Id).ValueGeneratedOnAdd();
 
-            // One user → at most one seller profile.
             entity.HasIndex(sp => sp.UserId)
                   .IsUnique()
                   .HasDatabaseName("UQ_SellerProfiles_UserId");
@@ -2837,13 +3045,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(sp => sp.LogoUrl)
                   .IsRequired(false).HasMaxLength(512).IsUnicode(false);
 
-            // SellerProfile → User (1:1 from SellerProfile's side)
             entity.HasOne(sp => sp.User)
                   .WithOne(u => u.SellerProfile)
                   .HasForeignKey<SellerProfile>(sp => sp.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // SellerProfile → Items (1:many — a shop's listings)
             entity.HasMany(sp => sp.Items)
                   .WithOne(i => i.Shop)
                   .HasForeignKey(i => i.ShopId)
@@ -2865,7 +3071,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.Condition).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Size).IsRequired(false).HasMaxLength(10);
 
-            // ── ImageUrls: stored as a JSON array ─────────────────────────────
             var imageUrlsComparer = new ValueComparer<List<string>>(
                 (a, b) => a != null && b != null && a.SequenceEqual(b),
                 c => c.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
@@ -2900,8 +3105,6 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(i => i.IsInFinalizeWindow);
             entity.Ignore(i => i.FinalizeDeadline);
 
-            // ShopId is nullable — null means P2P listing.
-            // The SellerProfile relationship is configured on the SellerProfile side above.
             entity.Property(i => i.ShopId).IsRequired(false);
 
             entity.HasOne(i => i.User)
@@ -2909,7 +3112,6 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(i => i.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Item → ItemVariants (1:many)
             entity.HasMany(i => i.Variants)
                   .WithOne(v => v.Item)
                   .HasForeignKey(v => v.ItemId)
@@ -2922,13 +3124,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ItemVariants");
             entity.HasKey(v => v.Id);
             entity.Property(v => v.Id).ValueGeneratedOnAdd();
-
-            entity.Property(v => v.Name)
-                  .IsRequired().HasMaxLength(50);
-
-            // Relationship back to Item is configured on the Item side above.
-
-            // ItemVariant → ItemVariantSkus (1:many)
+            entity.Property(v => v.Name).IsRequired().HasMaxLength(50);
             entity.HasMany(v => v.Skus)
                   .WithOne(s => s.Variant)
                   .HasForeignKey(s => s.VariantId)
@@ -2941,20 +3137,10 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ItemVariantSkus");
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Id).ValueGeneratedOnAdd();
-
-            entity.Property(s => s.Size)
-                  .IsRequired(false).HasMaxLength(20);
-
-            entity.Property(s => s.Price)
-                  .IsRequired().HasColumnType("decimal(10,2)");
-
-            entity.Property(s => s.Quantity)
-                  .IsRequired().HasDefaultValue(1);
-
-            entity.Property(s => s.Status)
-                  .IsRequired().HasDefaultValue(SkuStatus.Available);
-
-            // Relationship back to ItemVariant is configured on the ItemVariant side above.
+            entity.Property(s => s.Size).IsRequired(false).HasMaxLength(20);
+            entity.Property(s => s.Price).IsRequired().HasColumnType("decimal(10,2)");
+            entity.Property(s => s.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(s => s.Status).IsRequired().HasDefaultValue(SkuStatus.Available);
         });
 
         // ── Orders ────────────────────────────────────────────────────────────
@@ -2976,9 +3162,6 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(o => o.ItemId)
                   .OnDelete(DeleteBehavior.NoAction);
 
-            // Order → ItemVariantSku
-            // IsRequired(false) because orders created before the variant system
-            // have no SKU to reference. All new orders must set this at checkout.
             entity.HasOne(o => o.ItemVariantSku)
                   .WithMany(s => s.Orders)
                   .HasForeignKey(o => o.ItemVariantSkuId)
@@ -3006,8 +3189,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(w => w.PendingBalance).IsRequired().HasColumnType("decimal(12,2)").HasDefaultValue(0m);
             entity.Property(w => w.UpdatedAt)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // UserId and RiderId are mutually exclusive - one of them is null, the other has a value
             entity.HasIndex(w => w.UserId).IsUnique().HasDatabaseName("UQ_Wallets_UserId");
-            entity.HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(w => w.RiderId).IsUnique().HasDatabaseName("UQ_Wallets_RiderId");
+
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(w => w.Rider)
+                  .WithOne(r => r.Wallet)
+                  .HasForeignKey<Wallet>(w => w.RiderId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── Transactions ──────────────────────────────────────────────────────
@@ -3047,9 +3242,7 @@ public class ApplicationDbContext : DbContext
     }
 }
 
-
 --- DTOs/ForgotPasswordDTO.cs ---
-
 using System.ComponentModel.DataAnnotations;
 
 namespace ThriftLoop.DTOs.Auth;
@@ -3062,9 +3255,7 @@ public class ForgotPasswordDTO
     public string Email { get; set; } = string.Empty;
 }
 
-
 --- DTOs/LoginDto.cs ---
-
 using System.ComponentModel.DataAnnotations;
 
 namespace ThriftLoop.DTOs.Auth;
@@ -3085,9 +3276,7 @@ public class LoginDTO
     public bool RememberMe { get; set; }
 }
 
-
 --- DTOs/RegisterDto.cs ---
-
 using System.ComponentModel.DataAnnotations;
 
 namespace ThriftLoop.DTOs.Auth;
@@ -3112,9 +3301,7 @@ public class RegisterDTO
     public string ConfirmPassword { get; set; } = string.Empty;
 }
 
-
 --- DTOs/ResetPasswordDTO.cs ---
-
 using System.ComponentModel.DataAnnotations;
 
 namespace ThriftLoop.DTOs.Auth;
@@ -3141,9 +3328,42 @@ public class ResetPasswordDTO
     public string ConfirmPassword { get; set; } = string.Empty;
 }
 
+--- DTOs/RiderRegisterDTO.cs ---
+using System.ComponentModel.DataAnnotations;
+
+namespace ThriftLoop.DTOs.Auth;
+
+public class RiderRegisterDTO
+{
+    [Required(ErrorMessage = "Full name is required.")]
+    [Display(Name = "Full Name")]
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "Full name must be between 2 and 100 characters.")]
+    public string FullName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Email is required.")]
+    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+    [Display(Name = "Email Address")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Phone number is required.")]
+    [Phone(ErrorMessage = "Please enter a valid phone number.")]
+    [Display(Name = "Phone Number")]
+    public string PhoneNumber { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Password is required.")]
+    [DataType(DataType.Password)]
+    [MinLength(8, ErrorMessage = "Password must be at least 8 characters long.")]
+    [Display(Name = "Password")]
+    public string Password { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Please confirm your password.")]
+    [DataType(DataType.Password)]
+    [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+    [Display(Name = "Confirm Password")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+}
 
 --- Enums/ItemEnums.cs ---
-
 namespace ThriftLoop.Enums;
 
 public enum ListingType { Standard, Stealable }
@@ -3182,9 +3402,7 @@ public enum SkuStatus
     Sold
 }
 
-
 --- Enums/OrderEnums.cs ---
-
 namespace ThriftLoop.Enums;
 
 /// <summary>
@@ -3223,9 +3441,7 @@ public enum PaymentMethod
     Cash
 }
 
-
 --- Enums/TransactionEnums.cs ---
-
 namespace ThriftLoop.Enums;
 
 /// <summary>
@@ -3273,9 +3489,7 @@ public enum TransactionStatus
     Failed
 }
 
-
 --- Enums/UserEnums.cs ---
-
 namespace ThriftLoop.Enums;
 
 /// <summary>
@@ -3320,9 +3534,7 @@ public enum ApplicationStatus
     Rejected
 }
 
-
 --- Enums/WithdrawalEnums.cs ---
-
 namespace ThriftLoop.Enums;
 
 /// <summary>How the seller wants to receive their funds.</summary>
@@ -3348,9 +3560,7 @@ public enum WithdrawalStatus
     Completed
 }
 
-
 --- Models/ErrorViewModel.cs ---
-
 namespace ThriftLoop.Models
 {
     public class ErrorViewModel
@@ -3362,9 +3572,7 @@ namespace ThriftLoop.Models
 }
 
 
-
 --- Models/Item.cs ---
-
 using System.ComponentModel.DataAnnotations.Schema;
 using ThriftLoop.Enums;
 
@@ -3486,9 +3694,7 @@ public class Item
     public ICollection<ItemVariant> Variants { get; set; } = new List<ItemVariant>();
 }
 
-
 --- Models/ItemVariant.cs ---
-
 namespace ThriftLoop.Models;
 
 /// <summary>
@@ -3529,9 +3735,7 @@ public class ItemVariant
     public ICollection<ItemVariantSku> Skus { get; set; } = new List<ItemVariantSku>();
 }
 
-
 --- Models/ItemVariantSku.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3602,9 +3806,7 @@ public class ItemVariantSku
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }
 
-
 --- Models/Order.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3703,9 +3905,26 @@ public class Order
     public User? Seller { get; set; }
 }
 
+--- Models/Rider.cs ---
+using System;
+
+namespace ThriftLoop.Models;
+
+public class Rider
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
+    public bool IsApproved { get; set; } = false;
+    public string? FullName { get; set; }
+    public string? PhoneNumber { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigation
+    public Wallet? Wallet { get; set; }
+}
 
 --- Models/SellerProfile.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3769,9 +3988,7 @@ public class SellerProfile
     public ICollection<Item> Items { get; set; } = new List<Item>();
 }
 
-
 --- Models/Transaction.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3820,9 +4037,7 @@ public class Transaction
     public User? ToUser { get; set; }
 }
 
-
 --- Models/User.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3870,45 +4085,29 @@ public class User
     public SellerProfile? SellerProfile { get; set; }
 }
 
-
 --- Models/Wallet.cs ---
+using System;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
 
-/// <summary>
-/// One wallet per user. Holds available (withdrawable) balance and
-/// funds currently locked in escrow for pending orders.
-/// </summary>
 public class Wallet
 {
     public int Id { get; set; }
+    public decimal Balance { get; set; }
+    public decimal PendingBalance { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
-    /// <summary>FK → Users.Id</summary>
-    public int UserId { get; set; }
+    // Foreign keys - UserId and RiderId are mutually exclusive
+    public int? UserId { get; set; }
+    public int? RiderId { get; set; }
 
-    /// <summary>
-    /// Freely available funds the user can spend or withdraw.
-    /// For demo purposes, new wallets are seeded with ₱1,000.
-    /// </summary>
-    public decimal Balance { get; set; } = 0m;
-
-    /// <summary>
-    /// Funds held in escrow for pending orders.
-    /// Money moves here from Balance on ConfirmOrder and returns
-    /// to the seller's Balance when the buyer marks delivery.
-    /// </summary>
-    public decimal PendingBalance { get; set; } = 0m;
-
-    /// <summary>UTC timestamp of the last balance mutation.</summary>
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    // ── Navigation ────────────────────────────────────────────────────────
+    // Navigation properties
     public User? User { get; set; }
+    public Rider? Rider { get; set; }
 }
 
-
 --- Models/Withdrawal.cs ---
-
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -3949,9 +4148,7 @@ public class Withdrawal
     public User? User { get; set; }
 }
 
-
 --- Repositories/Implementation/ItemRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4047,9 +4244,7 @@ public class ItemRepository : IItemRepository
                          .FirstOrDefaultAsync(s => s.Id == skuId);
 }
 
-
 --- Repositories/Implementation/OrderRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4115,9 +4310,53 @@ public class OrderRepository : IOrderRepository
     }
 }
 
+--- Repositories/Implementation/RiderRepository.cs ---
+using Microsoft.EntityFrameworkCore;
+using ThriftLoop.Data;
+using ThriftLoop.Models;
+using ThriftLoop.Repositories.Interface;
+
+namespace ThriftLoop.Repositories.Implementation;
+
+public class RiderRepository : IRiderRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public RiderRepository(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Rider?> GetByEmailAsync(string email)
+        => await _context.Riders
+                         .AsNoTracking()
+                         .FirstOrDefaultAsync(r => r.Email == email);
+
+    public async Task<Rider?> GetByIdAsync(int id)
+        => await _context.Riders
+                         .AsNoTracking()
+                         .FirstOrDefaultAsync(r => r.Id == id);
+
+    public async Task<bool> EmailExistsAsync(string email)
+        => await _context.Riders
+                         .AsNoTracking()
+                         .AnyAsync(r => r.Email == email);
+
+    public async Task<int> CreateAsync(Rider rider)
+    {
+        _context.Riders.Add(rider);
+        await _context.SaveChangesAsync();
+        return rider.Id;
+    }
+
+    public async Task UpdateAsync(Rider rider)
+    {
+        _context.Riders.Update(rider);
+        await _context.SaveChangesAsync();
+    }
+}
 
 --- Repositories/Implementation/ShopRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Enums;
@@ -4169,9 +4408,7 @@ public class ShopRepository : IShopRepository
     }
 }
 
-
 --- Repositories/Implementation/TransactionRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4215,9 +4452,7 @@ public class TransactionRepository : ITransactionRepository
                          .ToListAsync();
 }
 
-
 --- Repositories/Implementation/UserRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4267,9 +4502,7 @@ public class UserRepository : IUserRepository
     }
 }
 
-
 --- Repositories/Implementation/WalletRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4307,9 +4540,7 @@ public class WalletRepository : IWalletRepository
     }
 }
 
-
 --- Repositories/Implementation/WithdrawalRepository.cs ---
-
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
@@ -4355,9 +4586,7 @@ public class WithdrawalRepository : IWithdrawalRepository
     }
 }
 
-
 --- Repositories/Interface/IItemRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4397,9 +4626,7 @@ public interface IItemRepository
     Task<ItemVariantSku?> GetSkuByIdWithItemAsync(int skuId);
 }
 
-
 --- Repositories/Interface/IOrderRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4439,9 +4666,21 @@ public interface IOrderRepository
     Task DeleteAsync(int orderId);
 }
 
+--- Repositories/Interface/IRiderRepository.cs ---
+using ThriftLoop.Models;
+
+namespace ThriftLoop.Repositories.Interface;
+
+public interface IRiderRepository
+{
+    Task<Rider?> GetByEmailAsync(string email);
+    Task<Rider?> GetByIdAsync(int id);
+    Task<bool> EmailExistsAsync(string email);
+    Task<int> CreateAsync(Rider rider);
+    Task UpdateAsync(Rider rider);
+}
 
 --- Repositories/Interface/IShopRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4469,9 +4708,7 @@ public interface IShopRepository
     Task UpdateAsync(SellerProfile shop);
 }
 
-
 --- Repositories/Interface/ITransactionRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4493,9 +4730,7 @@ public interface ITransactionRepository
     Task<IReadOnlyList<Transaction>> GetByOrderIdAsync(int orderId);
 }
 
-
 --- Repositories/Interface/IUserRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4509,9 +4744,7 @@ public interface IUserRepository
     Task UpdateAsync(User user);
 }
 
-
 --- Repositories/Interface/IWalletRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4535,9 +4768,7 @@ public interface IWalletRepository
     Task UpdateAsync(Wallet wallet);
 }
 
-
 --- Repositories/Interface/IWithdrawalRepository.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -4559,9 +4790,7 @@ public interface IWithdrawalRepository
     Task UpdateAsync(Withdrawal withdrawal);
 }
 
-
 --- Services/Implementation/AuthService.cs ---
-
 using BCrypt.Net;
 using ThriftLoop.Data;
 using ThriftLoop.DTOs.Auth;
@@ -4736,9 +4965,7 @@ public class AuthService : IAuthService
     }
 }
 
-
 --- Services/Implementation/EmailService.cs ---
-
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -4815,9 +5042,7 @@ public class EmailService : IEmailService
     }
 }
 
-
 --- Services/Implementation/OrderService.cs ---
-
 using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Services.OrderManagement.Interface;
@@ -4883,9 +5108,80 @@ public class OrderService : IOrderService
     }
 }
 
+--- Services/Implementation/RiderAuthService.cs ---
+using BCrypt.Net;
+using ThriftLoop.Data;
+using ThriftLoop.DTOs.Auth;
+using ThriftLoop.Models;
+using ThriftLoop.Repositories.Interface;
+using ThriftLoop.Services.Auth.Interface;
+
+namespace ThriftLoop.Services.Auth.Implementation;
+
+public class RiderAuthService : IRiderAuthService
+{
+    private readonly IRiderRepository _riderRepo;
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<RiderAuthService> _logger;
+
+    public RiderAuthService(
+        IRiderRepository riderRepo,
+        ApplicationDbContext context,
+        ILogger<RiderAuthService> logger)
+    {
+        _riderRepo = riderRepo;
+        _context = context;
+        _logger = logger;
+    }
+
+    public async Task<Rider?> RegisterAsync(RiderRegisterDTO dto)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+
+        if (await _riderRepo.EmailExistsAsync(normalizedEmail))
+            return null;
+
+        var rider = new Rider
+        {
+            Email = normalizedEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            FullName = dto.FullName.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            IsApproved = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _riderRepo.CreateAsync(rider);
+
+        // Auto-provision an empty wallet for every new rider
+        _context.Wallets.Add(new Wallet
+        {
+            RiderId = rider.Id,
+            Balance = 0m,
+            PendingBalance = 0m,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("New rider registered: {RiderId}.", rider.Id);
+        return rider;
+    }
+
+    public async Task<Rider?> ValidateCredentialsAsync(LoginDTO dto)
+    {
+        var rider = await _riderRepo.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant());
+
+        if (rider is null || string.IsNullOrEmpty(rider.PasswordHash))
+            return null;
+
+        return BCrypt.Net.BCrypt.Verify(dto.Password, rider.PasswordHash) ? rider : null;
+    }
+
+    public async Task<Rider?> GetByIdAsync(int id)
+        => await _riderRepo.GetByIdAsync(id);
+}
 
 --- Services/Implementation/WalletService.cs ---
-
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
@@ -5154,9 +5450,7 @@ public class WalletService : IWalletService
     }
 }
 
-
 --- Services/Interface/IAuthService.cs ---
-
 using ThriftLoop.DTOs.Auth;
 using ThriftLoop.Models;
 
@@ -5198,9 +5492,7 @@ public interface IAuthService
     Task<bool> ResetPasswordAsync(ResetPasswordDTO dto);
 }
 
-
 --- Services/Interface/IEmailService.cs ---
-
 namespace ThriftLoop.Services.Email.Interface;
 
 public interface IEmailService
@@ -5211,9 +5503,7 @@ public interface IEmailService
     Task SendPasswordResetEmailAsync(string toEmail, string resetLink);
 }
 
-
 --- Services/Interface/IOrderService.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Services.OrderManagement.Interface;
@@ -5237,9 +5527,20 @@ public interface IOrderService
     (bool allowed, string reason) CanBuyerCheckout(Item item, int buyerId);
 }
 
+--- Services/Interface/IRiderAuthService.cs ---
+using ThriftLoop.DTOs.Auth;
+using ThriftLoop.Models;
+
+namespace ThriftLoop.Services.Auth.Interface;
+
+public interface IRiderAuthService
+{
+    Task<Rider?> RegisterAsync(RiderRegisterDTO dto);
+    Task<Rider?> ValidateCredentialsAsync(LoginDTO dto);
+    Task<Rider?> GetByIdAsync(int id);
+}
 
 --- Services/Interface/IWalletService.cs ---
-
 using ThriftLoop.Models;
 using ThriftLoop.Enums;
 namespace ThriftLoop.Services.WalletManagement.Interface;
@@ -5313,9 +5614,7 @@ public interface IWalletService
     Task<bool> RequestWithdrawalAsync(int userId, decimal amount, WithdrawalMethod method, string? reference);
 }
 
-
 --- ViewModels/CheckOutViewModel.cs ---
-
 using ThriftLoop.Enums;
 using ThriftLoop.Constants;
 
@@ -5420,9 +5719,7 @@ public class CheckoutViewModel
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Wallet;
 }
 
-
 --- ViewModels/HomeIndexViewModel.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.ViewModels;
@@ -5448,9 +5745,7 @@ public class HomeIndexViewModel
     public Dictionary<int, string> ShopItemPriceDisplay { get; init; } = new();
 }
 
-
 --- ViewModels/ItemCreateViewModel.cs ---
-
 using System.ComponentModel.DataAnnotations;
 using ThriftLoop.Constants;
 
@@ -5539,9 +5834,7 @@ public class ItemCreateViewModel : IValidatableObject
     public static IReadOnlyList<int> StealDurations => ItemConstants.StealDurations;
 }
 
-
 --- ViewModels/ItemEditViewModel.cs ---
-
 using System.ComponentModel.DataAnnotations;
 using ThriftLoop.Constants;
 
@@ -5616,9 +5909,7 @@ public class ItemEditViewModel
     public static IReadOnlyList<string> Sizes => ItemConstants.Sizes;
 }
 
-
 --- ViewModels/SellersViewModel.cs ---
-
 using ThriftLoop.Models;
 
 namespace ThriftLoop.ViewModels;
@@ -5646,9 +5937,7 @@ public class SellersViewModel
     public Dictionary<int, string> ShopItemPriceDisplay { get; init; } = new();
 }
 
-
 --- ViewModels/ShopItemViewModels.cs ---
-
 using System.ComponentModel.DataAnnotations;
 using ThriftLoop.Constants;
 
@@ -5790,9 +6079,7 @@ public class ShopSkuEditDto
     [Required, Range(1, 9999)] public int Quantity { get; set; }
 }
 
-
 --- ViewModels/ShopPageViewModels.cs ---
-
 using System.ComponentModel.DataAnnotations;
 
 namespace ThriftLoop.ViewModels;
@@ -5833,9 +6120,7 @@ public class SaveFieldDto
 }
 // Note: Items property added below via sed
 
-
 --- ViewModels/WalletViewModels.cs ---
-
 using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Constants;
@@ -5878,26 +6163,20 @@ public class WithdrawViewModel
     public string? Reference { get; set; }
 }
 
-
 --- Views/_ViewImports.cshtml ---
-
 @using ThriftLoop
 @using ThriftLoop.Models
 @using ThriftLoop.DTOs.Auth
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 
 
-
 --- Views/_ViewStart.cshtml ---
-
 @{
     Layout = "_Layout";
 }
 
 
-
 --- Views/Auth/ForgotPassword.cshtml ---
-
 @model ThriftLoop.DTOs.Auth.ForgotPasswordDTO
 @{
     ViewData["Title"] = "Forgot Password";
@@ -5986,26 +6265,7 @@ public class WithdrawViewModel
 </body>
 </html>
 
-
---- Views/Auth/ForgotPassword.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class ForgotPasswordModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Auth/ForgotPasswordConfirmation.cshtml ---
-
 ﻿@{
 ViewData["Title"] = "Check Your Email";
 Layout = null;
@@ -6073,26 +6333,7 @@ Layout = null;
 </body>
 </html>
 
-
---- Views/Auth/ForgotPasswordConfirmation.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class ForgotPasswordConfirmationModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Auth/Login.cshtml ---
-
 @model ThriftLoop.DTOs.Auth.LoginDTO
 @{
     ViewData["Title"] = "Sign In";
@@ -6256,26 +6497,7 @@ namespace ThriftLoop.Views.Auth
 </body>
 </html>
 
-
---- Views/Auth/Login.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class LoginModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Auth/Register.cshtml ---
-
 @model ThriftLoop.DTOs.Auth.RegisterDTO
 @{
     ViewData["Title"] = "Create Account";
@@ -6406,6 +6628,9 @@ namespace ThriftLoop.Views.Auth
                         Already have an account?
                         <a asp-action="Login" asp-controller="Auth" class="footer-link">Sign in</a>
                     </p>
+                    <p class="mt-2" style="margin-top: 0.5rem;">
+                        <a asp-action="RiderRegister" asp-controller="Auth" class="footer-link">Register as Rider →</a>
+                    </p>
                 </footer>
 
             </div>
@@ -6418,51 +6643,32 @@ namespace ThriftLoop.Views.Auth
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     <script>
         function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            input.type = input.type === 'password' ? 'text' : 'password';
+        const input = document.getElementById(inputId);
+        input.type = input.type === 'password' ? 'text' : 'password';
         }
 
         document.getElementById('passwordInput').addEventListener('input', function () {
-            const val  = this.value;
-            const fill = document.getElementById('strengthFill');
-            let strength = 0;
-            if (val.length >= 8)          strength++;
-            if (/[A-Z]/.test(val))        strength++;
-            if (/[0-9]/.test(val))        strength++;
-            if (/[^A-Za-z0-9]/.test(val)) strength++;
+        const val  = this.value;
+        const fill = document.getElementById('strengthFill');
+        let strength = 0;
+        if (val.length >= 8)          strength++;
+        if (/[A-Z]/.test(val))        strength++;
+        if (/[0-9]/.test(val))        strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
 
-            const pct = (strength / 4) * 100;
-            fill.style.width = pct + '%';
-            fill.className   = 'strength-bar__fill';
-            if (strength <= 1)      fill.classList.add('strength-bar__fill--weak');
-            else if (strength <= 2) fill.classList.add('strength-bar__fill--fair');
-            else if (strength <= 3) fill.classList.add('strength-bar__fill--good');
-            else                    fill.classList.add('strength-bar__fill--strong');
+        const pct = (strength / 4) * 100;
+        fill.style.width = pct + '%';
+        fill.className   = 'strength-bar__fill';
+        if (strength <= 1)      fill.classList.add('strength-bar__fill--weak');
+        else if (strength <= 2) fill.classList.add('strength-bar__fill--fair');
+        else if (strength <= 3) fill.classList.add('strength-bar__fill--good');
+        else                    fill.classList.add('strength-bar__fill--strong');
         });
     </script>
 </body>
 </html>
 
-
---- Views/Auth/Register.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class RegisterModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Auth/ResetPassword.cshtml ---
-
 @model ThriftLoop.DTOs.Auth.ResetPasswordDTO
 @{
     ViewData["Title"] = "Reset Password";
@@ -6596,26 +6802,277 @@ namespace ThriftLoop.Views.Auth
 </body>
 </html>
 
-
---- Views/Auth/ResetPassword.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Auth
-{
-    public class ResetPasswordModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
+--- Views/Auth/RiderApproval.cshtml ---
+@{
+    ViewData["Title"] = "Rider Application Status";
+    Layout = null;
+    var isApproved = ViewBag.IsApproved ?? false;
 }
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth-shell">
 
+        <aside class="auth-panel auth-panel--brand">
+            <div class="brand-wordmark">ThriftLoop</div>
+            <p class="brand-tagline">@(isApproved ? "Welcome aboard!" : "Application pending")</p>
+            <div class="brand-decoration" aria-hidden="true">
+                <span class="deco-ring deco-ring--lg"></span>
+                <span class="deco-ring deco-ring--md"></span>
+                <span class="deco-ring deco-ring--sm"></span>
+            </div>
+        </aside>
+
+        <main class="auth-panel auth-panel--form">
+            <div class="form-card">
+
+                @if (isApproved)
+                {
+                    <header class="form-card__header">
+                        <h1 class="form-card__title">Application Approved!</h1>
+                        <p class="form-card__subtitle">
+                            Your rider account has been approved. You can now access the rider dashboard.
+                        </p>
+                    </header>
+
+                    <div class="confirm-icon" aria-hidden="true" style="color: #10b981;">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
+                            <path d="M14 24l6 6 14-14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+
+                    <div class="form-card__footer">
+                        <a asp-controller="Rider" asp-action="Index" class="btn btn--primary" style="text-decoration: none; display: inline-block;">
+                            Go to Dashboard
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <header class="form-card__header">
+                        <h1 class="form-card__title">Application Submitted</h1>
+                        <p class="form-card__subtitle">
+                            Thank you for applying to become a ThriftLoop rider.
+                        </p>
+                    </header>
+
+                    <div class="confirm-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
+                            <path d="M24 12v12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3" />
+                        </svg>
+                    </div>
+
+                    <div class="alert alert--info" role="alert" style="background: #eff6ff; border-color: #3b82f6; color: #1e3a8a;">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20" style="flex-shrink: 0;"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
+                        <span>Your application is pending review. An administrator will review it shortly. You'll receive an email notification once approved.</span>
+                    </div>
+
+                    <footer class="form-card__footer">
+                        <p>
+                            <a asp-action="Login" asp-controller="Auth" class="footer-link">Return to sign in</a>
+                        </p>
+                    </footer>
+                }
+
+            </div>
+        </main>
+
+    </div>
+</body>
+</html>
+
+--- Views/Auth/RiderRegister.cshtml ---
+@model ThriftLoop.DTOs.Auth.RiderRegisterDTO
+@{
+    ViewData["Title"] = "Register as Rider";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth-shell">
+
+        <aside class="auth-panel auth-panel--brand">
+            <div class="brand-wordmark">ThriftLoop</div>
+            <p class="brand-tagline">Join our delivery<br>team today.</p>
+            <div class="brand-decoration" aria-hidden="true">
+                <span class="deco-ring deco-ring--lg"></span>
+                <span class="deco-ring deco-ring--md"></span>
+                <span class="deco-ring deco-ring--sm"></span>
+            </div>
+        </aside>
+
+        <main class="auth-panel auth-panel--form">
+            <div class="form-card">
+
+                <header class="form-card__header">
+                    <h1 class="form-card__title">Become a Rider</h1>
+                    <p class="form-card__subtitle">Complete the form to apply as a delivery rider</p>
+                </header>
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert--error" role="alert">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                        <div asp-validation-summary="ModelOnly"></div>
+                    </div>
+                }
+
+                <form asp-action="RiderRegister" asp-controller="Auth"
+                      method="post" novalidate class="auth-form">
+                    @Html.AntiForgeryToken()
+
+                    <div class="field">
+                        <label asp-for="FullName" class="field__label"></label>
+                        <input asp-for="FullName"
+                               class="field__input"
+                               type="text"
+                               autocomplete="name"
+                               placeholder="John Doe"
+                               spellcheck="false" />
+                        <span asp-validation-for="FullName" class="field__error"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Email" class="field__label"></label>
+                        <input asp-for="Email"
+                               class="field__input"
+                               type="email"
+                               autocomplete="email"
+                               placeholder="you@example.com"
+                               spellcheck="false" />
+                        <span asp-validation-for="Email" class="field__error"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="PhoneNumber" class="field__label"></label>
+                        <input asp-for="PhoneNumber"
+                               class="field__input"
+                               type="tel"
+                               autocomplete="tel"
+                               placeholder="+1234567890" />
+                        <span asp-validation-for="PhoneNumber" class="field__error"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Password" class="field__label"></label>
+                        <div class="field__input-wrapper">
+                            <input asp-for="Password"
+                                   id="passwordInput"
+                                   class="field__input"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="Min. 8 characters" />
+                            <button type="button" class="toggle-password" aria-label="Toggle password visibility"
+                                    onclick="togglePassword('passwordInput')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="Password" class="field__error"></span>
+                        <div class="strength-bar" aria-hidden="true">
+                            <span class="strength-bar__fill" id="strengthFill"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="ConfirmPassword" class="field__label"></label>
+                        <div class="field__input-wrapper">
+                            <input asp-for="ConfirmPassword"
+                                   id="confirmPasswordInput"
+                                   class="field__input"
+                                   type="password"
+                                   autocomplete="new-password"
+                                   placeholder="Repeat your password" />
+                            <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility"
+                                    onclick="togglePassword('confirmPasswordInput')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="ConfirmPassword" class="field__error"></span>
+                    </div>
+
+                    <p class="legal-note">
+                        By registering, you agree to our
+                        <a href="#" class="footer-link">Rider Terms of Service</a> and
+                        <a href="#" class="footer-link">Privacy Policy</a>.
+                    </p>
+
+                    <button type="submit" class="btn btn--primary">
+                        Apply as Rider
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                    </button>
+                </form>
+
+                <footer class="form-card__footer">
+                    <p>
+                        Already have a rider account?
+                        <a asp-action="Login" asp-controller="Auth" class="footer-link">Sign in</a>
+                    </p>
+                    <p class="mt-2">
+                        <a asp-action="Register" asp-controller="Auth" class="footer-link">← Back to regular registration</a>
+                    </p>
+                </footer>
+
+            </div>
+        </main>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+    <script>
+        function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        document.getElementById('passwordInput').addEventListener('input', function () {
+        const val  = this.value;
+        const fill = document.getElementById('strengthFill');
+        let strength = 0;
+        if (val.length >= 8)          strength++;
+        if (/[A-Z]/.test(val))        strength++;
+        if (/[0-9]/.test(val))        strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+        const pct = (strength / 4) * 100;
+        fill.style.width = pct + '%';
+        fill.className   = 'strength-bar__fill';
+        if (strength <= 1)      fill.classList.add('strength-bar__fill--weak');
+        else if (strength <= 2) fill.classList.add('strength-bar__fill--fair');
+        else if (strength <= 3) fill.classList.add('strength-bar__fill--good');
+        else                    fill.classList.add('strength-bar__fill--strong');
+        });
+    </script>
+</body>
+</html>
 
 --- Views/Home/Index.cshtml ---
-
 @model ThriftLoop.ViewModels.HomeIndexViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.ViewModels
@@ -6940,6 +7397,9 @@ namespace ThriftLoop.Views.Auth
                                     </div>
                                 }
 
+                                @* FIXED: Link to item details page *@
+                                <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+
                             </article>
                         }
                     </div>
@@ -7103,9 +7563,7 @@ namespace ThriftLoop.Views.Auth
 </body>
 </html>
 
-
 --- Views/Home/Privacy.cshtml ---
-
 @{
     ViewData["Title"] = "Privacy Policy";
 }
@@ -7114,9 +7572,7 @@ namespace ThriftLoop.Views.Auth
 <p>Use this page to detail your site's privacy policy.</p>
 
 
-
 --- Views/Items/Create.cshtml ---
-
 @model ThriftLoop.ViewModels.ItemCreateViewModel
 @using ThriftLoop.Models
 @{
@@ -7756,26 +8212,7 @@ namespace ThriftLoop.Views.Auth
 </body>
 </html>
 
-
---- Views/Items/Create.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Items
-{
-    public class CreateModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Items/Delete.cshtml ---
-
 @model ThriftLoop.Models.Item
 @{
     ViewData["Title"] = "Delete Listing";
@@ -7859,26 +8296,7 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
---- Views/Items/Delete.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Items
-{
-    public class DeleteModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Items/Details.cshtml ---
-
 @model ThriftLoop.Models.Item
 @using ThriftLoop.Models
 @using ThriftLoop.Enums
@@ -8632,26 +9050,7 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
---- Views/Items/Details.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Items
-{
-    public class DetailsModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Items/Edit.cshtml ---
-
 @model ThriftLoop.ViewModels.ItemEditViewModel
 @{
     ViewData["Title"] = "Edit Listing";
@@ -9206,26 +9605,7 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
---- Views/Items/Edit.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Items
-{
-    public class EditModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Items/Index.cshtml ---
-
 @model IReadOnlyList<ThriftLoop.Models.Item>
 @{
     ViewData["Title"] = "My Listings";
@@ -9444,26 +9824,7 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
---- Views/Items/Index.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Items
-{
-    public class IndexModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Orders/Checkout.cshtml ---
-
 @model ThriftLoop.ViewModels.CheckoutViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.Enums
@@ -9918,9 +10279,7 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
 --- Views/Orders/MyPurchases.cshtml ---
-
 @model IReadOnlyList<ThriftLoop.Models.Order>
 @using ThriftLoop.Models
 @using ThriftLoop.Enums
@@ -10148,26 +10507,81 @@ namespace ThriftLoop.Views.Items
 </body>
 </html>
 
-
---- Views/Orders/MyPurchases.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Orders
-{
-    public class MyPurchasesModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
+--- Views/Rider/Index.cshtml ---
+@{
+    ViewData["Title"] = "Rider Dashboard";
+    var riderName = ViewBag.RiderName as string ?? "Rider";
+    Layout = null; // Explicitly set Layout to null to prevent double navbar
 }
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    <partial name="_Navbar" />
 
+    <main class="container" style="max-width: 1280px; margin: 2rem auto; padding: 0 1rem;">
+        <div class="dashboard-header" style="margin-bottom: 2rem;">
+            <h1 style="font-size: 2rem; font-weight: 700; color: #111827;">Welcome, @riderName!</h1>
+            <p style="color: #6b7280; margin-top: 0.5rem;">This is your rider dashboard. Manage deliveries and track your earnings here.</p>
+        </div>
+
+        <div class="dashboard-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Available Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #3b82f6; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Orders ready for pickup</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Active Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #f59e0b; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Currently in progress</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Completed Deliveries</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #10b981; margin: 0.5rem 0;">0</p>
+                <p style="color: #6b7280;">Successfully delivered</p>
+            </div>
+
+            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Total Earnings</h3>
+                <p style="font-size: 2rem; font-weight: 700; color: #059669; margin: 0.5rem 0;">₦0.00</p>
+                <p style="color: #6b7280;">Lifetime earnings</p>
+            </div>
+        </div>
+
+        <div class="recent-activity" style="margin-top: 2rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Recent Activity</h2>
+            <div class="activity-list" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <p style="color: #6b7280; text-align: center; padding: 2rem;">No delivery activity yet. Check back for available deliveries.</p>
+            </div>
+        </div>
+    </main>
+
+    <style>
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</body>
+</html>
 
 --- Views/Sellers/Index.cshtml ---
-
 @model ThriftLoop.ViewModels.SellersViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.ViewModels
@@ -10440,11 +10854,8 @@ namespace ThriftLoop.Views.Orders
                                         <p class="fy-card__shop-attr">@shopName</p>
                                     }
 
-                                    <a asp-controller="Shop" asp-action="Details"
-                                       asp-route-id="@item.Id"
-                                       class="fy-card__link"
-                                       aria-label="View details for @item.Title">
-                                    </a>
+                                    @* FIXED: Link to item details page *@
+                                    <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
                                 </div>
 
                                 @if (isOwner)
@@ -10592,26 +11003,7 @@ namespace ThriftLoop.Views.Orders
 </body>
 </html>
 
-
---- Views/Sellers/Index.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Sellers
-{
-    public class IndexModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shared/Error.cshtml ---
-
 @model ErrorViewModel
 @{
     ViewData["Title"] = "Error";
@@ -10639,9 +11031,7 @@ namespace ThriftLoop.Views.Sellers
 </p>
 
 
-
 --- Views/Shared/_Layout.cshtml ---
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10693,10 +11083,8 @@ namespace ThriftLoop.Views.Sellers
 </html>
 
 
-
 --- Views/Shared/_Navbar.cshtml ---
-
-@using System.Security.Claims
+﻿@using System.Security.Claims
 @using ThriftLoop.Repositories.Interface
 @inject IShopRepository ShopRepo
 
@@ -10706,11 +11094,13 @@ namespace ThriftLoop.Views.Sellers
                         ?? string.Empty;
     var displayName = userEmail.Contains('@') ? userEmail.Split('@')[0] : userEmail;
     var currentPath = Context.Request.Path.Value ?? string.Empty;
-
-    // Resolve live shop name for the navbar pill.
-    // Done via @inject so it's always current — no stale cookie value.
+    
+    // Check if current user is a Rider
+    var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+    
+    // Resolve live shop name for the navbar pill (only for Sellers)
     var shopLabel = "My Shop";
-    if (User.IsInRole("Seller"))
+    if (!isRider && User.IsInRole("Seller"))
     {
         var rawId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (int.TryParse(rawId, out var navUserId))
@@ -10725,46 +11115,56 @@ namespace ThriftLoop.Views.Sellers
 <nav class="tl-nav">
     <div class="tl-nav__inner">
 
-        @* Logo *@
-        <a asp-controller="Home" asp-action="Index" class="tl-nav__logo">ThriftLoop</a>
+        @* Logo - Redirects to different pages based on user type *@
+        @if (isRider)
+        {
+            <a asp-controller="Rider" asp-action="Index" class="tl-nav__logo">ThriftLoop Rider</a>
+        }
+        else
+        {
+            <a asp-controller="Home" asp-action="Index" class="tl-nav__logo">ThriftLoop</a>
+        }
 
-        @* Centre navigation *@
-        <ul class="tl-nav__links" role="list">
-            <li>
-                <a asp-controller="Home"
-                   asp-action="Index"
-                   class="tl-nav__link @(currentPath == "/" || currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
-                    For You
-                </a>
-            </li>
-            <li class="tl-nav__divider" aria-hidden="true"></li>
-            <li>
-                <a asp-controller="Sellers"
-                   asp-action="Index"
-                   class="tl-nav__link @(currentPath.StartsWith("/Sellers", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
-                    Sellers
-                </a>
-            </li>
-            <li class="tl-nav__divider" aria-hidden="true"></li>
-            <li>
-                <a asp-controller="Items"
-                   asp-action="Index"
-                   class="tl-nav__link @(currentPath.StartsWith("/Items", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
-                    My Listings
-                </a>
-            </li>
-        </ul>
+        @* Centre navigation - Only show for regular users (not riders) *@
+        @if (!isRider)
+        {
+            <ul class="tl-nav__links" role="list">
+                <li>
+                    <a asp-controller="Home"
+                           asp-action="Index"
+                           class="tl-nav__link @(currentPath == "/" || currentPath.StartsWith("/Home", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                        For You
+                    </a>
+                </li>
+                <li class="tl-nav__divider" aria-hidden="true"></li>
+                <li>
+                    <a asp-controller="Sellers"
+                           asp-action="Index"
+                           class="tl-nav__link @(currentPath.StartsWith("/Sellers", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                        Sellers
+                    </a>
+                </li>
+                <li class="tl-nav__divider" aria-hidden="true"></li>
+                <li>
+                    <a asp-controller="Items"
+                           asp-action="Index"
+                           class="tl-nav__link @(currentPath.StartsWith("/Items", StringComparison.OrdinalIgnoreCase) ? "tl-nav__link--active" : "")">
+                        My Listings
+                    </a>
+                </li>
+            </ul>
+        }
 
         @* ── Right side: My Shop pill + user dropdown ────────────────────────── *@
         <div class="tl-nav__user">
             @if (User.Identity?.IsAuthenticated == true)
             {
-                @* My Shop pill — immediately left of the user dropdown, Sellers only *@
-                @if (User.IsInRole("Seller"))
+                @* My Shop pill — immediately left of the user dropdown, Sellers only (not for riders) *@
+                @if (!isRider && User.IsInRole("Seller"))
                 {
                     <a asp-controller="Shop"
-                       asp-action="Mine"
-                       class="tl-nav__shop-btn @(currentPath.StartsWith("/Shop", StringComparison.OrdinalIgnoreCase) ? "tl-nav__shop-btn--active" : "")">
+                           asp-action="Mine"
+                           class="tl-nav__shop-btn @(currentPath.StartsWith("/Shop", StringComparison.OrdinalIgnoreCase) ? "tl-nav__shop-btn--active" : "")">
                         <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
                             <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5zm-2.5 2H4a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h8a.5.5 0 00.5-.5V5a.5.5 0 00-.5-.5h-1.5v.75a.75.75 0 01-1.5 0V4.5h-2v.75a.75.75 0 01-1.5 0V4.5z" clip-rule="evenodd" />
                         </svg>
@@ -10787,20 +11187,40 @@ namespace ThriftLoop.Views.Sellers
                             <span class="tl-nav__dropdown-email">@userEmail</span>
                         </div>
 
-                        <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
-                            </svg>
-                            Wallet
-                        </a>
+                        @if (!isRider)
+                        {
+                            <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                </svg>
+                                Wallet
+                            </a>
 
-                        <a asp-controller="Orders" asp-action="MyPurchases" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Orders/MyPurchases", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
-                                <path d="M1 2.5A1.5 1.5 0 012.5 1h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 01.44 1.061V13.5A1.5 1.5 0 018.5 15h-6A1.5 1.5 0 011 13.5v-11z" />
-                                <path d="M9 4.5V1a1 1 0 011-1h3.5a1.5 1.5 0 011.5 1.5v11a1.5 1.5 0 01-1.5 1.5h-4.5A1.5 1.5 0 019 13.5v-9z" />
-                            </svg>
-                            My Purchases
-                        </a>
+                            <a asp-controller="Orders" asp-action="MyPurchases" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Orders/MyPurchases", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path d="M1 2.5A1.5 1.5 0 012.5 1h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 01.44 1.061V13.5A1.5 1.5 0 018.5 15h-6A1.5 1.5 0 011 13.5v-11z" />
+                                    <path d="M9 4.5V1a1 1 0 011-1h3.5a1.5 1.5 0 011.5 1.5v11a1.5 1.5 0 01-1.5 1.5h-4.5A1.5 1.5 0 019 13.5v-9z" />
+                                </svg>
+                                My Purchases
+                            </a>
+                        }
+                        else
+                        {
+                            <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
+                                </svg>
+                                My Wallet
+                            </a>
+
+                            <a asp-controller="Orders" asp-action="MyDeliveries" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Orders/MyDeliveries", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path d="M2.5 3A1.5 1.5 0 001 4.5v7A1.5 1.5 0 002.5 13h11a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0013.5 3h-11zm.5 2.5a.5.5 0 01.5-.5h9a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-1z" />
+                                    <path d="M4 8h8v1H4z" />
+                                </svg>
+                                My Deliveries
+                            </a>
+                        }
 
                         <div class="tl-nav__dropdown-divider"></div>
 
@@ -10883,26 +11303,7 @@ namespace ThriftLoop.Views.Sellers
     });
 </script>
 
-
---- Views/Shared/_Navbar.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shared
-{
-    public class _NavbarModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shared/_ValidationScriptsPartial.cshtml ---
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
         integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -10914,9 +11315,7 @@ namespace ThriftLoop.Views.Shared
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 
-
 --- Views/Shop/Create.cshtml ---
-
 @model ThriftLoop.ViewModels.ShopItemCreateViewModel
 @using ThriftLoop.Constants
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
@@ -11354,26 +11753,7 @@ namespace ThriftLoop.Views.Shared
 </body>
 </html>
 
-
---- Views/Shop/Create.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shop
-{
-    public class ItemCreateModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shop/Delete.cshtml ---
-
 @model ThriftLoop.Models.Item
 @{
     ViewData["Title"] = "Delete Listing";
@@ -11505,26 +11885,7 @@ namespace ThriftLoop.Views.Shop
 </body>
 </html>
 
-
---- Views/Shop/Delete.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shop
-{
-    public class DeleteModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shop/Details.cshtml ---
-
 @model ThriftLoop.ViewModels.ShopItemDetailsViewModel
 @using ThriftLoop.Constants
 @{
@@ -12018,26 +12379,7 @@ namespace ThriftLoop.Views.Shop
 </body>
 </html>
 
-
---- Views/Shop/Details.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shop
-{
-    public class DetailsModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shop/Edit.cshtml ---
-
 @model ThriftLoop.ViewModels.ShopItemEditViewModel
 @using ThriftLoop.ViewModels
 @using ThriftLoop.Constants
@@ -12557,26 +12899,7 @@ namespace ThriftLoop.Views.Shop
 </body>
 </html>
 
-
---- Views/Shop/Edit.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shop
-{
-    public class EditModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Shop/Index.cshtml ---
-
 @model ThriftLoop.ViewModels.ShopPageViewModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
@@ -13236,26 +13559,7 @@ namespace ThriftLoop.Views.Shop
     </script>
 }
 
-
---- Views/Shop/Index.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Shop
-{
-    public class IndexModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Wallet/AddFunds.cshtml ---
-
 @{
     ViewData["Title"] = "Add Funds";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -13574,26 +13878,7 @@ namespace ThriftLoop.Views.Shop
 }
 
 
-
---- Views/Wallet/AddFunds.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Wallet
-{
-    public class AddFundsModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Wallet/Index.cshtml ---
-
 @model ThriftLoop.ViewModels.WalletIndexViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.Enums
@@ -14248,26 +14533,7 @@ namespace ThriftLoop.Views.Wallet
 }
 
 
-
---- Views/Wallet/Index.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Wallet
-{
-    public class IndexModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- Views/Wallet/Withdraw.cshtml ---
-
 @model ThriftLoop.ViewModels.WithdrawViewModel
 @using ThriftLoop.Models
 @using ThriftLoop.Enums
@@ -14724,26 +14990,7 @@ namespace ThriftLoop.Views.Wallet
 }
 
 
-
---- Views/Wallet/Withdraw.cshtml.cs ---
-
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-
-namespace ThriftLoop.Views.Wallet
-{
-    public class WithdrawModel : PageModel
-    {
-        public void OnGet()
-        {
-        }
-    }
-}
-
-
-
 --- wwwroot/js/site.js ---
-
 // Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
 // for details on configuring this project to bundle and minify static web assets.
 
