@@ -94,4 +94,7 @@ public class Order
     public ItemVariantSku? ItemVariantSku { get; set; }
     public User? Buyer { get; set; }
     public User? Seller { get; set; }
+
+    /// <summary>The delivery associated with this order (one-to-one).</summary>
+    public Delivery? Delivery { get; set; }
 }

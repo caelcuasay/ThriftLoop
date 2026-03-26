@@ -72,6 +72,7 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IShopRepository, ShopRepository>();
+builder.Services.AddScoped<IDeliveryRepository, DeliveryRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -79,6 +80,7 @@ builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();  // ← NEW
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+
 
 var app = builder.Build();
 

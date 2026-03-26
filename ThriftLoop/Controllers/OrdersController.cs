@@ -17,6 +17,7 @@ public class OrdersController : BaseController
 {
     private readonly IItemRepository _itemRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IDeliveryRepository _deliveryRepository;
     private readonly IWalletService _walletService;
     private readonly IOrderService _orderService;
     private readonly ApplicationDbContext _context;
@@ -25,6 +26,7 @@ public class OrdersController : BaseController
     public OrdersController(
         IItemRepository itemRepository,
         IOrderRepository orderRepository,
+        IDeliveryRepository deliveryRepository,
         IWalletService walletService,
         IOrderService orderService,
         ApplicationDbContext context,
@@ -32,6 +34,7 @@ public class OrdersController : BaseController
     {
         _itemRepository = itemRepository;
         _orderRepository = orderRepository;
+        _deliveryRepository = deliveryRepository;
         _walletService = walletService;
         _orderService = orderService;
         _context = context;
@@ -132,6 +135,9 @@ public class OrdersController : BaseController
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
+            // Create delivery record
+            await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+
             item.Status = ItemStatus.Sold;
             await _itemRepository.UpdateAsync(item);
 
@@ -141,7 +147,8 @@ public class OrdersController : BaseController
 
             TempData["SuccessMessage"] =
                 $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. " +
-                $"₱{finalPrice:N2} is held in escrow and will be released to the seller once you confirm delivery.";
+                $"₱{finalPrice:N2} is held in escrow and will be released to the seller once you confirm delivery. " +
+                $"A delivery job has been created and is waiting for a rider to accept.";
 
             return RedirectToAction(nameof(MyPurchases));
         }
@@ -161,6 +168,9 @@ public class OrdersController : BaseController
 
         await _orderRepository.AddAsync(order);
 
+        // Create delivery record
+        await _deliveryRepository.CreateForOrderAsync(order.Id);
+
         item.Status = ItemStatus.Sold;
         await _itemRepository.UpdateAsync(item);
 
@@ -170,7 +180,7 @@ public class OrdersController : BaseController
 
         TempData["SuccessMessage"] =
             $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery. " +
-            "Please coordinate with the seller for delivery details.";
+            "A delivery job has been created and is waiting for a rider to accept.";
 
         return RedirectToAction(nameof(MyPurchases));
     }
@@ -286,6 +296,9 @@ public class OrdersController : BaseController
                 return RedirectToAction(nameof(ShopCheckout), new { skuId, quantity });
             }
 
+            // Create delivery record
+            await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+
             // Decrement stock — if it hits zero, mark the SKU sold
             sku.Quantity -= quantity;
             if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
@@ -298,7 +311,8 @@ public class OrdersController : BaseController
 
             TempData["SuccessMessage"] =
                 $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
-                "Funds are held in escrow and will be released once you confirm delivery.";
+                "Funds are held in escrow and will be released once you confirm delivery. " +
+                "A delivery job has been created and is waiting for a rider to accept.";
 
             return RedirectToAction(nameof(MyPurchases));
         }
@@ -319,6 +333,9 @@ public class OrdersController : BaseController
         };
         await _orderRepository.AddAsync(order);
 
+        // Create delivery record
+        await _deliveryRepository.CreateForOrderAsync(order.Id);
+
         sku.Quantity -= quantity;
         if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
         await _context.SaveChangesAsync();
@@ -330,12 +347,12 @@ public class OrdersController : BaseController
 
         TempData["SuccessMessage"] =
             $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
-            "Please coordinate with the seller for delivery details.";
+            "A delivery job has been created and is waiting for a rider to accept.";
 
         return RedirectToAction(nameof(MyPurchases));
     }
 
-    // ── MARK DELIVERED ─────────────────────────────────────────────────────
+    // ── MARK DELIVERED (Buyer confirms receipt) ─────────────────────────────────────────────────────
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -362,6 +379,21 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
+        // Confirm delivery through the delivery system
+        var delivery = await _deliveryRepository.GetByOrderIdAsync(orderId);
+        if (delivery == null)
+        {
+            TempData["ErrorMessage"] = "Delivery record not found.";
+            return RedirectToAction(nameof(MyPurchases));
+        }
+
+        if (delivery.Status != DeliveryStatus.Delivered)
+        {
+            TempData["ErrorMessage"] = "You can only confirm delivery after the rider has marked it as delivered.";
+            return RedirectToAction(nameof(MyPurchases));
+        }
+
+        // Process payment based on method
         if (order.PaymentMethod == PaymentMethod.Wallet)
         {
             await _walletService.ReleaseEscrowAsync(
@@ -371,11 +403,16 @@ public class OrdersController : BaseController
         {
             await _walletService.RecordCashCollectionAsync(
                 order.Id, order.BuyerId, order.SellerId, order.FinalPrice);
-            order.CashCollectedByRider = true;
         }
 
-        order.Status = OrderStatus.Completed;
-        await _orderRepository.UpdateAsync(order);
+        // Confirm delivery completion
+        var confirmed = await _deliveryRepository.ConfirmByBuyerAsync(delivery.Id, buyerId.Value);
+
+        if (!confirmed)
+        {
+            TempData["ErrorMessage"] = "Failed to confirm delivery. Please try again.";
+            return RedirectToAction(nameof(MyPurchases));
+        }
 
         _logger.LogInformation(
             "Order {OrderId} marked Completed by Buyer {BuyerId}.", orderId, buyerId.Value);

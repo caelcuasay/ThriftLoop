@@ -120,7 +120,21 @@
                         _ => order.PaymentMethod.ToString()
                     };
 
-                    bool canMarkDelivered = order.Status == OrderStatus.Pending;
+                    // Check delivery status to determine if buyer can confirm receipt
+                    bool canMarkDelivered = order.Status == OrderStatus.Pending
+                        && order.Delivery != null
+                        && order.Delivery.Status == DeliveryStatus.Delivered;
+                    
+                    // Show delivery status message
+                    string deliveryStatusMessage = order.Delivery?.Status switch
+                    {
+                        DeliveryStatus.Available => "Waiting for a rider to accept this delivery.",
+                        DeliveryStatus.Accepted => "A rider has accepted your delivery and is on the way to pick up the item.",
+                        DeliveryStatus.PickedUp => "Rider has picked up your item and is en route.",
+                        DeliveryStatus.Delivered => "Rider has delivered your item. Please confirm receipt.",
+                        DeliveryStatus.Completed => "Delivery completed. Thank you!",
+                        _ => "Delivery pending."
+                    };
 
                     <article class="mp-row">
 
@@ -171,6 +185,14 @@
                                 </span>
                             </p>
 
+                            @* Delivery status message *@
+                            @if (order.Delivery != null)
+                            {
+                                <p class="mp-row__delivery" style="font-size: 0.875rem; color: #6b7280; margin: 0.5rem 0;">
+                                    📦 @deliveryStatusMessage
+                                </p>
+                            }
+
                             <p class="mp-row__date">
                                 Ordered
                                 <time datetime="@order.OrderDate.ToString("yyyy-MM-ddTHH:mm:ssZ")">
@@ -178,7 +200,7 @@
                                 </time>
                             </p>
 
-                            @* Mark Delivered — only visible on Pending orders *@
+                            @* Mark Delivered — only visible when delivery is in Delivered state *@
                             @if (canMarkDelivered)
                             {
                                 <form asp-action="MarkDelivered"
@@ -186,13 +208,13 @@
                                       asp-route-orderId="@order.Id"
                                       method="post"
                                       class="mp-deliver-form"
-                                      onsubmit="return confirm('Confirm delivery of this order? This will release payment to the seller.');">
+                                      onsubmit="return confirm('Confirm receipt of this order? This will release payment to the seller.');">
                                     @Html.AntiForgeryToken()
                                     <button type="submit" class="mp-deliver-btn">
                                         <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                         </svg>
-                                        I received this item
+                                        I have received this item
                                     </button>
                                 </form>
                             }
@@ -211,16 +233,16 @@
     </div>
 
     <script>
-        (function () {
-            'use strict';
-            var toast = document.getElementById('mpToast');
-            if (toast) {
-                setTimeout(function () {
-                    toast.style.opacity = '0';
-                    setTimeout(function () { toast.remove(); }, 400);
-                }, 5000);
-            }
-        }());
+            (function () {
+                'use strict';
+                var toast = document.getElementById('mpToast');
+                if (toast) {
+                    setTimeout(function () {
+                        toast.style.opacity = '0';
+                        setTimeout(function () { toast.remove(); }, 400);
+                    }, 5000);
+                }
+            }());
     </script>
 </body>
 </html>

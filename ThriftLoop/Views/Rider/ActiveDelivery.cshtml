@@ -1,0 +1,138 @@
+﻿@model ThriftLoop.Models.Delivery
+@{
+    ViewData["Title"] = "Active Delivery";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    <partial name="_Navbar" />
+
+    <main class="container" style="max-width: 1280px; margin: 2rem auto; padding: 0 1rem;">
+        
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div style="background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                @successMsg
+            </div>
+        }
+        
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                @errMsg
+            </div>
+        }
+
+        <div style="margin-bottom: 2rem;">
+            <h1 style="font-size: 1.875rem; font-weight: 700;">Active Delivery</h1>
+            <p style="color: #6b7280; margin-top: 0.5rem;">Your current delivery status and actions.</p>
+        </div>
+
+        @if (Model == null)
+        {
+            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem;">
+                <p style="font-size: 1.125rem; color: #6b7280;">No active delivery found.</p>
+                <a asp-action="Index" style="color: #3b82f6; text-decoration: none; margin-top: 1rem; display: inline-block;">Browse available jobs</a>
+            </div>
+        }
+        else
+        {
+            var order = Model.Order;
+            var item = order?.Item;
+            
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="margin-bottom: 1rem;">
+                    <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 500;
+                        @(Model.Status == ThriftLoop.Enums.DeliveryStatus.Accepted ? "background: #fef3c7; color: #92400e;" :
+                                                    Model.Status == ThriftLoop.Enums.DeliveryStatus.PickedUp ? "background: #dbeafe; color: #1e40af;" :
+                                                    Model.Status == ThriftLoop.Enums.DeliveryStatus.Delivered ? "background: #d1fae5; color: #065f46;" : "background: #e5e7eb; color: #374151;")">
+                        Status: @Model.Status
+                    </span>
+                </div>
+                
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">
+                    @(item?.Title ?? "Item #" + order?.ItemId)
+                </h3>
+                
+                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                    Category: @(item?.Category ?? "N/A")
+                </p>
+                
+                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                    Buyer: @(order?.Buyer?.Email?.Split('@')[0] ?? "N/A")
+                </p>
+                
+                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                    Buyer Contact: @(order?.Buyer?.Email ?? "N/A")
+                </p>
+                
+                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                    Seller: @(order?.Seller?.Email?.Split('@')[0] ?? "N/A")
+                </p>
+                
+                <p style="font-size: 1.125rem; font-weight: 600; color: #059669; margin-top: 0.5rem;">
+                    ₱@(order?.FinalPrice.ToString("N2") ?? "0.00")
+                </p>
+                
+                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 0.5rem;">
+                    Payment Method: @(order?.PaymentMethod)
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                @if (Model.Status == ThriftLoop.Enums.DeliveryStatus.Accepted)
+                {
+                    <form asp-action="MarkPickedUp" asp-controller="Rider" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="deliveryId" value="@Model.Id" />
+                        <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                            Mark as Picked Up
+                        </button>
+                    </form>
+                }
+                
+                @if (Model.Status == ThriftLoop.Enums.DeliveryStatus.PickedUp)
+                {
+                    <form asp-action="MarkDelivered" asp-controller="Rider" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="deliveryId" value="@Model.Id" />
+                        <button type="submit" style="background: #059669; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                            Mark as Delivered
+                        </button>
+                    </form>
+                }
+                
+                @if (Model.Status == ThriftLoop.Enums.DeliveryStatus.Delivered)
+                {
+                    <div style="background: #fef3c7; padding: 0.75rem 1.5rem; border-radius: 0.5rem;">
+                        <p style="color: #92400e; margin: 0;">Awaiting buyer confirmation</p>
+                    </div>
+                }
+                
+                @if (Model.Status == ThriftLoop.Enums.DeliveryStatus.Completed)
+                {
+                    <div style="background: #d1fae5; padding: 0.75rem 1.5rem; border-radius: 0.5rem;">
+                        <p style="color: #065f46; margin: 0;">Delivery completed successfully!</p>
+                    </div>
+                }
+            </div>
+            
+            <div style="margin-top: 2rem;">
+                <a asp-action="Index" style="color: #6b7280; text-decoration: none;">← Back to Dashboard</a>
+            </div>
+        }
+    </main>
+</body>
+</html>

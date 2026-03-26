@@ -27,6 +27,7 @@ public class OrderRepository : IOrderRepository
                          .AsNoTracking()
                          .Include(o => o.Item)
                          .Include(o => o.Seller)
+                         .Include(o => o.Delivery)
                          .Where(o => o.BuyerId == userId)
                          .OrderByDescending(o => o.OrderDate)
                          .ToListAsync();
@@ -38,6 +39,7 @@ public class OrderRepository : IOrderRepository
                          .Include(o => o.Item)
                          .Include(o => o.Buyer)
                          .Include(o => o.Seller)
+                         .Include(o => o.Delivery)
                          .FirstOrDefaultAsync(o => o.Id == id);
 
     /// <inheritdoc />

@@ -1,7 +1,8 @@
-﻿@{
+﻿@model IReadOnlyList<ThriftLoop.Models.Delivery>
+@{
     ViewData["Title"] = "Rider Dashboard";
     var riderName = ViewBag.RiderName as string ?? "Rider";
-    Layout = null; // Explicitly set Layout to null to prevent double navbar
+    Layout = null;
 }
 
 <!DOCTYPE html>
@@ -20,53 +21,77 @@
     <partial name="_Navbar" />
 
     <main class="container" style="max-width: 1280px; margin: 2rem auto; padding: 0 1rem;">
-        <div class="dashboard-header" style="margin-bottom: 2rem;">
-            <h1 style="font-size: 2rem; font-weight: 700; color: #111827;">Welcome, @riderName!</h1>
-            <p style="color: #6b7280; margin-top: 0.5rem;">This is your rider dashboard. Manage deliveries and track your earnings here.</p>
+        
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div style="background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                @successMsg
+            </div>
+        }
+        
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                @errMsg
+            </div>
+        }
+
+        <div style="margin-bottom: 2rem;">
+            <h1 style="font-size: 1.875rem; font-weight: 700;">Welcome, @riderName!</h1>
+            <p style="color: #6b7280; margin-top: 0.5rem;">Available deliveries are shown below. Accept one to start earning.</p>
         </div>
 
-        <div class="dashboard-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Available Deliveries</h3>
-                <p style="font-size: 2rem; font-weight: 700; color: #3b82f6; margin: 0.5rem 0;">0</p>
-                <p style="color: #6b7280;">Orders ready for pickup</p>
+        @if (!Model.Any())
+        {
+            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem;">
+                <p style="font-size: 1.125rem; color: #6b7280;">No deliveries available at the moment.</p>
+                <p style="color: #9ca3af; margin-top: 0.5rem;">Check back later for new jobs.</p>
             </div>
-
-            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Active Deliveries</h3>
-                <p style="font-size: 2rem; font-weight: 700; color: #f59e0b; margin: 0.5rem 0;">0</p>
-                <p style="color: #6b7280;">Currently in progress</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                @foreach (var delivery in Model)
+                {
+                    var order = delivery.Order;
+                    var item = order?.Item;
+                    
+                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">
+                                    @(item?.Title ?? "Item #" + order?.ItemId)
+                                </h3>
+                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                                    Category: @(item?.Category ?? "N/A")
+                                </p>
+                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                                    Buyer: @(order?.Buyer?.Email?.Split('@')[0] ?? "N/A")
+                                </p>
+                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                                    Seller: @(order?.Seller?.Email?.Split('@')[0] ?? "N/A")
+                                </p>
+                                <p style="font-size: 1.125rem; font-weight: 600; color: #059669; margin-top: 0.5rem;">
+                                    ₱@(order?.FinalPrice.ToString("N2") ?? "0.00")
+                                </p>
+                                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 0.5rem;">
+                                    Order placed: @(order?.OrderDate.ToString("MMM d, yyyy") ?? "Unknown")
+                                </p>
+                            </div>
+                            <div>
+                                <form asp-action="AcceptJob" asp-controller="Rider" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="deliveryId" value="@delivery.Id" />
+                                    <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                                        Accept Job
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
-
-            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Completed Deliveries</h3>
-                <p style="font-size: 2rem; font-weight: 700; color: #10b981; margin: 0.5rem 0;">0</p>
-                <p style="color: #6b7280;">Successfully delivered</p>
-            </div>
-
-            <div class="card" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Total Earnings</h3>
-                <p style="font-size: 2rem; font-weight: 700; color: #059669; margin: 0.5rem 0;">₦0.00</p>
-                <p style="color: #6b7280;">Lifetime earnings</p>
-            </div>
-        </div>
-
-        <div class="recent-activity" style="margin-top: 2rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Recent Activity</h2>
-            <div class="activity-list" style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <p style="color: #6b7280; text-align: center; padding: 2rem;">No delivery activity yet. Check back for available deliveries.</p>
-            </div>
-        </div>
+        }
     </main>
-
-    <style>
-        .card {
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-    </style>
 </body>
 </html>

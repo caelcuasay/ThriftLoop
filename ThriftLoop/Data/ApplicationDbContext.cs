@@ -13,12 +13,13 @@ public class ApplicationDbContext : DbContext
 
     // ── DbSets ────────────────────────────────────────────────────────────────
     public DbSet<User> Users => Set<User>();
-    public DbSet<Rider> Riders => Set<Rider>();  // ← NEW
+    public DbSet<Rider> Riders => Set<Rider>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
     public DbSet<ItemVariantSku> ItemVariantSkus => Set<ItemVariantSku>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
@@ -77,6 +78,14 @@ public class ApplicationDbContext : DbContext
                   .IsRequired().HasDefaultValue(false);
             entity.Property(r => r.CreatedAt)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(r => r.ActiveDeliveryId).IsRequired(false);
+            entity.Property(r => r.ActiveDeliveryStartedAt).IsRequired(false);
+
+            // Self-reference for ActiveDelivery
+            entity.HasOne(r => r.ActiveDelivery)
+                  .WithMany()
+                  .HasForeignKey(r => r.ActiveDeliveryId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── SellerProfiles ────────────────────────────────────────────────────
@@ -244,6 +253,36 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(o => o.SellerId)
                   .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(o => o.Delivery)
+                  .WithOne(d => d.Order)
+                  .HasForeignKey<Delivery>(d => d.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Deliveries ────────────────────────────────────────────────────────
+        modelBuilder.Entity<Delivery>(entity =>
+        {
+            entity.ToTable("Deliveries");
+            entity.HasKey(d => d.Id);
+            entity.Property(d => d.Id).ValueGeneratedOnAdd();
+            entity.Property(d => d.Status).IsRequired().HasDefaultValue(DeliveryStatus.Available);
+            entity.Property(d => d.CreatedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(d => d.AcceptedAt).IsRequired(false).HasColumnType("datetime2");
+            entity.Property(d => d.PickedUpAt).IsRequired(false).HasColumnType("datetime2");
+            entity.Property(d => d.DeliveredAt).IsRequired(false).HasColumnType("datetime2");
+            entity.Property(d => d.ConfirmedByBuyerAt).IsRequired(false).HasColumnType("datetime2");
+
+            entity.HasOne(d => d.Order)
+                  .WithOne(o => o.Delivery)
+                  .HasForeignKey<Delivery>(d => d.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Rider)
+                  .WithMany(r => r.Deliveries)
+                  .HasForeignKey(d => d.RiderId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── Wallets ───────────────────────────────────────────────────────────
