@@ -778,3 +778,37 @@ h2 {
         grid-template-columns: 1fr;
     }
 }
+
+/* Add to the end of both Home.css and Sellers.css */
+
+/* Full card clickable wrapper */
+.fy-card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.fy-card-link--hidden {
+    display: none;
+}
+
+/* Ensure the card maintains hover effects when wrapped */
+.fy-card-link:hover .fy-card {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.fy-card-link:hover .fy-card--shop {
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 4px 18px rgba(139, 92, 246, 0.15);
+}
+
+/* Prevent the manage button from triggering the card link */
+.fy-card__actions {
+    position: relative;
+    z-index: 2;
+}
+
+.fy-btn--manage {
+    display: inline-block;
+    cursor: pointer;
+}

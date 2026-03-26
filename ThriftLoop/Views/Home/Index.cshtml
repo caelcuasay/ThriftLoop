@@ -322,6 +322,9 @@
                                     </div>
                                 }
 
+                                @* FIXED: Link to item details page *@
+                                <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+
                             </article>
                         }
                     </div>
