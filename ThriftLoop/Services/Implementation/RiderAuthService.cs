@@ -1,6 +1,8 @@
 ﻿using BCrypt.Net;
+using ThriftLoop.Constants;  // ← ADD THIS
 using ThriftLoop.Data;
 using ThriftLoop.DTOs.Auth;
+using ThriftLoop.Enums;       // ← ADD THIS for TransactionType
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Interface;
@@ -42,17 +44,34 @@ public class RiderAuthService : IRiderAuthService
 
         await _riderRepo.CreateAsync(rider);
 
-        // Auto-provision an empty wallet for every new rider
-        _context.Wallets.Add(new Wallet
+        // Auto-provision wallet with demo balance (using constant)
+        var wallet = new Wallet
         {
             RiderId = rider.Id,
-            Balance = 0m,
+            Balance = WalletConstants.InitialBalance,   // ← FIXED: use constant
             PendingBalance = 0m,
             UpdatedAt = DateTime.UtcNow
+        };
+        _context.Wallets.Add(wallet);
+
+        // Audit the seed as a TopUp so the history is clean
+        _context.Transactions.Add(new Transaction
+        {
+            OrderId = null,
+            FromUserId = rider.Id,   // For riders, FromUserId = rider.Id (self)
+            ToUserId = rider.Id,     // ToUserId = rider.Id (self)
+            Amount = WalletConstants.InitialBalance,
+            Type = TransactionType.TopUp,
+            Status = TransactionStatus.Completed,
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow
         });
+
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("New rider registered: {RiderId}.", rider.Id);
+        _logger.LogInformation(
+            "New rider registered: {RiderId} with ₱{SeedBalance} demo balance.",
+            rider.Id, WalletConstants.InitialBalance);
         return rider;
     }
 
