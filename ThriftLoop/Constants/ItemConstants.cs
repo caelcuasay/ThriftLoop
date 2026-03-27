@@ -22,6 +22,8 @@ public static class ItemConstants
         "XS", "S", "M", "L", "XL", "XXL", "XXXL"
     ];
 
+    public static readonly decimal DeliveryFee = 50.00m;
+
     /// <summary>Allowed steal window durations in hours.</summary>
     public static readonly IReadOnlyList<int> StealDurations = [6, 12, 24];
 
@@ -44,4 +46,5 @@ public static class ItemConstants
 
     /// <summary>Maximum allowed file size per image in bytes (5 MB).</summary>
     public const long MaxImageSizeBytes = 5 * 1024 * 1024;
+
 }

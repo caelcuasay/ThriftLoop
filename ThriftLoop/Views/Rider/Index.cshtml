@@ -55,7 +55,8 @@
                 {
                     var order = delivery.Order;
                     var item = order?.Item;
-                    
+                    var itemPrice = (order?.FinalPrice ?? 0m) - (order?.DeliveryFee ?? 0m);
+
                     <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
@@ -71,10 +72,26 @@
                                 <p style="color: #6b7280; margin-bottom: 0.5rem;">
                                     Seller: @(order?.Seller?.Email?.Split('@')[0] ?? "N/A")
                                 </p>
-                                <p style="font-size: 1.125rem; font-weight: 600; color: #059669; margin-top: 0.5rem;">
-                                    ₱@(order?.FinalPrice.ToString("N2") ?? "0.00")
+                                <p style="color: #6b7280; margin-bottom: 0.25rem;">
+                                    Payment: @(order?.PaymentMethod.ToString() ?? "N/A")
                                 </p>
-                                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 0.5rem;">
+
+                                <div style="margin-top: 0.75rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; display: inline-block; min-width: 200px;">
+                                    <div style="display: flex; justify-content: space-between; gap: 2rem; color: #6b7280; font-size: 0.875rem;">
+                                        <span>Item price</span>
+                                        <span>₱@itemPrice.ToString("N2")</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; gap: 2rem; color: #059669; font-size: 0.875rem; font-weight: 600; margin-top: 0.25rem;">
+                                        <span>Your delivery fee</span>
+                                        <span>₱@((order?.DeliveryFee ?? 0m).ToString("N2"))</span>
+                                    </div>
+                                    <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem; display: flex; justify-content: space-between; gap: 2rem; font-weight: 600; font-size: 0.9375rem;">
+                                        <span>Order total</span>
+                                        <span>₱@((order?.FinalPrice ?? 0m).ToString("N2"))</span>
+                                    </div>
+                                </div>
+
+                                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 0.75rem;">
                                     Order placed: @(order?.OrderDate.ToString("MMM d, yyyy") ?? "Unknown")
                                 </p>
                             </div>

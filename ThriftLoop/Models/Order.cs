@@ -1,4 +1,5 @@
 ﻿using ThriftLoop.Enums;
+using ThriftLoop.Constants;
 
 namespace ThriftLoop.Models;
 
@@ -17,9 +18,9 @@ namespace ThriftLoop.Models;
 /// it captures the exact size, variant, and price the buyer chose at checkout.
 /// For P2P items this points to the auto-generated default SKU.
 ///
-/// FinalPrice captures the exact amount at the moment of confirmation —
-/// this preserves the ₱50 steal premium permanently even if the Item row
-/// is later modified.
+/// FinalPrice captures the exact total at the moment of confirmation, including
+/// the delivery fee. This preserves the ₱50 steal premium and ₱50 delivery fee
+/// permanently even if the Item row is later modified.
 /// </summary>
 public class Order
 {
@@ -52,11 +53,25 @@ public class Order
     // ── Order data ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The price the buyer agreed to pay, locked at confirmation time.
-    /// For a stolen Stealable item this will be the base price + ₱50.
-    /// For shop orders this is ItemVariantSku.Price × Quantity at checkout time.
+    /// The total price the buyer agreed to pay, locked at confirmation time.
+    /// This includes the item price (+ steal premium if applicable) AND the
+    /// flat delivery fee (<see cref="DeliveryFee"/>).
+    ///   Wallet orders: full amount is held in escrow; released to seller and
+    ///                  rider separately on delivery confirmation.
+    ///   COD orders:    buyer pays in cash; seller receives item price,
+    ///                  rider receives the delivery fee.
     /// </summary>
     public decimal FinalPrice { get; set; }
+
+    /// <summary>
+    /// Flat delivery fee locked at confirmation time. Always ₱50 (sourced from
+    /// <see cref="ItemConstants.DeliveryFee"/>).
+    /// For Wallet orders this portion is released from escrow directly to the
+    /// rider's wallet after delivery confirmation.
+    /// For COD orders the buyer pays the rider in cash; this field records the
+    /// expected amount so the rider's wallet credit can be calculated correctly.
+    /// </summary>
+    public decimal DeliveryFee { get; set; } = ItemConstants.DeliveryFee;
 
     /// <summary>
     /// How many units the buyer is purchasing.
@@ -84,7 +99,8 @@ public class Order
     /// <summary>
     /// For Cash orders only. Set to true when the rider (or buyer) confirms
     /// that cash has been collected, triggering a CashCollection transaction
-    /// to credit the seller's wallet.
+    /// to credit the seller's wallet and a DeliveryFeePayment to credit the
+    /// rider's wallet.
     /// </summary>
     public bool CashCollectedByRider { get; set; } = false;
 

@@ -27,7 +27,10 @@ public enum TransactionType
     CashCollection,
 
     /// <summary>Funds added to a wallet (demo top-up or future payment gateway).</summary>
-    TopUp
+    TopUp,
+
+    DeliveryFeePayment
+
 }
 
 /// <summary>

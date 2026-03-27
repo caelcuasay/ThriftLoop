@@ -1,72 +1,65 @@
-﻿using ThriftLoop.Models;
-using ThriftLoop.Enums;
+﻿using ThriftLoop.Enums;
+using ThriftLoop.Models;
+
 namespace ThriftLoop.Services.WalletManagement.Interface;
 
 public interface IWalletService
 {
-    // ── Wallet access ──────────────────────────────────────────────────────
-
     /// <summary>
-    /// Returns the wallet for <paramref name="userId"/>. If one does not exist yet,
-    /// creates and persists it with a ₱1,000 demo seed balance.
-    /// This is the preferred method for all consumer code — never returns null.
+    /// Returns the wallet for <paramref name="userId"/>, creating and seeding
+    /// it with a demo balance if one does not yet exist.
     /// </summary>
     Task<Wallet> GetOrCreateWalletAsync(int userId);
 
-    // ── Escrow (Wallet payment path) ───────────────────────────────────────
-
     /// <summary>
-    /// Holds <paramref name="amount"/> in escrow for the buyer when a Wallet order
-    /// is confirmed.
-    ///
-    /// Steps:
-    ///   buyer.Balance        -= amount
-    ///   buyer.PendingBalance += amount
-    ///   Writes an EscrowHold Transaction (Completed).
-    ///
-    /// Returns <c>true</c> on success, <c>false</c> when the buyer has insufficient
-    /// available balance (PendingBalance is unchanged on failure).
+    /// Moves <paramref name="amount"/> from the buyer's available Balance into
+    /// their PendingBalance (escrow hold). The full amount includes the item
+    /// price and the flat delivery fee.
+    /// Returns <c>false</c> if the buyer has insufficient funds.
     /// </summary>
     Task<bool> HoldEscrowAsync(int orderId, int buyerId, decimal amount);
 
     /// <summary>
-    /// Releases escrowed funds to the seller when the buyer marks delivery.
-    ///
-    /// Steps:
-    ///   buyer.PendingBalance -= amount
-    ///   seller.Balance       += amount
-    ///   Writes an EscrowRelease Transaction (Completed).
+    /// Releases the item-price portion of the escrow to the seller.
+    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c>.
+    /// The delivery-fee slice is released separately via
+    /// <see cref="PayRiderAsync"/> with <c>fromEscrow = true</c>.
     /// </summary>
     Task ReleaseEscrowAsync(int orderId, int buyerId, int sellerId, decimal amount);
 
-    // ── Cash on Delivery ───────────────────────────────────────────────────
-
     /// <summary>
-    /// Credits the seller's wallet when a COD order's cash is collected.
-    ///
-    /// Steps:
-    ///   seller.Balance += amount
-    ///   Writes a CashCollection Transaction (Completed).
-    ///
-    /// The fromUserId is the buyer's ID for audit purposes.
+    /// Records a cash-on-delivery payment to the seller's wallet.
+    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c> (item price only).
+    /// The delivery fee is credited to the rider separately via
+    /// <see cref="PayRiderAsync"/> with <c>fromEscrow = false</c>.
     /// </summary>
     Task RecordCashCollectionAsync(int orderId, int buyerId, int sellerId, decimal amount);
 
-    // ── Top-up ─────────────────────────────────────────────────────────────
-
     /// <summary>
-    /// Adds funds to a user's available balance (demo top-up / future gateway).
-    /// Writes a TopUp Transaction (Completed).
+    /// Credits the flat delivery fee to the rider's wallet after a successful delivery.
+    ///
+    /// <paramref name="fromEscrow"/> = <c>true</c>  (Wallet orders):
+    ///   Also debits the buyer's PendingBalance by <paramref name="deliveryFee"/>.
+    ///   Call after <see cref="ReleaseEscrowAsync"/> to fully drain the escrow.
+    ///
+    /// <paramref name="fromEscrow"/> = <c>false</c> (COD orders):
+    ///   The buyer already paid in cash. Only the rider's Balance is updated.
     /// </summary>
+    Task PayRiderAsync(
+        int orderId,
+        int buyerId,
+        int riderUserId,
+        decimal deliveryFee,
+        bool fromEscrow = false);
+
+    /// <summary>Adds <paramref name="amount"/> to the user's available Balance.</summary>
     Task TopUpAsync(int userId, decimal amount);
 
-    // ── Withdrawal ─────────────────────────────────────────────────────────
-
     /// <summary>
-    /// Creates a pending Withdrawal request and deducts the amount from the
-    /// user's available balance immediately (funds are reserved for payout).
-    ///
-    /// Returns <c>false</c> if the user has insufficient balance.
+    /// Debits <paramref name="amount"/> from the user's Balance and creates a
+    /// Withdrawal record with <see cref="WithdrawalStatus.Requested"/>.
+    /// Returns <c>false</c> if the balance is insufficient.
     /// </summary>
-    Task<bool> RequestWithdrawalAsync(int userId, decimal amount, WithdrawalMethod method, string? reference);
+    Task<bool> RequestWithdrawalAsync(
+        int userId, decimal amount, WithdrawalMethod method, string? reference);
 }

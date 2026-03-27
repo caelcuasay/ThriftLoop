@@ -117,6 +117,13 @@ public class WalletService : IWalletService
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Releases the item-price portion of the escrow to the seller.
+    /// The delivery-fee portion is released separately via
+    /// <see cref="PayRiderAsync"/> with <c>fromEscrow = true</c>.
+    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c> so that
+    /// only the item price is credited here.
+    /// </remarks>
     public async Task ReleaseEscrowAsync(int orderId, int buyerId, int sellerId, decimal amount)
     {
         var buyerWallet = await GetOrCreateWalletAsync(buyerId);
@@ -154,6 +161,12 @@ public class WalletService : IWalletService
     // ── Cash on Delivery ───────────────────────────────────────────────────
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c> so that
+    /// only the item price is credited to the seller. The delivery fee is
+    /// credited to the rider separately via <see cref="PayRiderAsync"/>
+    /// with <c>fromEscrow = false</c>.
+    /// </remarks>
     public async Task RecordCashCollectionAsync(int orderId, int buyerId, int sellerId, decimal amount)
     {
         var sellerWallet = await GetOrCreateWalletAsync(sellerId);
@@ -178,6 +191,64 @@ public class WalletService : IWalletService
         _logger.LogInformation(
             "CashCollection ₱{Amount} credited to User {SellerId} for Order {OrderId}.",
             amount, sellerId, orderId);
+    }
+
+    // ── Rider delivery fee ─────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Credits the flat delivery fee to the rider's wallet after a successful delivery.
+    ///
+    /// Wallet orders  (<c>fromEscrow = true</c>):
+    ///   Debits the buyer's PendingBalance (the escrow bucket) by
+    ///   <paramref name="deliveryFee"/> and credits the rider's Balance.
+    ///   Call this after <see cref="ReleaseEscrowAsync"/> so the two debits
+    ///   together drain the full escrow hold.
+    ///
+    /// COD orders (<c>fromEscrow = false</c>):
+    ///   The buyer already paid the rider in cash. This call only records the
+    ///   wallet credit so the rider's earnings history is accurate.
+    ///   The buyer's wallet is not touched.
+    /// </remarks>
+    public async Task PayRiderAsync(
+        int orderId,
+        int buyerId,
+        int riderUserId,
+        decimal deliveryFee,
+        bool fromEscrow = false)
+    {
+        if (fromEscrow)
+        {
+            // Debit the remaining escrow (delivery-fee slice) from buyer's pending bucket.
+            var buyerWallet = await GetOrCreateWalletAsync(buyerId);
+            var actualDebit = Math.Min(deliveryFee, buyerWallet.PendingBalance);
+            buyerWallet.PendingBalance -= actualDebit;
+            buyerWallet.UpdatedAt = DateTime.UtcNow;
+            await _walletRepo.UpdateAsync(buyerWallet);
+        }
+
+        // Credit the rider.
+        var riderWallet = await GetOrCreateWalletAsync(riderUserId);
+        riderWallet.Balance += deliveryFee;
+        riderWallet.UpdatedAt = DateTime.UtcNow;
+        await _walletRepo.UpdateAsync(riderWallet);
+
+        await _txRepo.AddAsync(new Transaction
+        {
+            OrderId = orderId,
+            FromUserId = buyerId,
+            ToUserId = riderUserId,
+            Amount = deliveryFee,
+            Type = TransactionType.DeliveryFeePayment,
+            Status = TransactionStatus.Completed,
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow
+        });
+
+        _logger.LogInformation(
+            "DeliveryFeePayment ₱{Amount} credited to Rider User {RiderUserId} for Order {OrderId} " +
+            "(fromEscrow={FromEscrow}).",
+            deliveryFee, riderUserId, orderId, fromEscrow);
     }
 
     // ── Top-up ─────────────────────────────────────────────────────────────

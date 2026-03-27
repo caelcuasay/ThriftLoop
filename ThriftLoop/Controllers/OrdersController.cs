@@ -108,9 +108,12 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
-        decimal finalPrice = item.Price;
+        // Item price only (delivery fee stored separately on the Order row).
+        decimal itemPrice = item.Price;
+        decimal deliveryFee = ItemConstants.DeliveryFee;
+        decimal finalPrice = itemPrice + deliveryFee;
 
-        // ── Wallet payment: hold funds in escrow ───────────────────────────
+        // ── Wallet payment: hold full amount (item + delivery fee) in escrow ──
         if (paymentMethod == PaymentMethod.Wallet)
         {
             var tempOrder = new Order
@@ -119,6 +122,7 @@ public class OrdersController : BaseController
                 BuyerId = buyerId.Value,
                 SellerId = item.UserId,
                 FinalPrice = finalPrice,
+                DeliveryFee = deliveryFee,
                 OrderDate = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
                 PaymentMethod = PaymentMethod.Wallet
@@ -130,8 +134,8 @@ public class OrdersController : BaseController
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
                 TempData["ErrorMessage"] =
-                    $"Insufficient wallet balance. You need ₱{finalPrice:N2} but your available balance is too low. " +
-                    "Please add funds or choose Cash on Delivery.";
+                    $"Insufficient wallet balance. You need ₱{finalPrice:N2} (item ₱{itemPrice:N2} + delivery ₱{deliveryFee:N2}) " +
+                    "but your available balance is too low. Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
@@ -142,24 +146,31 @@ public class OrdersController : BaseController
             await _itemRepository.UpdateAsync(item);
 
             _logger.LogInformation(
-                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
-                tempOrder.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
+                "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, " +
+                "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
+                tempOrder.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
 
             TempData["SuccessMessage"] =
-                $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. " +
-                $"₱{finalPrice:N2} is held in escrow and will be released to the seller once you confirm delivery. " +
-                $"A delivery job has been created and is waiting for a rider to accept.";
+                $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} (includes ₱{deliveryFee:N2} delivery fee). " +
+                $"₱{finalPrice:N2} is held in escrow and will be released once you confirm delivery. " +
+                "A delivery job has been created and is waiting for a rider to accept.";
 
             return RedirectToAction(nameof(MyPurchases));
         }
 
         // ── Cash on Delivery ───────────────────────────────────────────────
+        // For COD the buyer pays everything in cash on delivery.
+        // FinalPrice stored on the order = itemPrice + deliveryFee, so the view
+        // can display the full amount the buyer will hand over. At delivery
+        // confirmation the seller receives itemPrice and the rider receives
+        // deliveryFee via separate wallet credits.
         var order = new Order
         {
             ItemId = item.Id,
             BuyerId = buyerId.Value,
             SellerId = item.UserId,
             FinalPrice = finalPrice,
+            DeliveryFee = deliveryFee,
             OrderDate = DateTime.UtcNow,
             Status = OrderStatus.Pending,
             PaymentMethod = PaymentMethod.Cash,
@@ -175,11 +186,13 @@ public class OrdersController : BaseController
         await _itemRepository.UpdateAsync(item);
 
         _logger.LogInformation(
-            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, ₱{FinalPrice}.",
-            order.Id, item.Id, buyerId.Value, item.UserId, finalPrice);
+            "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, " +
+            "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
+            order.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
 
         TempData["SuccessMessage"] =
-            $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery. " +
+            $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery " +
+            $"(₱{itemPrice:N2} for the item + ₱{deliveryFee:N2} delivery fee). " +
             "A delivery job has been created and is waiting for a rider to accept.";
 
         return RedirectToAction(nameof(MyPurchases));
@@ -200,6 +213,7 @@ public class OrdersController : BaseController
         if (buyerId is null) return Unauthorized();
 
         var sku = await _itemRepository.GetSkuByIdWithItemAsync(skuId);
+
         if (sku?.Variant?.Item is null) return NotFound();
 
         var item = sku.Variant.Item;
@@ -254,7 +268,6 @@ public class OrdersController : BaseController
         if (item.UserId == buyerId.Value) return Forbid();
 
         // ── First-come-first-served stock check ────────────────────────────
-        // Re-read stock at confirmation time; the GET-time value may be stale.
         if (sku.Status != SkuStatus.Available || sku.Quantity < quantity)
         {
             int remaining = Math.Max(0, sku.Quantity);
@@ -262,12 +275,13 @@ public class OrdersController : BaseController
                 ? "Sorry, this item just sold out while you were checking out."
                 : $"Only {remaining} unit(s) left. Please reduce your quantity.";
 
-            // Bounce back to checkout with corrected quantity
             return RedirectToAction(nameof(ShopCheckout),
                 new { skuId, quantity = Math.Max(1, remaining) });
         }
 
-        decimal finalPrice = sku.Price * quantity;
+        decimal itemPrice = sku.Price * quantity;
+        decimal deliveryFee = ItemConstants.DeliveryFee;
+        decimal finalPrice = itemPrice + deliveryFee;
 
         // ── Wallet path: create order → hold escrow → decrement stock ──────
         if (paymentMethod == PaymentMethod.Wallet)
@@ -279,6 +293,7 @@ public class OrdersController : BaseController
                 BuyerId = buyerId.Value,
                 SellerId = item.UserId,
                 FinalPrice = finalPrice,
+                DeliveryFee = deliveryFee,
                 Quantity = quantity,
                 OrderDate = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
@@ -291,7 +306,8 @@ public class OrdersController : BaseController
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
                 TempData["ErrorMessage"] =
-                    $"Insufficient wallet balance. You need ₱{finalPrice:N2}. " +
+                    $"Insufficient wallet balance. You need ₱{finalPrice:N2} " +
+                    $"(item ₱{itemPrice:N2} + delivery ₱{deliveryFee:N2}). " +
                     "Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(ShopCheckout), new { skuId, quantity });
             }
@@ -306,11 +322,12 @@ public class OrdersController : BaseController
 
             _logger.LogInformation(
                 "Shop Order {OrderId} (Wallet) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
-                "Seller {SellerId}, ₱{FinalPrice}.",
-                tempOrder.Id, sku.Id, quantity, buyerId.Value, item.UserId, finalPrice);
+                "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
+                tempOrder.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
 
             TempData["SuccessMessage"] =
-                $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
+                $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} " +
+                $"(includes ₱{deliveryFee:N2} delivery fee). " +
                 "Funds are held in escrow and will be released once you confirm delivery. " +
                 "A delivery job has been created and is waiting for a rider to accept.";
 
@@ -325,6 +342,7 @@ public class OrdersController : BaseController
             BuyerId = buyerId.Value,
             SellerId = item.UserId,
             FinalPrice = finalPrice,
+            DeliveryFee = deliveryFee,
             Quantity = quantity,
             OrderDate = DateTime.UtcNow,
             Status = OrderStatus.Pending,
@@ -342,17 +360,18 @@ public class OrdersController : BaseController
 
         _logger.LogInformation(
             "Shop Order {OrderId} (COD) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
-            "Seller {SellerId}, ₱{FinalPrice}.",
-            order.Id, sku.Id, quantity, buyerId.Value, item.UserId, finalPrice);
+            "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
+            order.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
 
         TempData["SuccessMessage"] =
-            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
+            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery " +
+            $"(₱{itemPrice:N2} for the item + ₱{deliveryFee:N2} delivery fee). " +
             "A delivery job has been created and is waiting for a rider to accept.";
 
         return RedirectToAction(nameof(MyPurchases));
     }
 
-    // ── MARK DELIVERED (Buyer confirms receipt) ─────────────────────────────────────────────────────
+    // ── MARK DELIVERED (Buyer confirms receipt) ────────────────────────────
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -379,7 +398,9 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
-        // Confirm delivery through the delivery system
+        // Confirm delivery through the delivery system.
+        // NOTE: Ensure GetByOrderIdAsync (or your repository) eagerly loads
+        // delivery.Rider so that Rider.UserId is available below.
         var delivery = await _deliveryRepository.GetByOrderIdAsync(orderId);
         if (delivery == null)
         {
@@ -393,16 +414,39 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
-        // Process payment based on method
+        // Rider.Id == UserId in this system, so RiderId on the Delivery row
+        // is directly usable as the wallet owner ID — no Rider navigation needed.
+        int? riderUserId = delivery.RiderId;
+        if (riderUserId is null)
+        {
+            TempData["ErrorMessage"] = "Cannot process payment: no rider has been assigned to this delivery.";
+            return RedirectToAction(nameof(MyPurchases));
+        }
+
+        // Amounts for the two payment recipients.
+        decimal itemPrice = order.FinalPrice - order.DeliveryFee;   // goes to seller
+        decimal deliveryFee = order.DeliveryFee;                    // goes to rider
+
+        // ── Process payment based on method ───────────────────────────────
         if (order.PaymentMethod == PaymentMethod.Wallet)
         {
+            // Release item price from escrow → seller.
             await _walletService.ReleaseEscrowAsync(
-                order.Id, order.BuyerId, order.SellerId, order.FinalPrice);
+                order.Id, order.BuyerId, order.SellerId, itemPrice);
+
+            // Release delivery-fee slice from escrow → rider.
+            await _walletService.PayRiderAsync(
+                order.Id, order.BuyerId, riderUserId.Value, deliveryFee, fromEscrow: true);
         }
         else if (order.PaymentMethod == PaymentMethod.Cash && !order.CashCollectedByRider)
         {
+            // Credit the seller their item price (cash was collected physically).
             await _walletService.RecordCashCollectionAsync(
-                order.Id, order.BuyerId, order.SellerId, order.FinalPrice);
+                order.Id, order.BuyerId, order.SellerId, itemPrice);
+
+            // Credit the rider their delivery fee (buyer paid them in cash).
+            await _walletService.PayRiderAsync(
+                order.Id, order.BuyerId, riderUserId.Value, deliveryFee, fromEscrow: false);
         }
 
         // Confirm delivery completion
@@ -415,9 +459,13 @@ public class OrdersController : BaseController
         }
 
         _logger.LogInformation(
-            "Order {OrderId} marked Completed by Buyer {BuyerId}.", orderId, buyerId.Value);
+            "Order {OrderId} marked Completed by Buyer {BuyerId}. " +
+            "Seller received ₱{ItemPrice}, Rider received ₱{DeliveryFee}.",
+            orderId, buyerId.Value, itemPrice, deliveryFee);
 
-        TempData["SuccessMessage"] = "Delivery confirmed. The seller has been paid. Thank you!";
+        TempData["SuccessMessage"] =
+            $"Delivery confirmed! The seller has been paid ₱{itemPrice:N2} and the rider received their ₱{deliveryFee:N2} delivery fee. Thank you!";
+
         return RedirectToAction(nameof(MyPurchases));
     }
 

@@ -30,6 +30,19 @@ public class WalletRepository : IWalletRepository
     /// <inheritdoc />
     public async Task UpdateAsync(Wallet wallet)
     {
+        // GetByUserIdAsync uses AsNoTracking, so each call returns a fresh
+        // detached instance. When two wallet updates occur in the same
+        // request (e.g. ReleaseEscrowAsync then PayRiderAsync both touch the
+        // buyer wallet), the second Update() call finds the first instance
+        // still in the DbContext change tracker and throws an identity conflict.
+        // Detach any stale tracked instance before attaching the incoming one.
+        var existing = _context.ChangeTracker
+            .Entries<Wallet>()
+            .FirstOrDefault(e => e.Entity.Id == wallet.Id);
+
+        if (existing is not null)
+            existing.State = EntityState.Detached;
+
         _context.Wallets.Update(wallet);
         await _context.SaveChangesAsync();
     }

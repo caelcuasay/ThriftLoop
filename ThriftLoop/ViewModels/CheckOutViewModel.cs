@@ -13,6 +13,10 @@ namespace ThriftLoop.ViewModels;
 ///
 /// Built by the GET Checkout / ShopCheckout action; the relevant hidden
 /// fields are re-posted on confirmation.
+///
+/// FinalPrice always includes the flat ₱50 delivery fee. The view should
+/// display a line-item breakdown: item price → steal premium (if any) →
+/// delivery fee → total.
 /// </summary>
 public class CheckoutViewModel
 {
@@ -46,13 +50,31 @@ public class CheckoutViewModel
     public decimal StealPremium => (WasStolen && !IsShopOrder) ? ItemConstants.StealPremium : 0m;
 
     /// <summary>
-    /// Total the buyer will be charged, locked at checkout time.
+    /// Flat delivery fee applied to every order. Always ₱50.
+    /// Sourced from <see cref="ItemConstants.DeliveryFee"/>.
+    /// For Wallet orders this is included in the escrow hold and paid out
+    /// to the rider's wallet after delivery confirmation.
+    /// For COD orders the buyer pays the rider in cash; the seller receives
+    /// only the item price.
+    /// </summary>
+    public decimal DeliveryFee => ItemConstants.DeliveryFee;
+
+    /// <summary>
+    /// Subtotal before delivery fee.
     ///   Shop: BasePrice × Quantity
     ///   P2P:  BasePrice + StealPremium
     /// </summary>
-    public decimal FinalPrice => IsShopOrder
+    public decimal ItemSubtotal => IsShopOrder
         ? BasePrice * Quantity
         : BasePrice + StealPremium;
+
+    /// <summary>
+    /// Total the buyer will be charged, locked at checkout time.
+    /// Always equals ItemSubtotal + DeliveryFee.
+    ///   Shop: (BasePrice × Quantity) + DeliveryFee
+    ///   P2P:  (BasePrice + StealPremium) + DeliveryFee
+    /// </summary>
+    public decimal FinalPrice => ItemSubtotal + DeliveryFee;
 
     // ── P2P context flags ─────────────────────────────────────────────────
     public bool WasStolen { get; init; }
@@ -93,7 +115,7 @@ public class CheckoutViewModel
     /// <summary>Buyer's current available (non-escrowed) balance.</summary>
     public decimal BuyerBalance { get; init; }
 
-    /// <summary>True when the buyer has enough wallet funds to cover FinalPrice.</summary>
+    /// <summary>True when the buyer has enough wallet funds to cover FinalPrice (including delivery fee).</summary>
     public bool HasSufficientBalance => BuyerBalance >= FinalPrice;
 
     // ── Payment method (bound on POST) ────────────────────────────────────
