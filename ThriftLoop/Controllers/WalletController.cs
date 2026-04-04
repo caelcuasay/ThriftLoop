@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ThriftLoop.Constants;
+using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
 using ThriftLoop.ViewModels;
@@ -32,12 +33,27 @@ public class WalletController : BaseController
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        var userId = ResolveUserId();
-        if (userId is null) return Unauthorized();
+        var id = ResolveUserId();
+        if (id is null) return Unauthorized();
 
-        var wallet = await _walletService.GetOrCreateWalletAsync(userId.Value);
-        var transactions = await _txRepo.GetByUserIdAsync(userId.Value, take: WalletConstants.RecentTransactionCount);
-        var withdrawals = await _withdrawalRepo.GetByUserIdAsync(userId.Value);
+        // Riders and Users are separate tables — use the correct wallet path
+        // so Wallet.RiderId is set for riders and Wallet.UserId is set for users.
+        var wallet = IsRider()
+            ? await _walletService.GetOrCreateRiderWalletAsync(id.Value)
+            : await _walletService.GetOrCreateWalletAsync(id.Value);
+
+        // Use the appropriate transaction query based on user type
+        IReadOnlyList<Transaction> transactions;
+        if (IsRider())
+        {
+            transactions = await _txRepo.GetByRiderIdAsync(id.Value, take: WalletConstants.RecentTransactionCount);
+        }
+        else
+        {
+            transactions = await _txRepo.GetByUserIdAsync(id.Value, take: WalletConstants.RecentTransactionCount);
+        }
+
+        var withdrawals = await _withdrawalRepo.GetByUserIdAsync(id.Value);
 
         var vm = new WalletIndexViewModel
         {
@@ -45,19 +61,22 @@ public class WalletController : BaseController
             PendingBalance = wallet.PendingBalance,
             RecentTransactions = transactions,
             Withdrawals = withdrawals,
-            CurrentUserId = userId.Value
+            CurrentUserId = id.Value
         };
 
         return View(vm);
     }
 
     // ── ADD FUNDS (demo top-up) ────────────────────────────────────────────
+    // Top-up is for regular Users only. Riders earn through delivery fees.
 
     [HttpGet]
+    [Authorize(Roles = "User,Seller")]
     public IActionResult AddFunds() => View();
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Roles = "User,Seller")]
     public async Task<IActionResult> AddFunds(decimal amount)
     {
         var userId = ResolveUserId();
@@ -84,12 +103,14 @@ public class WalletController : BaseController
     [HttpGet]
     public async Task<IActionResult> Withdraw()
     {
-        var userId = ResolveUserId();
-        if (userId is null) return Unauthorized();
+        var id = ResolveUserId();
+        if (id is null) return Unauthorized();
 
-        var wallet = await _walletService.GetOrCreateWalletAsync(userId.Value);
+        var wallet = IsRider()
+            ? await _walletService.GetOrCreateRiderWalletAsync(id.Value)
+            : await _walletService.GetOrCreateWalletAsync(id.Value);
+
         ViewBag.AvailableBalance = wallet.Balance;
-
         return View(new WithdrawViewModel());
     }
 
@@ -97,10 +118,13 @@ public class WalletController : BaseController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Withdraw(WithdrawViewModel vm)
     {
-        var userId = ResolveUserId();
-        if (userId is null) return Unauthorized();
+        var id = ResolveUserId();
+        if (id is null) return Unauthorized();
 
-        var wallet = await _walletService.GetOrCreateWalletAsync(userId.Value);
+        var wallet = IsRider()
+            ? await _walletService.GetOrCreateRiderWalletAsync(id.Value)
+            : await _walletService.GetOrCreateWalletAsync(id.Value);
+
         ViewBag.AvailableBalance = wallet.Balance;
 
         if (!ModelState.IsValid)
@@ -121,7 +145,7 @@ public class WalletController : BaseController
         }
 
         bool success = await _walletService.RequestWithdrawalAsync(
-            userId.Value, vm.Amount, vm.Method, vm.Reference);
+            id.Value, vm.Amount, vm.Method, vm.Reference);
 
         if (!success)
         {
@@ -130,8 +154,8 @@ public class WalletController : BaseController
         }
 
         _logger.LogInformation(
-            "User {UserId} requested withdrawal of ₱{Amount} via {Method}.",
-            userId.Value, vm.Amount, vm.Method);
+            "User/Rider {Id} requested withdrawal of ₱{Amount} via {Method}.",
+            id.Value, vm.Amount, vm.Method);
 
         TempData["SuccessMessage"] =
             $"Withdrawal of ₱{vm.Amount:N2} requested. We'll process it within 1–3 business days.";

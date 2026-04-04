@@ -33,6 +33,17 @@ public class TransactionRepository : ITransactionRepository
                          .ToListAsync();
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Transaction>> GetByRiderIdAsync(int riderId, int take = 50)
+        => await _context.Transactions
+                         .AsNoTracking()
+                         .Include(t => t.Order)
+                             .ThenInclude(o => o!.Item)
+                         .Where(t => t.ToRiderId == riderId)
+                         .OrderByDescending(t => t.CreatedAt)
+                         .Take(take)
+                         .ToListAsync();
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Transaction>> GetByOrderIdAsync(int orderId)
         => await _context.Transactions
                          .AsNoTracking()

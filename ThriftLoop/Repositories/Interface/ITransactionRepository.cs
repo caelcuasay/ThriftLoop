@@ -14,6 +14,12 @@ public interface ITransactionRepository
     Task<IReadOnlyList<Transaction>> GetByUserIdAsync(int userId, int take = 50);
 
     /// <summary>
+    /// Returns all transactions where the rider is the receiver (ToRiderId),
+    /// ordered most-recent first.
+    /// </summary>
+    Task<IReadOnlyList<Transaction>> GetByRiderIdAsync(int riderId, int take = 50);
+
+    /// <summary>
     /// Returns all transactions linked to a specific order, ordered by creation time.
     /// </summary>
     Task<IReadOnlyList<Transaction>> GetByOrderIdAsync(int orderId);

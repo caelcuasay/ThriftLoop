@@ -16,7 +16,8 @@ namespace ThriftLoop.Services.WalletManagement.Implementation;
 /// </summary>
 public class WalletService : IWalletService
 {
-    private const decimal SeedBalance = 1_000m;
+    /// <summary>Demo seed balance for new regular Users only. Riders start at ₱0.</summary>
+    private const decimal UserSeedBalance = 1_000m;
 
     private readonly IWalletRepository _walletRepo;
     private readonly ITransactionRepository _txRepo;
@@ -38,30 +39,32 @@ public class WalletService : IWalletService
     // ── Wallet access ──────────────────────────────────────────────────────
 
     /// <inheritdoc />
-    public async Task<Models.Wallet> GetOrCreateWalletAsync(int userId)
+    public async Task<Wallet> GetOrCreateWalletAsync(int userId)
     {
         var wallet = await _walletRepo.GetByUserIdAsync(userId);
         if (wallet is not null)
             return wallet;
 
         // First-time access — seed with demo balance.
-        wallet = new Models.Wallet
+        wallet = new Wallet
         {
             UserId = userId,
-            Balance = SeedBalance,
+            RiderId = null,       // mutually exclusive with RiderId
+            Balance = UserSeedBalance,
             PendingBalance = 0m,
             UpdatedAt = DateTime.UtcNow
         };
 
         await _walletRepo.AddAsync(wallet);
 
-        // Audit the seed as a TopUp so the history is clean.
+        // Audit the seed as a TopUp so the transaction history is clean.
         await _txRepo.AddAsync(new Transaction
         {
             OrderId = null,
             FromUserId = userId,
             ToUserId = userId,
-            Amount = SeedBalance,
+            ToRiderId = null,
+            Amount = UserSeedBalance,
             Type = TransactionType.TopUp,
             Status = TransactionStatus.Completed,
             CreatedAt = DateTime.UtcNow,
@@ -70,7 +73,33 @@ public class WalletService : IWalletService
 
         _logger.LogInformation(
             "Wallet created for User {UserId} with ₱{SeedBalance} demo balance.",
-            userId, SeedBalance);
+            userId, UserSeedBalance);
+
+        return wallet;
+    }
+
+    /// <inheritdoc />
+    public async Task<Wallet> GetOrCreateRiderWalletAsync(int riderId)
+    {
+        var wallet = await _walletRepo.GetByRiderIdAsync(riderId);
+        if (wallet is not null)
+            return wallet;
+
+        // Riders start with ₱0 — they earn through delivery fees.
+        // RiderId is set; UserId is intentionally left null.
+        wallet = new Wallet
+        {
+            RiderId = riderId,
+            UserId = null,  // mutually exclusive with UserId
+            Balance = 0m,
+            PendingBalance = 0m,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _walletRepo.AddAsync(wallet);
+
+        _logger.LogInformation(
+            "Wallet created for Rider {RiderId} with ₱0 starting balance.", riderId);
 
         return wallet;
     }
@@ -96,11 +125,16 @@ public class WalletService : IWalletService
 
         await _walletRepo.UpdateAsync(wallet);
 
+        // Records the full purchase amount (item price + delivery fee) as a single
+        // deduction. This is the only buyer-side history entry for a wallet order —
+        // PayRiderAsync intentionally omits a buyer-side record since it's already
+        // captured here.
         await _txRepo.AddAsync(new Transaction
         {
             OrderId = orderId,
             FromUserId = buyerId,
-            ToUserId = buyerId,  // money stays with buyer (in their pending bucket)
+            ToUserId = buyerId,
+            ToRiderId = null,
             Amount = amount,
             Type = TransactionType.EscrowHold,
             Status = TransactionStatus.Completed,
@@ -117,19 +151,12 @@ public class WalletService : IWalletService
     }
 
     /// <inheritdoc />
-    /// <remarks>
-    /// Releases the item-price portion of the escrow to the seller.
-    /// The delivery-fee portion is released separately via
-    /// <see cref="PayRiderAsync"/> with <c>fromEscrow = true</c>.
-    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c> so that
-    /// only the item price is credited here.
-    /// </remarks>
     public async Task ReleaseEscrowAsync(int orderId, int buyerId, int sellerId, decimal amount)
     {
         var buyerWallet = await GetOrCreateWalletAsync(buyerId);
         var sellerWallet = await GetOrCreateWalletAsync(sellerId);
 
-        // Guard: pending balance should cover the release. Clamp to avoid going negative.
+        // Guard: clamp to avoid going negative if pending balance is off.
         var actualRelease = Math.Min(amount, buyerWallet.PendingBalance);
 
         buyerWallet.PendingBalance -= actualRelease;
@@ -146,6 +173,7 @@ public class WalletService : IWalletService
             OrderId = orderId,
             FromUserId = buyerId,
             ToUserId = sellerId,
+            ToRiderId = null,
             Amount = actualRelease,
             Type = TransactionType.EscrowRelease,
             Status = TransactionStatus.Completed,
@@ -161,12 +189,6 @@ public class WalletService : IWalletService
     // ── Cash on Delivery ───────────────────────────────────────────────────
 
     /// <inheritdoc />
-    /// <remarks>
-    /// Pass <c>amount = order.FinalPrice − order.DeliveryFee</c> so that
-    /// only the item price is credited to the seller. The delivery fee is
-    /// credited to the rider separately via <see cref="PayRiderAsync"/>
-    /// with <c>fromEscrow = false</c>.
-    /// </remarks>
     public async Task RecordCashCollectionAsync(int orderId, int buyerId, int sellerId, decimal amount)
     {
         var sellerWallet = await GetOrCreateWalletAsync(sellerId);
@@ -181,6 +203,7 @@ public class WalletService : IWalletService
             OrderId = orderId,
             FromUserId = buyerId,
             ToUserId = sellerId,
+            ToRiderId = null,
             Amount = amount,
             Type = TransactionType.CashCollection,
             Status = TransactionStatus.Completed,
@@ -196,24 +219,10 @@ public class WalletService : IWalletService
     // ── Rider delivery fee ─────────────────────────────────────────────────
 
     /// <inheritdoc />
-    /// <remarks>
-    /// Credits the flat delivery fee to the rider's wallet after a successful delivery.
-    ///
-    /// Wallet orders  (<c>fromEscrow = true</c>):
-    ///   Debits the buyer's PendingBalance (the escrow bucket) by
-    ///   <paramref name="deliveryFee"/> and credits the rider's Balance.
-    ///   Call this after <see cref="ReleaseEscrowAsync"/> so the two debits
-    ///   together drain the full escrow hold.
-    ///
-    /// COD orders (<c>fromEscrow = false</c>):
-    ///   The buyer already paid the rider in cash. This call only records the
-    ///   wallet credit so the rider's earnings history is accurate.
-    ///   The buyer's wallet is not touched.
-    /// </remarks>
     public async Task PayRiderAsync(
         int orderId,
         int buyerId,
-        int riderUserId,
+        int riderId,
         decimal deliveryFee,
         bool fromEscrow = false)
     {
@@ -227,17 +236,19 @@ public class WalletService : IWalletService
             await _walletRepo.UpdateAsync(buyerWallet);
         }
 
-        // Credit the rider.
-        var riderWallet = await GetOrCreateWalletAsync(riderUserId);
+        // Credit the rider using the rider-specific wallet path (sets RiderId, not UserId).
+        var riderWallet = await GetOrCreateRiderWalletAsync(riderId);
         riderWallet.Balance += deliveryFee;
         riderWallet.UpdatedAt = DateTime.UtcNow;
         await _walletRepo.UpdateAsync(riderWallet);
 
+        // Create transaction record for the rider (uses ToRiderId, not ToUserId)
         await _txRepo.AddAsync(new Transaction
         {
             OrderId = orderId,
             FromUserId = buyerId,
-            ToUserId = riderUserId,
+            ToUserId = null,           // Not a user, so null
+            ToRiderId = riderId,       // This is a rider
             Amount = deliveryFee,
             Type = TransactionType.DeliveryFeePayment,
             Status = TransactionStatus.Completed,
@@ -246,9 +257,9 @@ public class WalletService : IWalletService
         });
 
         _logger.LogInformation(
-            "DeliveryFeePayment ₱{Amount} credited to Rider User {RiderUserId} for Order {OrderId} " +
+            "DeliveryFeePayment ₱{Amount} credited to Rider {RiderId} for Order {OrderId} " +
             "(fromEscrow={FromEscrow}).",
-            deliveryFee, riderUserId, orderId, fromEscrow);
+            deliveryFee, riderId, orderId, fromEscrow);
     }
 
     // ── Top-up ─────────────────────────────────────────────────────────────
@@ -271,6 +282,7 @@ public class WalletService : IWalletService
             OrderId = null,
             FromUserId = userId,
             ToUserId = userId,
+            ToRiderId = null,
             Amount = amount,
             Type = TransactionType.TopUp,
             Status = TransactionStatus.Completed,
@@ -322,6 +334,7 @@ public class WalletService : IWalletService
             OrderId = null,
             FromUserId = userId,
             ToUserId = userId,
+            ToRiderId = null,
             Amount = amount,
             Type = TransactionType.Withdrawal,
             Status = TransactionStatus.Completed,

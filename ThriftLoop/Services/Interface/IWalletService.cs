@@ -6,10 +6,17 @@ namespace ThriftLoop.Services.WalletManagement.Interface;
 public interface IWalletService
 {
     /// <summary>
-    /// Returns the wallet for <paramref name="userId"/>, creating and seeding
-    /// it with a demo balance if one does not yet exist.
+    /// Returns the wallet for <paramref name="userId"/> (dbo.Users), creating
+    /// and seeding it with a demo balance if one does not yet exist.
     /// </summary>
     Task<Wallet> GetOrCreateWalletAsync(int userId);
+
+    /// <summary>
+    /// Returns the wallet for <paramref name="riderId"/> (dbo.Riders), creating
+    /// it with a zero balance if one does not yet exist.
+    /// Riders and Users are separate tables — this sets Wallet.RiderId, not UserId.
+    /// </summary>
+    Task<Wallet> GetOrCreateRiderWalletAsync(int riderId);
 
     /// <summary>
     /// Moves <paramref name="amount"/> from the buyer's available Balance into
@@ -37,6 +44,7 @@ public interface IWalletService
 
     /// <summary>
     /// Credits the flat delivery fee to the rider's wallet after a successful delivery.
+    /// <paramref name="riderId"/> is a Riders.Id — NOT a Users.Id.
     ///
     /// <paramref name="fromEscrow"/> = <c>true</c>  (Wallet orders):
     ///   Also debits the buyer's PendingBalance by <paramref name="deliveryFee"/>.
@@ -48,7 +56,7 @@ public interface IWalletService
     Task PayRiderAsync(
         int orderId,
         int buyerId,
-        int riderUserId,
+        int riderId,
         decimal deliveryFee,
         bool fromEscrow = false);
 

@@ -4,6 +4,9 @@
 @{
     ViewData["Title"] = "My Wallet";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    
+    // Check if current user is a rider (transactions use ToRiderId instead of ToUserId)
+    var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
 }
 
 <div class="wlt-shell">
@@ -15,12 +18,15 @@
             <p class="wlt-header__subtitle">Manage your balance and track every transaction.</p>
         </div>
         <div class="wlt-header__actions">
-            <a asp-action="AddFunds" class="btn btn--primary">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" />
-                </svg>
-                Add Funds
-            </a>
+            @if (!isRider)
+            {
+                <a asp-action="AddFunds" class="btn btn--primary">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" />
+                    </svg>
+                    Add Funds
+                </a>
+            }
             <a asp-action="Withdraw" class="btn btn--ghost">
                 <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                     <path fill-rule="evenodd" d="M1 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h6a1 1 0 110 2H2a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 110 2H2a1 1 0 01-1-1zm11-4a1 1 0 100 2h5a1 1 0 100-2h-5zm0 4a1 1 0 100 2h5a1 1 0 100-2h-5z" clip-rule="evenodd" />
@@ -119,9 +125,24 @@
                 <div class="wlt-tx-list">
                     @foreach (var tx in Model.RecentTransactions)
                     {
-                        bool isCredit = tx.ToUserId == Model.CurrentUserId
-                        && tx.Type != TransactionType.EscrowHold
-                        && tx.Type != TransactionType.Withdrawal;
+                        // Determine if this transaction is a credit (money coming IN to the current user/rider)
+                        bool isCredit;
+                        
+                        if (isRider)
+                        {
+                            // For riders: credit if ToRiderId matches current user
+                            isCredit = tx.ToRiderId == Model.CurrentUserId
+                                && tx.Type != TransactionType.EscrowHold
+                                && tx.Type != TransactionType.Withdrawal;
+                        }
+                        else
+                        {
+                            // For regular users: credit if ToUserId matches current user
+                            isCredit = tx.ToUserId == Model.CurrentUserId
+                                && tx.Type != TransactionType.EscrowHold
+                                && tx.Type != TransactionType.Withdrawal;
+                        }
+                        
                         bool isDebit = !isCredit;
 
                         string typeLabel = tx.Type switch
@@ -131,6 +152,7 @@
                             TransactionType.Withdrawal => "Withdrawal",
                             TransactionType.CashCollection => "Cash Collected",
                             TransactionType.TopUp => "Funds Added",
+                            TransactionType.DeliveryFeePayment => "Delivery Fee",
                             _ => tx.Type.ToString()
                         };
 
@@ -141,6 +163,7 @@
                             TransactionType.Withdrawal => "arrow-up",
                             TransactionType.CashCollection => "cash",
                             TransactionType.TopUp => "plus",
+                            TransactionType.DeliveryFeePayment => "delivery",
                             _ => "dot"
                         };
 
@@ -161,6 +184,10 @@
                                 else if (typeIcon == "cash")
                                 {
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10.75 10.818v2.614A3.13 3.13 0 0011.888 13c.482-.315.612-.648.612-.875 0-.227-.13-.56-.612-.875a3.13 3.13 0 00-1.138-.432zM8.33 8.62c.053.055.115.11.184.164.208.16.46.284.736.363V6.603a2.45 2.45 0 00-.35.13c-.14.065-.27.143-.386.233-.377.292-.514.627-.514.909 0 .184.058.39.33.585z" /><path fill-rule="evenodd" d="M1 4a1 1 0 011-1h16a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm2 3a2 2 0 00-2 2v1a2 2 0 002 2h.01A5.002 5.002 0 009.99 13H10a5 5 0 004.99-4.5H15a2 2 0 002-2V7a2 2 0 00-2-2v-.5a.5.5 0 00-1 0V5H6v-.5a.5.5 0 00-1 0V5H3z" clip-rule="evenodd" /></svg>
+                                }
+                                else if (typeIcon == "delivery")
+                                {
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M6.5 3c-1.051 0-2.093.04-3.125.117A1.49 1.49 0 002 4.607V10.5h9V4.606c0-.771-.59-1.43-1.375-1.489A41.568 41.568 0 006.5 3zM2 12v2.5A1.5 1.5 0 003.5 16h.041a3 3 0 005.918 0h.791a.75.75 0 00.75-.75V12H2z" /><path d="M6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM13.25 5.75a.75.75 0 00-1.5 0v2.5a.75.75 0 001.5 0v-2.5z" /><path d="M13 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /></svg>
                                 }
                                 else
                                 {

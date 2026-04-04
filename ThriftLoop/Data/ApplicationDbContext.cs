@@ -312,6 +312,7 @@ public class ApplicationDbContext : DbContext
         });
 
         // ── Transactions ──────────────────────────────────────────────────────
+        // ── Transactions ──────────────────────────────────────────────────────
         modelBuilder.Entity<Transaction>(entity =>
         {
             entity.ToTable("Transactions");
@@ -328,6 +329,12 @@ public class ApplicationDbContext : DbContext
                   .IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(t => t.FromUser).WithMany().HasForeignKey(t => t.FromUserId).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(t => t.ToUser).WithMany().HasForeignKey(t => t.ToUserId).OnDelete(DeleteBehavior.NoAction);
+
+            // ADD THESE LINES for rider relationships
+            entity.HasOne(t => t.ToRider)
+                  .WithMany()
+                  .HasForeignKey(t => t.ToRiderId)
+                  .OnDelete(DeleteBehavior.NoAction);
         });
 
         // ── Withdrawals ───────────────────────────────────────────────────────

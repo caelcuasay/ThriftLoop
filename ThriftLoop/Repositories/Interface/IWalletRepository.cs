@@ -11,6 +11,14 @@ public interface IWalletRepository
     /// </summary>
     Task<Wallet?> GetByUserIdAsync(int userId);
 
+    /// <summary>
+    /// Returns the wallet for <paramref name="riderId"/>, or null if none exists yet.
+    /// Queries by Wallets.RiderId — not UserId. These are separate tables.
+    /// Use <see cref="IWalletService.GetOrCreateRiderWalletAsync"/> for consumer code
+    /// that should never see a null result.
+    /// </summary>
+    Task<Wallet?> GetByRiderIdAsync(int riderId);
+
     /// <summary>Persists a brand-new Wallet row and populates wallet.Id.</summary>
     Task AddAsync(Wallet wallet);
 

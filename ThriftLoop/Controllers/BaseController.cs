@@ -12,6 +12,8 @@ public abstract class BaseController : Controller
     /// <summary>
     /// Returns the authenticated user's ID parsed from the NameIdentifier claim,
     /// or <c>null</c> for anonymous requests.
+    /// Works for both regular Users and Riders — both store their primary key
+    /// in the same NameIdentifier claim.
     /// </summary>
     protected int? ResolveUserId()
     {
@@ -25,4 +27,12 @@ public abstract class BaseController : Controller
     /// </summary>
     protected int RequireUserId()
         => ResolveUserId() ?? throw new UnauthorizedAccessException("User is not authenticated.");
+
+    /// <summary>
+    /// Returns <c>true</c> when the currently authenticated principal is a Rider.
+    /// Matches the "IsRider" = "true" custom claim stamped by
+    /// AuthController.SignInRiderAsync. Regular Users always have "IsRider" = "false".
+    /// </summary>
+    protected bool IsRider()
+        => User.FindFirstValue("IsRider") == "true";
 }
