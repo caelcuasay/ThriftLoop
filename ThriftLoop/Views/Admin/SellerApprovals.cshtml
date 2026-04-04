@@ -1,0 +1,85 @@
+﻿<!-- Views/Admin/SellerApprovals.cshtml -->
+@model IReadOnlyList<ThriftLoop.Models.SellerProfile>
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Seller Approvals";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var statusFilter = Context.Request.Query["status"].ToString();
+}
+
+<div class="admin-approvals">
+    <div class="admin-header">
+        <div>
+            <h1>Seller Approvals</h1>
+            <p>Review and process seller applications</p>
+        </div>
+    </div>
+
+    <!-- Status Filters -->
+    <div class="filter-tabs">
+        <a asp-action="SellerApprovals" asp-route-status="" class="filter-tab @(string.IsNullOrEmpty(statusFilter) ? "active" : "")">All</a>
+        <a asp-action="SellerApprovals" asp-route-status="Pending" class="filter-tab @(statusFilter == "Pending" ? "active" : "")">Pending</a>
+        <a asp-action="SellerApprovals" asp-route-status="Approved" class="filter-tab @(statusFilter == "Approved" ? "active" : "")">Approved</a>
+        <a asp-action="SellerApprovals" asp-route-status="Rejected" class="filter-tab @(statusFilter == "Rejected" ? "active" : "")">Rejected</a>
+    </div>
+
+    <!-- Applications Table -->
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Shop Name</th>
+                    <th>Bio</th>
+                    <th>Applied</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var app in Model)
+                {
+                    <tr>
+                        <td>@app.Id</td>
+                        <td>@app.User?.Email</td>
+                        <td>@app.ShopName</td>
+                        <td class="truncate">@(app.Bio ?? "—")</td>
+                        <td>@app.AppliedAt.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <span class="status-badge status-@app.ApplicationStatus.ToString().ToLower()">@app.ApplicationStatus</span>
+                        </td>
+                        <td>
+                            @if (app.ApplicationStatus == ApplicationStatus.Pending)
+                            {
+                                <div class="action-group">
+                                    <form method="post" asp-action="ApproveSeller" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="applicationId" value="@app.Id" />
+                                        <button type="submit" class="action-btn btn-approve" onclick="return confirm('Approve @app.ShopName?')">Approve</button>
+                                    </form>
+                                    <form method="post" asp-action="RejectSeller" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="applicationId" value="@app.Id" />
+                                        <button type="submit" class="action-btn btn-reject" onclick="return confirm('Reject @app.ShopName?')">Reject</button>
+                                    </form>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="action-disabled">@(app.ApplicationStatus == ApplicationStatus.Approved ? "Approved" : "Rejected")</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <p>No seller applications found.</p>
+        </div>
+    }
+</div>

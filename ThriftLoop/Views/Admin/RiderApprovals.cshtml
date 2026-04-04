@@ -1,0 +1,85 @@
+﻿<!-- Views/Admin/RiderApprovals.cshtml -->
+@model IReadOnlyList<ThriftLoop.Models.Rider>
+@{
+    ViewData["Title"] = "Rider Approvals";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var statusFilter = Context.Request.Query["status"].ToString();
+}
+
+<div class="admin-approvals">
+    <div class="admin-header">
+        <div>
+            <h1>Rider Approvals</h1>
+            <p>Review and process rider applications</p>
+        </div>
+    </div>
+
+    <!-- Status Filters -->
+    <div class="filter-tabs">
+        <a asp-action="RiderApprovals" asp-route-status="" class="filter-tab @(string.IsNullOrEmpty(statusFilter) ? "active" : "")">All</a>
+        <a asp-action="RiderApprovals" asp-route-status="pending" class="filter-tab @(statusFilter == "pending" ? "active" : "")">Pending</a>
+        <a asp-action="RiderApprovals" asp-route-status="approved" class="filter-tab @(statusFilter == "approved" ? "active" : "")">Approved</a>
+    </div>
+
+    <!-- Riders Table -->
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Applied</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rider in Model)
+                {
+                    <tr>
+                        <td>@rider.Id</td>
+                        <td>@rider.FullName</td>
+                        <td>@rider.Email</td>
+                        <td>@rider.PhoneNumber</td>
+                        <td>@rider.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <span class="status-badge @(rider.IsApproved ? "status-approved" : "status-pending")">
+                                @(rider.IsApproved ? "Approved" : "Pending")
+                            </span>
+                        </td>
+                        <td>
+                            @if (!rider.IsApproved)
+                            {
+                                <div class="action-group">
+                                    <form method="post" asp-action="ApproveRider" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="riderId" value="@rider.Id" />
+                                        <button type="submit" class="action-btn btn-approve" onclick="return confirm('Approve rider @rider.FullName?')">Approve</button>
+                                    </form>
+                                    <form method="post" asp-action="RejectRider" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="riderId" value="@rider.Id" />
+                                        <button type="submit" class="action-btn btn-reject" onclick="return confirm('Reject rider @rider.FullName?')">Reject</button>
+                                    </form>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="action-disabled">Approved</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <p>No rider applications found.</p>
+        </div>
+    }
+</div>

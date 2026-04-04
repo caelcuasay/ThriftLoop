@@ -65,7 +65,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IRiderRepository, RiderRepository>();  // ← NEW
+builder.Services.AddScoped<IRiderRepository, RiderRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
@@ -73,16 +73,23 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IShopRepository, ShopRepository>();
 builder.Services.AddScoped<IDeliveryRepository, DeliveryRepository>();
+builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();  // ← NEW
+builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 var app = builder.Build();
+
+// ── Seed Admin User ─────────────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    await AdminSeeder.SeedAdminAsync(scope.ServiceProvider);
+}
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
 if (!app.Environment.IsDevelopment())

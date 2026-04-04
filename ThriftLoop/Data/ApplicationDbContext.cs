@@ -33,7 +33,8 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // ── Users ─────────────────────────────────────────────────────────────
+        // In Data/ApplicationDbContext.cs, inside OnModelCreating, update the User entity configuration:
+
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
@@ -57,6 +58,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(u => u.Role)
                   .IsRequired()
                   .HasDefaultValue(UserRole.User);
+
+            // ── NEW: Disabled fields ───────────────────────────────────────────
+            entity.Property(u => u.IsDisabled)
+                  .IsRequired()
+                  .HasDefaultValue(false);
+            entity.Property(u => u.DisabledAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
         });
 
         // ── Riders ─────────────────────────────────────────────────────────────

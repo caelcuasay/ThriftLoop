@@ -1,0 +1,88 @@
+﻿<!-- Views/Admin/Withdrawals.cshtml -->
+@model IReadOnlyList<ThriftLoop.Models.Withdrawal>
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Withdrawal Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var statusFilter = Context.Request.Query["status"].ToString();
+}
+
+<div class="admin-withdrawals">
+    <div class="admin-header">
+        <div>
+            <h1>Withdrawal Management</h1>
+            <p>Process and track seller withdrawal requests</p>
+        </div>
+    </div>
+
+    <!-- Status Filters -->
+    <div class="filter-tabs">
+        <a asp-action="Withdrawals" asp-route-status="" class="filter-tab @(string.IsNullOrEmpty(statusFilter) ? "active" : "")">All</a>
+        <a asp-action="Withdrawals" asp-route-status="Requested" class="filter-tab @(statusFilter == "Requested" ? "active" : "")">Requested</a>
+        <a asp-action="Withdrawals" asp-route-status="Processed" class="filter-tab @(statusFilter == "Processed" ? "active" : "")">Processed</a>
+        <a asp-action="Withdrawals" asp-route-status="Completed" class="filter-tab @(statusFilter == "Completed" ? "active" : "")">Completed</a>
+    </div>
+
+    <!-- Withdrawals Table -->
+    <div class="table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Reference</th>
+                    <th>Requested</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var wd in Model)
+                {
+                    <tr>
+                        <td>@wd.Id</td>
+                        <td>@wd.User?.Email</td>
+                        <td class="amount">₱@wd.Amount.ToString("N2")</td>
+                        <td>@(wd.Method == WithdrawalMethod.BankTransfer ? "Bank Transfer" : "Pickup")</td>
+                        <td>@(wd.Reference ?? "—")</td>
+                        <td>@wd.RequestedAt.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <span class="status-badge status-@wd.Status.ToString().ToLower()">@wd.Status</span>
+                        </td>
+                        <td>
+                            @if (wd.Status == WithdrawalStatus.Requested)
+                            {
+                                <form method="post" asp-action="ProcessWithdrawal" class="inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="withdrawalId" value="@wd.Id" />
+                                    <button type="submit" class="action-btn btn-process">Mark Processed</button>
+                                </form>
+                            }
+                            else if (wd.Status == WithdrawalStatus.Processed)
+                            {
+                                <form method="post" asp-action="CompleteWithdrawal" class="inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="withdrawalId" value="@wd.Id" />
+                                    <button type="submit" class="action-btn btn-complete">Mark Completed</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="action-disabled">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <p>No withdrawals found.</p>
+        </div>
+    }
+</div>

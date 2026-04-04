@@ -1,0 +1,171 @@
+﻿<!-- Views/Admin/Index.cshtml -->
+@model ThriftLoop.ViewModels.Admin.AdminDashboardViewModel
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="admin-dashboard">
+    <div class="admin-header">
+        <h1>Admin Dashboard</h1>
+        <p>Platform overview and management</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-card__value">@Model.TotalUsers</div>
+            <div class="stat-card__label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value">@Model.TotalSellers</div>
+            <div class="stat-card__label">Sellers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value">@Model.TotalRiders</div>
+            <div class="stat-card__label">Riders</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value">@Model.TotalOrders</div>
+            <div class="stat-card__label">Orders</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value">₱@Model.TotalRevenue.ToString("N2")</div>
+            <div class="stat-card__label">Revenue</div>
+        </div>
+        <div class="stat-card stat-card--warning">
+            <div class="stat-card__value">₱@Model.PendingWithdrawals.ToString("N2")</div>
+            <div class="stat-card__label">Pending Withdrawals</div>
+        </div>
+    </div>
+
+    <!-- Approval Alerts -->
+    <div class="alerts-grid">
+        @if (Model.PendingSellerApprovals > 0)
+        {
+            <div class="alert-card alert-card--warning">
+                <span>@Model.PendingSellerApprovals pending seller @(Model.PendingSellerApprovals == 1 ? "application" : "applications")</span>
+                <a asp-action="SellerApprovals" class="alert-card__link">Review →</a>
+            </div>
+        }
+        @if (Model.PendingRiderApprovals > 0)
+        {
+            <div class="alert-card alert-card--warning">
+                <span>@Model.PendingRiderApprovals pending rider @(Model.PendingRiderApprovals == 1 ? "application" : "applications")</span>
+                <a asp-action="RiderApprovals" class="alert-card__link">Review →</a>
+            </div>
+        }
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="recent-grid">
+        <!-- Recent Users -->
+        <div class="recent-card">
+            <div class="recent-card__header">
+                <h2>Recent Users</h2>
+                <a asp-action="Users" class="recent-card__link">View all →</a>
+            </div>
+            <table class="recent-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.RecentUsers)
+                    {
+                        <tr>
+                            <td>@user.Email</td>
+                            <td>@user.Role</td>
+                            <td>@user.CreatedAt.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Recent Withdrawals -->
+        <div class="recent-card">
+            <div class="recent-card__header">
+                <h2>Pending Withdrawals</h2>
+                <a asp-action="Withdrawals" class="recent-card__link">View all →</a>
+            </div>
+            <table class="recent-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Amount</th>
+                        <th>Requested</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var wd in Model.RecentWithdrawals)
+                    {
+                        <tr>
+                            <td>@wd.User?.Email</td>
+                            <td>₱@wd.Amount.ToString("N2")</td>
+                            <td>@wd.RequestedAt.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Recent Seller Applications -->
+        <div class="recent-card">
+            <div class="recent-card__header">
+                <h2>Seller Applications</h2>
+                <a asp-action="SellerApprovals" class="recent-card__link">View all →</a>
+            </div>
+            <table class="recent-table">
+                <thead>
+                    <tr>
+                        <th>Shop Name</th>
+                        <th>User</th>
+                        <th>Applied</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var app in Model.RecentSellerApplications)
+                    {
+                        <tr>
+                            <td>@app.ShopName</td>
+                            <td>@app.User?.Email</td>
+                            <td>@app.AppliedAt.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Recent Rider Applications -->
+        <div class="recent-card">
+            <div class="recent-card__header">
+                <h2>Rider Applications</h2>
+                <a asp-action="RiderApprovals" class="recent-card__link">View all →</a>
+            </div>
+            <table class="recent-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Applied</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rider in Model.RecentRiderApplications)
+                    {
+                        <tr>
+                            <td>@rider.FullName</td>
+                            <td>@rider.Email</td>
+                            <td>@rider.CreatedAt.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

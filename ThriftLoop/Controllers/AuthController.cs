@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿// Controllers/AuthController.cs
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
@@ -124,7 +125,7 @@ public class AuthController : Controller
     }
 
     // ─────────────────────────────────────────
-    //  LOGIN (Handles both User and Rider)
+    //  LOGIN (Handles User, Rider, and Admin)
     // ─────────────────────────────────────────
 
     [HttpGet]
@@ -133,6 +134,12 @@ public class AuthController : Controller
     {
         if (User.Identity?.IsAuthenticated == true)
         {
+            // Check if authenticated user is an admin
+            if (User.IsInRole("Admin"))
+            {
+                return RedirectToAction("Index", "Admin");
+            }
+
             // Check if authenticated user is a rider
             var isRider = User.HasClaim(c => c.Type == "IsRider");
             if (isRider)
@@ -166,6 +173,13 @@ public class AuthController : Controller
         {
             await SignInUserAsync(user, dto.RememberMe);
             _logger.LogInformation("User {UserId} logged in.", user.Id);
+
+            // Redirect admin users to admin dashboard
+            if (user.Role == Enums.UserRole.Admin)
+            {
+                return RedirectToAction("Index", "Admin");
+            }
+
             return RedirectToLocal(returnUrl);
         }
 
@@ -317,6 +331,13 @@ public class AuthController : Controller
         await SignInUserAsync(user, rememberMe: false);
 
         _logger.LogInformation("User {UserId} signed in via Google.", user.Id);
+
+        // Redirect admin users to admin dashboard
+        if (user.Role == Enums.UserRole.Admin)
+        {
+            return RedirectToAction("Index", "Admin");
+        }
+
         return RedirectToLocal(returnUrl);
     }
 
