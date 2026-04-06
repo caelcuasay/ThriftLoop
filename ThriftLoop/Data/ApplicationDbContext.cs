@@ -33,8 +33,6 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // In Data/ApplicationDbContext.cs, inside OnModelCreating, update the User entity configuration:
-
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
@@ -59,7 +57,7 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasDefaultValue(UserRole.User);
 
-            // ── NEW: Disabled fields ───────────────────────────────────────────
+            // ── Disabled ───────────────────────────────────────────────────────
             entity.Property(u => u.IsDisabled)
                   .IsRequired()
                   .HasDefaultValue(false);
@@ -90,7 +88,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(r => r.ActiveDeliveryId).IsRequired(false);
             entity.Property(r => r.ActiveDeliveryStartedAt).IsRequired(false);
 
-            // Self-reference for ActiveDelivery
             entity.HasOne(r => r.ActiveDelivery)
                   .WithMany()
                   .HasForeignKey(r => r.ActiveDeliveryId)
@@ -118,6 +115,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(sp => sp.ReviewedAt)
                   .IsRequired(false).HasColumnType("datetime2");
 
+            // ── Application details ────────────────────────────────────────────
+            entity.Property(sp => sp.StoreAddress)
+                  .IsRequired().HasMaxLength(500);
+
+            entity.Property(sp => sp.GovIdUrl)
+                  .IsRequired(false).HasMaxLength(512).IsUnicode(false);
+
+            // ── Shop branding ──────────────────────────────────────────────────
             entity.Property(sp => sp.ShopName)
                   .IsRequired().HasMaxLength(100);
 
@@ -305,7 +310,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(w => w.UpdatedAt)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
 
-            // UserId and RiderId are mutually exclusive - one of them is null, the other has a value
             entity.HasIndex(w => w.UserId).IsUnique().HasDatabaseName("UQ_Wallets_UserId");
             entity.HasIndex(w => w.RiderId).IsUnique().HasDatabaseName("UQ_Wallets_RiderId");
 
@@ -320,7 +324,6 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ── Transactions ──────────────────────────────────────────────────────
         // ── Transactions ──────────────────────────────────────────────────────
         modelBuilder.Entity<Transaction>(entity =>
         {
@@ -339,7 +342,6 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(t => t.FromUser).WithMany().HasForeignKey(t => t.FromUserId).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(t => t.ToUser).WithMany().HasForeignKey(t => t.ToUserId).OnDelete(DeleteBehavior.NoAction);
 
-            // ADD THESE LINES for rider relationships
             entity.HasOne(t => t.ToRider)
                   .WithMany()
                   .HasForeignKey(t => t.ToRiderId)

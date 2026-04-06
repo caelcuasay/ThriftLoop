@@ -588,5 +588,179 @@ a.up-btn:focus, button.up-btn:focus, .up-form-input:focus {
     cursor: default;
 }
 
+/* --------------------------------------------- */
+/* Additional styles for Seller Application page
+/* --------------------------------------------- */
 
+/* File input styling */
+input[type="file"].up-form-input {
+    padding: 8px 12px;
+    background: var(--c-bg);
+    cursor: pointer;
+}
+
+    input[type="file"].up-form-input::-webkit-file-upload-button {
+        background: var(--c-primary);
+        color: white;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 6px;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        margin-right: 12px;
+        transition: background 0.12s ease;
+    }
+
+        input[type="file"].up-form-input::-webkit-file-upload-button:hover {
+            background: var(--c-primary-light);
+        }
+
+/* Loading state for form submission */
+.up-btn--loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+    .up-btn--loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        right: 16px;
+        margin-top: -8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: up-spin 0.6s linear infinite;
+    }
+
+@keyframes up-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive adjustments for the application page */
+@media (max-width: 768px) {
+    .up-form-card {
+        padding: 20px;
+    }
+
+    input[type="file"].up-form-input {
+        font-size: 0.85rem;
+    }
+
+        input[type="file"].up-form-input::-webkit-file-upload-button {
+            padding: 4px 12px;
+            font-size: 0.85rem;
+        }
+}
+
+/* Improved validation styling */
+.field-validation-error {
+    color: var(--c-error);
+    font-size: 0.78rem;
+    margin-top: 6px;
+    display: block;
+}
+
+.input-validation-error {
+    border-color: var(--c-error) !important;
+}
+
+    .input-validation-error:focus {
+        border-color: var(--c-error) !important;
+        box-shadow: 0 0 0 4px rgba(185, 28, 28, 0.06) !important;
+    }
+
+/* Status badge animations */
+.up-badge {
+    transition: all 0.2s ease;
+}
+
+.up-badge--warning {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Document upload area enhancement */
+.up-form-group:has(input[type="file"]) .up-form-label {
+    margin-bottom: 12px;
+}
+
+/* Hover effects for action cards */
+.up-security-card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Icon alignment in alerts */
+.up-alert svg {
+    flex-shrink: 0;
+}
+
+.up-alert span {
+    flex: 1;
+}
+
+/* Scrollbar styling for better UX */
+.up-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.up-sidebar::-webkit-scrollbar-track {
+    background: var(--c-border);
+    border-radius: 3px;
+}
+
+.up-sidebar::-webkit-scrollbar-thumb {
+    background: var(--c-muted-light);
+    border-radius: 3px;
+}
+
+    .up-sidebar::-webkit-scrollbar-thumb:hover {
+        background: var(--c-muted);
+    }
+
+/* Focus visible for better accessibility */
+.up-btn:focus-visible,
+.up-form-input:focus-visible,
+input[type="file"].up-form-input:focus-visible {
+    outline: 3px solid rgba(45, 27, 105, 0.3);
+    outline-offset: 2px;
+}
+
+/* Print styles - useful for admin verification */
+@media print {
+    .up-sidebar,
+    .up-form-actions,
+    .up-security-card,
+    .navbar,
+    .up-btn {
+        display: none;
+    }
+
+    .up-main {
+        width: 100%;
+        padding: 0;
+    }
+
+    .up-form-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
 

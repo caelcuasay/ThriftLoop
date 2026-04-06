@@ -1,18 +1,11 @@
 ﻿@model ThriftLoop.DTOs.User.UpdateProfileDTO
-@using ThriftLoop.DTOs.User
-
+@using ThriftLoop.Enums
 @{
     ViewData["Title"] = "My Profile";
     Layout = null;
-
-    var profile = ViewBag.Profile as UserProfileDTO;
-    var initials = !string.IsNullOrWhiteSpace(profile?.FullName)
-        ? string.Concat(profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpper(w[0])))
-        : char.ToUpper(profile?.Email?.FirstOrDefault() ?? 'U').ToString();
-    var memberSince = profile?.CreatedAt.ToString("MMMM yyyy") ?? "—";
-
-    bool profileIncomplete = string.IsNullOrWhiteSpace(profile?.PhoneNumber)
-                          || string.IsNullOrWhiteSpace(profile?.Address);
+    
+    var profile = ViewBag.Profile as ThriftLoop.DTOs.User.UserProfileDTO;
+    var sellerApp = ViewBag.SellerApplication as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
 }
 
 <!DOCTYPE html>
@@ -21,225 +14,225 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - ThriftLoop</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/User.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
 </head>
 <body>
-
-    <a class="sr-only" href="#main-content">Skip to main content</a>
-
     @await Html.PartialAsync("_Navbar")
 
     <div class="up-container">
         <div class="up-shell">
-
-            @* Left: profile sidebar *@
-            <aside class="up-sidebar" aria-label="Profile information" role="complementary">
+            
+            @* ── Left sidebar: user info ───────────────────────────────────────── *@
+            <aside class="up-sidebar" aria-label="Profile information">
                 <div class="up-sidebar__header">
-                    <span class="up-sidebar__title">Profile</span>
+                    <span class="up-sidebar__title">Your Profile</span>
                 </div>
 
                 <div class="up-profile-card">
-                    <div class="up-avatar up-avatar--large" aria-hidden="true">@initials</div>
-
-                    <h2 class="up-profile-name">
-                        @(string.IsNullOrWhiteSpace(profile?.FullName) ? profile?.Email : profile.FullName)
-                    </h2>
-
-                    <div class="up-profile-badges" aria-hidden="true">
-                        <span class="up-badge">@profile?.Role</span>
-                        <span class="up-badge up-badge--light">Member since @memberSince</span>
+                    <div class="up-avatar up-avatar--large">
+                        @(profile?.FullName?.FirstOrDefault().ToString().ToUpper() ?? "U")
+                    </div>
+                    <div class="up-profile-name">@(profile?.FullName ?? "User")</div>
+                    <div class="up-profile-badges">
+                        <span class="up-badge">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            @profile?.Role
+                        </span>
                         @if (profile?.IsGoogleAccount == true)
                         {
-                            <span class="up-badge up-badge--google" aria-hidden="true">
-                                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true" focusable="false">
-                                    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
-                                    <path d="M8 4.5v7M4.5 8h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            <span class="up-badge up-badge--google">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                                 </svg>
-                                Google account
-                            </span>
-                        }
-                        @if (profileIncomplete)
-                        {
-                            <span class="up-badge up-badge--warning" title="Phone number and address are required to buy or sell">
-                                ⚠ Profile incomplete
+                                Google Account
                             </span>
                         }
                     </div>
                 </div>
 
-                @* Account info section inside sidebar *@
                 <div class="up-filter-group">
-                    <p class="up-filter-group__label">Account Information</p>
+                    <span class="up-filter-group__label">Account Information</span>
                     <ul class="up-info-list">
                         <li class="up-info-item">
                             <span class="up-info-label">Email</span>
-                            <span class="up-info-value" id="profile-email">@profile?.Email</span>
+                            <span class="up-info-value">@profile?.Email</span>
                         </li>
                         <li class="up-info-item">
-                            <span class="up-info-label">Full Name</span>
-                            <span class="up-info-value @(string.IsNullOrWhiteSpace(profile?.FullName) ? "up-info-value--empty" : "")">
-                                @(string.IsNullOrWhiteSpace(profile?.FullName) ? "Not set" : profile.FullName)
-                            </span>
+                            <span class="up-info-label">Member Since</span>
+                            <span class="up-info-value">@profile?.CreatedAt.ToString("MMMM d, yyyy")</span>
                         </li>
-                        <li class="up-info-item">
-                            <span class="up-info-label">
-                                Phone Number
-                                @if (string.IsNullOrWhiteSpace(profile?.PhoneNumber))
-                                {
-                                    <span class="up-required-dot" title="Required to buy or sell" aria-label="Required">●</span>
-                                }
-                            </span>
-                            <span class="up-info-value @(string.IsNullOrWhiteSpace(profile?.PhoneNumber) ? "up-info-value--empty" : "")">
-                                @(string.IsNullOrWhiteSpace(profile?.PhoneNumber) ? "Not set" : profile.PhoneNumber)
-                            </span>
-                        </li>
-                        <li class="up-info-item">
-                            <span class="up-info-label">
-                                Address
-                                @if (string.IsNullOrWhiteSpace(profile?.Address))
-                                {
-                                    <span class="up-required-dot" title="Required to buy or sell" aria-label="Required">●</span>
-                                }
-                            </span>
-                            <span class="up-info-value @(string.IsNullOrWhiteSpace(profile?.Address) ? "up-info-value--empty" : "")">
-                                @(string.IsNullOrWhiteSpace(profile?.Address) ? "Not set" : profile.Address)
-                            </span>
-                        </li>
+                        @if (!string.IsNullOrWhiteSpace(profile?.PhoneNumber))
+                        {
+                            <li class="up-info-item">
+                                <span class="up-info-label">Phone</span>
+                                <span class="up-info-value">@profile?.PhoneNumber</span>
+                            </li>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(profile?.Address))
+                        {
+                            <li class="up-info-item">
+                                <span class="up-info-label">Address</span>
+                                <span class="up-info-value">@profile?.Address</span>
+                            </li>
+                        }
                     </ul>
                 </div>
+
+                @* ── BECOME A SELLER BUTTON ── *@
+                @if (profile?.Role != "Seller" && profile?.Role != "Admin")
+                {
+                    <div class="up-filter-group" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--c-border);">
+                        <a asp-controller="User" asp-action="Requests" class="up-btn up-btn--primary" style="width: 100%; justify-content: center; gap: 8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Become a Seller
+                        </a>
+                        <p class="up-form-hint" style="margin-top: 10px; text-align: center; font-size: 0.75rem;">
+                            Start selling your items to thousands of buyers
+                        </p>
+                        
+                        @if (sellerApp != null && sellerApp.Status == ApplicationStatus.Pending)
+                        {
+                            <div class="up-alert up-alert--info" style="margin-top: 16px; padding: 10px; font-size: 0.75rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                                <span>Seller application pending review</span>
+                            </div>
+                        }
+                        else if (sellerApp != null && sellerApp.Status == ApplicationStatus.Rejected)
+                        {
+                            <div class="up-alert up-alert--warning" style="margin-top: 16px; padding: 10px; font-size: 0.75rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                <span>Previous application rejected — you can reapply</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (profile?.Role == "Seller")
+                {
+                    <div class="up-filter-group" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--c-border);">
+                        <a asp-controller="Shop" asp-action="Index" class="up-btn up-btn--primary" style="width: 100%; justify-content: center; gap: 8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                            Manage Your Shop
+                        </a>
+                    </div>
+                }
             </aside>
 
-            @* Right: edit profile form *@
-            <main class="up-main" id="main-content" role="main" aria-labelledby="profile-heading">
+            @* ── Main content: edit profile form ────────────────────────────────── *@
+            <main class="up-main">
                 <header class="up-feed-header">
-                    <h1 class="up-feed-title" id="profile-heading">Edit Profile</h1>
+                    <h1 class="up-feed-title">Edit Profile</h1>
                     <p class="up-feed-meta">Update your personal information</p>
                 </header>
 
-                @* Redirected here because profile is incomplete *@
-                @if (TempData["ProfileIncomplete"] is string incompleteMsg)
+                @if (TempData["ProfileSuccess"] != null)
                 {
-                    <div class="up-alert up-alert--warning" role="alert" aria-live="assertive">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75 7a.75.75 0 110-1.5.75.75 0 010 1.5z" clip-rule="evenodd" />
+                    <div class="up-alert up-alert--success">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        @incompleteMsg
+                        <span>@TempData["ProfileSuccess"]</span>
                     </div>
                 }
 
-                @* Proactive nudge when phone or address is still missing *@
-                @if (profileIncomplete && TempData["ProfileIncomplete"] is null)
+                @if (TempData["InfoMessage"] != null)
                 {
-                    <div class="up-alert up-alert--info" role="note" aria-live="polite">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75 7a.75.75 0 110-1.5.75.75 0 010 1.5z" clip-rule="evenodd" />
+                    <div class="up-alert up-alert--info">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
-                        Your <strong>phone number</strong> and <strong>address</strong> are required before you can list or purchase items.
+                        <span>@TempData["InfoMessage"]</span>
                     </div>
                 }
 
-                @* Success / validation banners *@
-                @if (TempData["ProfileSuccess"] is string successMsg)
-                {
-                    <div class="up-alert up-alert--success" role="status" aria-live="polite">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.28 5.28a.75.75 0 00-1.06-1.06L7 8.44 5.78 7.22a.75.75 0 00-1.06 1.06l1.75 1.75a.75.75 0 001.06 0l3.75-3.75z" clip-rule="evenodd" />
-                        </svg>
-                        @successMsg
-                    </div>
-                }
-
-                @if (!ViewData.ModelState.IsValid)
-                {
-                    <div class="up-alert up-alert--error" role="alert" aria-live="assertive">
-                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75 7a.75.75 0 110-1.5.75.75 0 010 1.5z" clip-rule="evenodd" />
-                        </svg>
-                        Please fix the errors below before saving.
-                    </div>
-                }
-
-                <div class="up-form-card" aria-labelledby="profile-heading">
-                    <form asp-controller="User" asp-action="UpdateProfile" method="post" novalidate>
+                <div class="up-form-card">
+                    <form method="post" asp-action="UpdateProfile">
                         @Html.AntiForgeryToken()
 
                         <div class="up-form-group">
                             <label asp-for="FullName" class="up-form-label">Full Name</label>
-                            <input asp-for="FullName"
-                                   class="up-form-input @(ViewData.ModelState["FullName"]?.Errors.Count > 0 ? "up-form-input--error" : "")"
-                                   placeholder="e.g. Maria Santos"
-                                   autocomplete="name"
-                                   aria-invalid="@(ViewData.ModelState["FullName"]?.Errors.Count > 0 ? "true" : "false")"
-                                   aria-describedby="FullName-error" />
-                            <span asp-validation-for="FullName" class="up-form-error" id="FullName-error"></span>
+                            <input asp-for="FullName" class="up-form-input @(ViewData.ModelState.ContainsKey("FullName") && ViewData.ModelState["FullName"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                                   placeholder="Enter your full name" />
+                            <span asp-validation-for="FullName" class="up-form-error"></span>
                         </div>
 
                         <div class="up-form-group">
-                            <label asp-for="PhoneNumber" class="up-form-label">
-                                Phone Number
-                                <span class="up-form-label__required" aria-label="Required to buy or sell">Required to buy or sell</span>
-                            </label>
-                            <input asp-for="PhoneNumber"
-                                   class="up-form-input @(ViewData.ModelState["PhoneNumber"]?.Errors.Count > 0 ? "up-form-input--error" : "")"
-                                   placeholder="e.g. +639171234567"
-                                   autocomplete="tel"
-                                   type="tel"
-                                   aria-invalid="@(ViewData.ModelState["PhoneNumber"]?.Errors.Count > 0 ? "true" : "false")"
-                                   aria-describedby="PhoneNumber-hint PhoneNumber-error" />
-                            <span class="up-form-hint" id="PhoneNumber-hint">Needed to create listings and complete purchases.</span>
-                            <span asp-validation-for="PhoneNumber" class="up-form-error" id="PhoneNumber-error"></span>
+                            <label asp-for="PhoneNumber" class="up-form-label">Phone Number</label>
+                            <input asp-for="PhoneNumber" class="up-form-input @(ViewData.ModelState.ContainsKey("PhoneNumber") && ViewData.ModelState["PhoneNumber"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                                   placeholder="e.g., +63 912 345 6789" />
+                            <span asp-validation-for="PhoneNumber" class="up-form-error"></span>
+                            <span class="up-form-hint">Include country code for better delivery coordination</span>
                         </div>
 
                         <div class="up-form-group">
-                            <label asp-for="Address" class="up-form-label">
-                                Address
-                                <span class="up-form-label__required" aria-label="Required to buy or sell">Required to buy or sell</span>
-                            </label>
-                            <textarea asp-for="Address"
-                                      class="up-form-input up-form-textarea @(ViewData.ModelState["Address"]?.Errors.Count > 0 ? "up-form-input--error" : "")"
-                                      placeholder="Street, City, Province, ZIP"
-                                      rows="3"
-                                      autocomplete="street-address"
-                                      aria-invalid="@(ViewData.ModelState["Address"]?.Errors.Count > 0 ? "true" : "false")"
-                                      aria-describedby="Address-hint Address-error"></textarea>
-                            <span class="up-form-hint" id="Address-hint">Used as your delivery address for orders.</span>
-                            <span asp-validation-for="Address" class="up-form-error" id="Address-error"></span>
+                            <label asp-for="Address" class="up-form-label">Address</label>
+                            <textarea asp-for="Address" class="up-form-input up-form-textarea" rows="3"
+                                      placeholder="Street, Barangay, City/Municipality, Province"></textarea>
+                            <span asp-validation-for="Address" class="up-form-error"></span>
+                            <span class="up-form-hint">Your delivery address for purchases</span>
                         </div>
 
                         <div class="up-form-actions">
-                            <button type="submit" class="up-btn up-btn--primary">Save Changes</button>
-                            <a asp-controller="Home" asp-action="Index" class="up-btn up-btn--ghost">Cancel</a>
+                            <button type="submit" class="up-btn up-btn--primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34" />
+                                    <polygon points="18 2 22 6 12 16 8 16 8 12 18 2" />
+                                </svg>
+                                Save Changes
+                            </button>
                         </div>
                     </form>
                 </div>
 
-                @* Security section (password change — hidden for Google accounts) *@
-                @if (profile?.IsGoogleAccount == false)
+                @if (!profile?.IsGoogleAccount == true)
                 {
-                    <div class="up-security-card" aria-labelledby="security-title">
+                    <div class="up-security-card">
                         <div class="up-security-header">
-                            <h3 class="up-security-title" id="security-title">Security</h3>
-                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" aria-hidden="true" focusable="false">
-                                <path d="M10 2.5L3.75 6.25V10.5C3.75 14.5 6.75 18 10 18.5C13.25 18 16.25 14.5 16.25 10.5V6.25L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M10 10.5V13M10 8H10.008" stroke-linecap="round" />
+                            <span class="up-security-title">Password & Security</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                             </svg>
                         </div>
                         <p class="up-security-desc">
-                            Need to update your password? We'll send a secure reset link to your email address.
+                            Want to change your password? You can reset it from the login page.
                         </p>
-                        <a asp-controller="Auth" asp-action="ForgotPassword" class="up-btn up-btn--outline" role="button">
-                            Reset Password via Email
+                        <a asp-controller="Account" asp-action="ForgotPassword" class="up-btn up-btn--outline" style="width: auto;">
+                            Reset Password
                         </a>
                     </div>
                 }
-
             </main>
         </div>
     </div>
 
+    @section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+    }
 </body>
 </html>

@@ -89,12 +89,11 @@ public class AdminController : BaseController
         var success = await _adminRepo.UpdateUserRoleAsync(userId, newRole);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to update user role. User not found.";
-        }
         else
         {
-            _logger.LogInformation("Admin updated User {UserId} role to {NewRole}", userId, newRole);
+            _logger.LogInformation(
+                "Admin updated User {UserId} role to {NewRole}.", userId, newRole);
             TempData["SuccessMessage"] = $"User role updated to {newRole}.";
         }
 
@@ -108,13 +107,14 @@ public class AdminController : BaseController
         var success = await _adminRepo.ToggleUserStatusAsync(userId, isDisabled);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to update user status.";
-        }
         else
         {
-            _logger.LogInformation("Admin {Action} User {UserId}", isDisabled ? "disabled" : "enabled", userId);
-            TempData["SuccessMessage"] = $"User {(isDisabled ? "disabled" : "enabled")} successfully.";
+            _logger.LogInformation(
+                "Admin {Action} User {UserId}.",
+                isDisabled ? "disabled" : "enabled", userId);
+            TempData["SuccessMessage"] =
+                $"User {(isDisabled ? "disabled" : "enabled")} successfully.";
         }
 
         return RedirectToAction(nameof(Users));
@@ -131,6 +131,25 @@ public class AdminController : BaseController
         return View(applications);
     }
 
+    /// <summary>
+    /// Detail page — lets the admin review StoreAddress, GovIdUrl, ShopName, Bio,
+    /// and the applicant's account info before deciding to approve or reject.
+    /// Maps to Views/Admin/SellerApplicationDetail.cshtml.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> SellerApplicationDetail(int id)
+    {
+        var application = await _adminRepo.GetSellerApplicationByIdAsync(id);
+
+        if (application is null)
+        {
+            TempData["ErrorMessage"] = "Seller application not found.";
+            return RedirectToAction(nameof(SellerApprovals));
+        }
+
+        return View(application);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ApproveSeller(int applicationId)
@@ -138,13 +157,13 @@ public class AdminController : BaseController
         var success = await _adminRepo.ApproveSellerAsync(applicationId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to approve seller application.";
-        }
         else
         {
-            _logger.LogInformation("Admin approved seller application {ApplicationId}", applicationId);
-            TempData["SuccessMessage"] = "Seller application approved. User can now manage their shop.";
+            _logger.LogInformation(
+                "Admin approved seller application {ApplicationId}.", applicationId);
+            TempData["SuccessMessage"] =
+                "Seller application approved. The user can now manage their shop.";
         }
 
         return RedirectToAction(nameof(SellerApprovals));
@@ -157,12 +176,11 @@ public class AdminController : BaseController
         var success = await _adminRepo.RejectSellerAsync(applicationId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to reject seller application.";
-        }
         else
         {
-            _logger.LogInformation("Admin rejected seller application {ApplicationId}", applicationId);
+            _logger.LogInformation(
+                "Admin rejected seller application {ApplicationId}.", applicationId);
             TempData["SuccessMessage"] = "Seller application rejected.";
         }
 
@@ -187,12 +205,10 @@ public class AdminController : BaseController
         var success = await _adminRepo.ApproveRiderAsync(riderId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to approve rider.";
-        }
         else
         {
-            _logger.LogInformation("Admin approved rider {RiderId}", riderId);
+            _logger.LogInformation("Admin approved rider {RiderId}.", riderId);
             TempData["SuccessMessage"] = "Rider approved. They can now accept delivery jobs.";
         }
 
@@ -206,12 +222,10 @@ public class AdminController : BaseController
         var success = await _adminRepo.RejectRiderAsync(riderId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to reject rider.";
-        }
         else
         {
-            _logger.LogInformation("Admin rejected rider {RiderId}", riderId);
+            _logger.LogInformation("Admin rejected rider {RiderId}.", riderId);
             TempData["SuccessMessage"] = "Rider rejected.";
         }
 
@@ -236,12 +250,11 @@ public class AdminController : BaseController
         var success = await _adminRepo.MarkWithdrawalProcessedAsync(withdrawalId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to mark withdrawal as processed.";
-        }
         else
         {
-            _logger.LogInformation("Admin marked withdrawal {WithdrawalId} as processed", withdrawalId);
+            _logger.LogInformation(
+                "Admin marked withdrawal {WithdrawalId} as processed.", withdrawalId);
             TempData["SuccessMessage"] = "Withdrawal marked as processed.";
         }
 
@@ -255,12 +268,11 @@ public class AdminController : BaseController
         var success = await _adminRepo.MarkWithdrawalCompletedAsync(withdrawalId);
 
         if (!success)
-        {
             TempData["ErrorMessage"] = "Failed to mark withdrawal as completed.";
-        }
         else
         {
-            _logger.LogInformation("Admin marked withdrawal {WithdrawalId} as completed", withdrawalId);
+            _logger.LogInformation(
+                "Admin marked withdrawal {WithdrawalId} as completed.", withdrawalId);
             TempData["SuccessMessage"] = "Withdrawal marked as completed.";
         }
 
@@ -275,7 +287,8 @@ public class AdminController : BaseController
     public async Task<IActionResult> Transactions(string? search, int page = 1)
     {
         const int pageSize = 30;
-        var (transactions, totalCount) = await _adminRepo.GetAllTransactionsAsync(search, page, pageSize);
+        var (transactions, totalCount) =
+            await _adminRepo.GetAllTransactionsAsync(search, page, pageSize);
 
         var vm = new TransactionOversightViewModel
         {

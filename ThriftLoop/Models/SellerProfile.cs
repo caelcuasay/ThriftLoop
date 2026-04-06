@@ -37,6 +37,21 @@ public class SellerProfile
     /// </summary>
     public DateTime? ReviewedAt { get; set; }
 
+    // ── Application details ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Physical store / pickup address supplied during the application.
+    /// Required so the admin can verify the applicant operates a real location.
+    /// </summary>
+    public string StoreAddress { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Server-relative path to the uploaded government-issued ID image,
+    /// e.g. "/uploads/gov-ids/42_20240101_passport.jpg".
+    /// Stored by the application; displayed to admins during review.
+    /// </summary>
+    public string? GovIdUrl { get; set; }
+
     // ── Shop branding ─────────────────────────────────────────────────────────
     // These fields are filled in by the user during application and can be
     // edited later from the shop settings page once approved.

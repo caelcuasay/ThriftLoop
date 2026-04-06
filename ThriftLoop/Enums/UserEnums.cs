@@ -41,3 +41,26 @@ public enum ApplicationStatus
     /// <summary>Admin rejected. User remains a regular User and may re-apply.</summary>
     Rejected
 }
+
+/// <summary>
+/// Result returned by IUserProfileService.SubmitSellerApplicationAsync.
+/// Allows the controller to give the user precise feedback without exposing
+/// service internals through exceptions.
+/// </summary>
+public enum SellerApplicationResult
+{
+    /// <summary>Application created successfully — status is now Pending.</summary>
+    Success,
+
+    /// <summary>
+    /// A Pending or Approved application already exists for this user.
+    /// They should not be allowed to submit again until Rejected.
+    /// </summary>
+    AlreadyApplied,
+
+    /// <summary>The user's role is already Seller — no application needed.</summary>
+    AlreadySeller,
+
+    /// <summary>No user row was found for the given ID (should not happen in normal flow).</summary>
+    UserNotFound
+}

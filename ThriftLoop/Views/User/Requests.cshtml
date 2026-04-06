@@ -1,0 +1,322 @@
+﻿@model ThriftLoop.DTOs.User.SellerApplicationDTO
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Seller Application";
+    Layout = null;
+    
+    var existingApp = ViewBag.Application as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/User.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
+
+    <div class="up-container">
+        <div class="up-shell">
+            
+            @* ── Left sidebar: user context ─────────────────────────────────── *@
+            <aside class="up-sidebar" aria-label="Application status">
+                <div class="up-sidebar__header">
+                    <span class="up-sidebar__title">Seller Program</span>
+                </div>
+
+                @if (existingApp != null)
+                {
+                    <div class="up-profile-card">
+                        <div class="up-avatar up-avatar--large">
+                            @(existingApp.ShopName.FirstOrDefault().ToString().ToUpper() ?? "S")
+                        </div>
+                        <div class="up-profile-name">@existingApp.ShopName</div>
+                        <div class="up-profile-badges">
+                            @if (existingApp.Status == ApplicationStatus.Pending)
+                            {
+                                <span class="up-badge up-badge--warning">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <polyline points="12 6 12 12 16 14" />
+                                    </svg>
+                                    Pending Review
+                                </span>
+                            }
+                            else if (existingApp.Status == ApplicationStatus.Approved)
+                            {
+                                <span class="up-badge" style="background: #e8f3ef; color: #0e6245;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    Approved
+                                </span>
+                            }
+                            else if (existingApp.Status == ApplicationStatus.Rejected)
+                            {
+                                <span class="up-badge" style="background: #fee9e9; color: #b91c1c;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                    Rejected
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="up-filter-group">
+                        <span class="up-filter-group__label">Application Details</span>
+                        <ul class="up-info-list">
+                            <li class="up-info-item">
+                                <span class="up-info-label">Submitted</span>
+                                <span class="up-info-value">@existingApp.AppliedAt.ToString("MMMM d, yyyy 'at' h:mm tt")</span>
+                            </li>
+                            @if (existingApp.ReviewedAt.HasValue)
+                            {
+                                <li class="up-info-item">
+                                    <span class="up-info-label">Reviewed</span>
+                                    <span class="up-info-value">@existingApp.ReviewedAt.Value.ToString("MMMM d, yyyy 'at' h:mm tt")</span>
+                                </li>
+                            }
+                            <li class="up-info-item">
+                                <span class="up-info-label">Store Address</span>
+                                <span class="up-info-value">@existingApp.StoreAddress</span>
+                            </li>
+                            @if (!string.IsNullOrWhiteSpace(existingApp.Bio))
+                            {
+                                <li class="up-info-item">
+                                    <span class="up-info-label">Bio</span>
+                                    <span class="up-info-value">@existingApp.Bio</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
+                    @if (existingApp.Status == ApplicationStatus.Pending)
+                    {
+                        <div class="up-alert up-alert--info" style="margin-top: 20px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                            <span>Your application is being reviewed. You'll be notified when a decision is made.</span>
+                        </div>
+                    }
+                    else if (existingApp.Status == ApplicationStatus.Approved)
+                    {
+                        <div class="up-alert up-alert--success" style="margin-top: 20px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>Congratulations! You can now manage your shop from your profile.</span>
+                        </div>
+                    }
+                    else if (existingApp.Status == ApplicationStatus.Rejected)
+                    {
+                        <div class="up-alert up-alert--warning" style="margin-top: 20px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                            <span>Your application was not approved. You may submit a new application below.</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="up-profile-card">
+                        <div class="up-avatar up-avatar--large">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </div>
+                        <div class="up-profile-name">Become a Seller</div>
+                        <div class="up-profile-badges">
+                            <span class="up-badge up-badge--light">Start selling today</span>
+                        </div>
+                    </div>
+
+                    <div class="up-filter-group">
+                        <span class="up-filter-group__label">Benefits</span>
+                        <ul class="up-info-list">
+                            <li class="up-info-item">
+                                <span class="up-info-value">✓ Create your own shop</span>
+                            </li>
+                            <li class="up-info-item">
+                                <span class="up-info-value">✓ List unlimited items</span>
+                            </li>
+                            <li class="up-info-item">
+                                <span class="up-info-value">✓ Reach thousands of buyers</span>
+                            </li>
+                            <li class="up-info-item">
+                                <span class="up-info-value">✓ Secure payment processing</span>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </aside>
+
+            @* ── Main content: application form ────────────────────────────────── *@
+            <main class="up-main">
+                <header class="up-feed-header">
+                    <h1 class="up-feed-title">Seller Application</h1>
+                    <p class="up-feed-meta">Complete the form below to apply for seller status</p>
+                </header>
+
+                @* Display TempData messages *@
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="up-alert up-alert--success">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span>@TempData["SuccessMessage"]</span>
+                    </div>
+                }
+
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="up-alert up-alert--error">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <span>@TempData["ErrorMessage"]</span>
+                    </div>
+                }
+
+                @if (existingApp == null || existingApp.Status == ApplicationStatus.Rejected)
+                {
+                    <div class="up-form-card">
+                        <form method="post" asp-action="SubmitSellerApplication" enctype="multipart/form-data">
+                            @Html.AntiForgeryToken()
+
+                            <div class="up-form-group">
+                                <label asp-for="ShopName" class="up-form-label">
+                                    Shop Name
+                                    <span class="up-form-label__required">Required</span>
+                                </label>
+                                <input asp-for="ShopName" class="up-form-input @(ViewData.ModelState.ContainsKey("ShopName") && ViewData.ModelState["ShopName"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                                       placeholder="e.g., Vintage Threads PH" />
+                                <span asp-validation-for="ShopName" class="up-form-error"></span>
+                                <span class="up-form-hint">This will be your public shop name shown to buyers.</span>
+                            </div>
+
+                            <div class="up-form-group">
+                                <label asp-for="Bio" class="up-form-label">Shop Bio / Tagline</label>
+                                <textarea asp-for="Bio" class="up-form-input up-form-textarea" rows="3"
+                                          placeholder="Tell buyers what your shop is about..."></textarea>
+                                <span asp-validation-for="Bio" class="up-form-error"></span>
+                                <span class="up-form-hint">A short description of your shop (max 500 characters).</span>
+                            </div>
+
+                            <div class="up-form-group">
+                                <label asp-for="StoreAddress" class="up-form-label">
+                                    Store / Pickup Address
+                                    <span class="up-form-label__required">Required</span>
+                                </label>
+                                <input asp-for="StoreAddress" class="up-form-input @(ViewData.ModelState.ContainsKey("StoreAddress") && ViewData.ModelState["StoreAddress"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                                       placeholder="Unit, Building, Street, City, Province" />
+                                <span asp-validation-for="StoreAddress" class="up-form-error"></span>
+                                <span class="up-form-hint">This address will be verified by our team. It's where customers can pick up items.</span>
+                            </div>
+
+                            <div class="up-form-group">
+                                <label asp-for="GovId" class="up-form-label">
+                                    Government-Issued ID
+                                    <span class="up-form-label__required">Required</span>
+                                </label>
+                                <input type="file" asp-for="GovId" class="up-form-input" accept=".jpg,.jpeg,.png,.pdf" />
+                                <span asp-validation-for="GovId" class="up-form-error"></span>
+                                <span class="up-form-hint">
+                                    Accepted formats: JPG, PNG, PDF (max 10MB).<br />
+                                    <strong>Supported IDs:</strong> Passport, Driver's License, National ID, Postal ID, or any government-issued ID.
+                                </span>
+                            </div>
+
+                            <div class="up-form-actions">
+                                <button type="submit" class="up-btn up-btn--primary">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 10l-7-7-7 7" />
+                                        <path d="M12 3v14" />
+                                        <path d="M5 21h14" />
+                                    </svg>
+                                    Submit Application
+                                </button>
+                                <a asp-controller="User" asp-action="Index" class="up-btn up-btn--ghost">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="up-security-card">
+                        <div class="up-security-header">
+                            <span class="up-security-title">Secure & Confidential</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                        </div>
+                        <p class="up-security-desc">
+                            Your ID document is encrypted and only accessible to our verification team.
+                            It will be used solely to verify your identity and will never be shared with third parties.
+                        </p>
+                    </div>
+                }
+                else if (existingApp.Status == ApplicationStatus.Pending)
+                {
+                    <div class="up-form-card" style="text-align: center; padding: 48px 32px;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--c-primary)" stroke-width="1.5" style="margin-bottom: 20px;">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        <h3 style="margin-bottom: 12px; color: var(--c-text);">Application Under Review</h3>
+                        <p style="color: var(--c-muted); margin-bottom: 24px;">
+                            Your seller application has been submitted and is awaiting admin approval.<br />
+                            You'll receive a notification once a decision has been made.
+                        </p>
+                        <a asp-controller="User" asp-action="Index" class="up-btn up-btn--primary">
+                            Return to Profile
+                        </a>
+                    </div>
+                }
+                else if (existingApp.Status == ApplicationStatus.Approved)
+                {
+                    <div class="up-form-card" style="text-align: center; padding: 48px 32px;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--c-success)" stroke-width="1.5" style="margin-bottom: 20px;">
+                            <polyline points="20 6 9 17 4 12" />
+                            <circle cx="12" cy="12" r="10" />
+                        </svg>
+                        <h3 style="margin-bottom: 12px; color: var(--c-text);">Welcome to the Seller Program!</h3>
+                        <p style="color: var(--c-muted); margin-bottom: 24px;">
+                            Your application has been approved! You can now start managing your shop and listing items.
+                        </p>
+                        <div style="display: flex; gap: 12px; justify-content: center;">
+                            <a asp-controller="Shop" asp-action="Manage" class="up-btn up-btn--primary">
+                                Manage Shop
+                            </a>
+                            <a asp-controller="User" asp-action="Index" class="up-btn up-btn--ghost">
+                                Back to Profile
+                            </a>
+                        </div>
+                    </div>
+                }
+            </main>
+        </div>
+    </div>
+
+    @section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+    }
+</body>
+</html>
