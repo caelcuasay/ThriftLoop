@@ -38,7 +38,7 @@ public class TransactionRepository : ITransactionRepository
                          .AsNoTracking()
                          .Include(t => t.Order)
                              .ThenInclude(o => o!.Item)
-                         .Where(t => t.ToRiderId == riderId)
+                         .Where(t => t.ToRiderId != null && t.ToRiderId == riderId)
                          .OrderByDescending(t => t.CreatedAt)
                          .Take(take)
                          .ToListAsync();
