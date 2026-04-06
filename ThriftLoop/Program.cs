@@ -8,8 +8,10 @@ using ThriftLoop.Services.Auth.Implementation;
 using ThriftLoop.Services.Auth.Interface;
 using ThriftLoop.Services.Email.Implementation;
 using ThriftLoop.Services.Email.Interface;
+using ThriftLoop.Services.UserProfile.Interface;
 using ThriftLoop.Services.OrderManagement.Implementation;
 using ThriftLoop.Services.OrderManagement.Interface;
+using ThriftLoop.Services.UserProfile.Implementation;
 using ThriftLoop.Services.WalletManagement.Implementation;
 using ThriftLoop.Services.WalletManagement.Interface;
 
@@ -81,6 +83,7 @@ builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
 
 var app = builder.Build();

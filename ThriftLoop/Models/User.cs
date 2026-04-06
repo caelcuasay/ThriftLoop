@@ -1,4 +1,4 @@
-﻿// Models/User.cs (UPDATED)
+﻿// Models/User.cs (UPDATED — added FullName, PhoneNumber, Address)
 using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
@@ -7,6 +7,25 @@ public class User
 {
     public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
+
+    // ── Profile ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Optional display name set by the user. Distinct from Email / claims Name.
+    /// </summary>
+    public string? FullName { get; set; }
+
+    /// <summary>
+    /// E.164-style phone number, e.g. "+639171234567". Validated at the DTO layer.
+    /// </summary>
+    public string? PhoneNumber { get; set; }
+
+    /// <summary>
+    /// Free-text shipping / contact address supplied by the user.
+    /// </summary>
+    public string? Address { get; set; }
+
+    // ── Security ──────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Null for users who registered exclusively via an external provider (e.g. Google).
@@ -31,14 +50,11 @@ public class User
     /// <summary>
     /// The account's current role. Defaults to User on registration.
     /// Elevated to Seller only after an admin approves their SellerProfile application.
-    /// Role is stamped into the auth cookie claims on login so controllers can gate
-    /// access with a simple role check without hitting the database.
     /// </summary>
     public UserRole Role { get; set; } = UserRole.User;
 
     /// <summary>
     /// Whether the account has been disabled by an admin.
-    /// Disabled users cannot log in or perform any actions.
     /// </summary>
     public bool IsDisabled { get; set; } = false;
 
@@ -49,10 +65,5 @@ public class User
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Populated only if this user has submitted or been approved as a Seller.
-    /// Null for regular Users and Riders. Use this to access shop branding data
-    /// and application status without joining through Items.
-    /// </summary>
     public SellerProfile? SellerProfile { get; set; }
 }

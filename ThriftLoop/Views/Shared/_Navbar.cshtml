@@ -147,6 +147,13 @@
                         @* Regular User Dropdown Items (non-admin, non-rider) *@
                         @if (!isRider && !isAdmin)
                         {
+                            <a asp-controller="User" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/User", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-4.5 5.5a5 5 0 019 0h-9z" />
+                                </svg>
+                                My Profile
+                            </a>
+
                             <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
                                 <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M1 3A1.5 1.5 0 012.5 1.5h11A1.5 1.5 0 0115 3v10a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13V3zm10.5 5a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
@@ -240,12 +247,12 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
         const dropdownToggle = document.getElementById('userDropdown');
-        const dropdownMenu   = document.getElementById('userDropdownMenu');
+        const dropdownMenu = document.getElementById('userDropdownMenu');
 
         if (dropdownToggle && dropdownMenu) {
-            dropdownToggle.addEventListener('click', function (e) {
+            dropdownToggle.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const isExpanded = this.getAttribute('aria-expanded') === 'true';
@@ -253,7 +260,7 @@
                 dropdownMenu.classList.toggle('show');
             });
 
-            document.addEventListener('click', function (e) {
+            document.addEventListener('click', function(e) {
                 if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
                     dropdownToggle.setAttribute('aria-expanded', 'false');
                     dropdownMenu.classList.remove('show');
