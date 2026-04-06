@@ -41,6 +41,29 @@ public class OrdersController : BaseController
         _logger = logger;
     }
 
+    // ── Helper to check if a user has a complete profile ─────────────────────
+    /// <summary>
+    /// Returns true only when the user has both a non-empty PhoneNumber and Address.
+    /// Required before the user can purchase items.
+    /// </summary>
+    private async Task<bool> HasCompleteProfileAsync(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        return user is not null
+            && !string.IsNullOrWhiteSpace(user.PhoneNumber)
+            && !string.IsNullOrWhiteSpace(user.Address);
+    }
+
+    /// <summary>
+    /// Redirects the user to their profile page with an explanatory message.
+    /// </summary>
+    private IActionResult RedirectToCompleteProfile(string action)
+    {
+        TempData["ProfileIncomplete"] =
+            $"Please add your phone number and address before you can {action}.";
+        return RedirectToAction("Index", "User");
+    }
+
     // ── P2P CHECKOUT (GET) ─────────────────────────────────────────────────
 
     [HttpGet]
@@ -48,6 +71,9 @@ public class OrdersController : BaseController
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("purchase items");
 
         var item = await _itemRepository.GetByIdWithUserAsync(itemId);
         if (item is null) return NotFound();
@@ -87,6 +113,9 @@ public class OrdersController : BaseController
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("purchase items");
 
         var item = await _itemRepository.GetByIdAsync(itemId);
         if (item is null) return NotFound();
@@ -212,6 +241,9 @@ public class OrdersController : BaseController
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
 
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("purchase items");
+
         var sku = await _itemRepository.GetSkuByIdWithItemAsync(skuId);
 
         if (sku?.Variant?.Item is null) return NotFound();
@@ -253,6 +285,9 @@ public class OrdersController : BaseController
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("purchase items");
 
         quantity = Math.Max(1, quantity);
 

@@ -10,6 +10,9 @@
         ? string.Concat(profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpper(w[0])))
         : char.ToUpper(profile?.Email?.FirstOrDefault() ?? 'U').ToString();
     var memberSince = profile?.CreatedAt.ToString("MMMM yyyy") ?? "—";
+
+    bool profileIncomplete = string.IsNullOrWhiteSpace(profile?.PhoneNumber)
+                          || string.IsNullOrWhiteSpace(profile?.Address);
 }
 
 <!DOCTYPE html>
@@ -59,6 +62,12 @@
                                 Google account
                             </span>
                         }
+                        @if (profileIncomplete)
+                        {
+                            <span class="up-badge up-badge--warning" title="Phone number and address are required to buy or sell">
+                                ⚠ Profile incomplete
+                            </span>
+                        }
                     </div>
                 </div>
 
@@ -77,13 +86,25 @@
                             </span>
                         </li>
                         <li class="up-info-item">
-                            <span class="up-info-label">Phone Number</span>
+                            <span class="up-info-label">
+                                Phone Number
+                                @if (string.IsNullOrWhiteSpace(profile?.PhoneNumber))
+                                {
+                                    <span class="up-required-dot" title="Required to buy or sell" aria-label="Required">●</span>
+                                }
+                            </span>
                             <span class="up-info-value @(string.IsNullOrWhiteSpace(profile?.PhoneNumber) ? "up-info-value--empty" : "")">
                                 @(string.IsNullOrWhiteSpace(profile?.PhoneNumber) ? "Not set" : profile.PhoneNumber)
                             </span>
                         </li>
                         <li class="up-info-item">
-                            <span class="up-info-label">Address</span>
+                            <span class="up-info-label">
+                                Address
+                                @if (string.IsNullOrWhiteSpace(profile?.Address))
+                                {
+                                    <span class="up-required-dot" title="Required to buy or sell" aria-label="Required">●</span>
+                                }
+                            </span>
                             <span class="up-info-value @(string.IsNullOrWhiteSpace(profile?.Address) ? "up-info-value--empty" : "")">
                                 @(string.IsNullOrWhiteSpace(profile?.Address) ? "Not set" : profile.Address)
                             </span>
@@ -98,6 +119,28 @@
                     <h1 class="up-feed-title" id="profile-heading">Edit Profile</h1>
                     <p class="up-feed-meta">Update your personal information</p>
                 </header>
+
+                @* Redirected here because profile is incomplete *@
+                @if (TempData["ProfileIncomplete"] is string incompleteMsg)
+                {
+                    <div class="up-alert up-alert--warning" role="alert" aria-live="assertive">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
+                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75 7a.75.75 0 110-1.5.75.75 0 010 1.5z" clip-rule="evenodd" />
+                        </svg>
+                        @incompleteMsg
+                    </div>
+                }
+
+                @* Proactive nudge when phone or address is still missing *@
+                @if (profileIncomplete && TempData["ProfileIncomplete"] is null)
+                {
+                    <div class="up-alert up-alert--info" role="note" aria-live="polite">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true" focusable="false">
+                            <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75 7a.75.75 0 110-1.5.75.75 0 010 1.5z" clip-rule="evenodd" />
+                        </svg>
+                        Your <strong>phone number</strong> and <strong>address</strong> are required before you can list or purchase items.
+                    </div>
+                }
 
                 @* Success / validation banners *@
                 @if (TempData["ProfileSuccess"] is string successMsg)
@@ -136,26 +179,34 @@
                         </div>
 
                         <div class="up-form-group">
-                            <label asp-for="PhoneNumber" class="up-form-label">Phone Number</label>
+                            <label asp-for="PhoneNumber" class="up-form-label">
+                                Phone Number
+                                <span class="up-form-label__required" aria-label="Required to buy or sell">Required to buy or sell</span>
+                            </label>
                             <input asp-for="PhoneNumber"
                                    class="up-form-input @(ViewData.ModelState["PhoneNumber"]?.Errors.Count > 0 ? "up-form-input--error" : "")"
                                    placeholder="e.g. +639171234567"
                                    autocomplete="tel"
                                    type="tel"
                                    aria-invalid="@(ViewData.ModelState["PhoneNumber"]?.Errors.Count > 0 ? "true" : "false")"
-                                   aria-describedby="PhoneNumber-error" />
+                                   aria-describedby="PhoneNumber-hint PhoneNumber-error" />
+                            <span class="up-form-hint" id="PhoneNumber-hint">Needed to create listings and complete purchases.</span>
                             <span asp-validation-for="PhoneNumber" class="up-form-error" id="PhoneNumber-error"></span>
                         </div>
 
                         <div class="up-form-group">
-                            <label asp-for="Address" class="up-form-label">Address</label>
+                            <label asp-for="Address" class="up-form-label">
+                                Address
+                                <span class="up-form-label__required" aria-label="Required to buy or sell">Required to buy or sell</span>
+                            </label>
                             <textarea asp-for="Address"
                                       class="up-form-input up-form-textarea @(ViewData.ModelState["Address"]?.Errors.Count > 0 ? "up-form-input--error" : "")"
                                       placeholder="Street, City, Province, ZIP"
                                       rows="3"
                                       autocomplete="street-address"
                                       aria-invalid="@(ViewData.ModelState["Address"]?.Errors.Count > 0 ? "true" : "false")"
-                                      aria-describedby="Address-error"></textarea>
+                                      aria-describedby="Address-hint Address-error"></textarea>
+                            <span class="up-form-hint" id="Address-hint">Used as your delivery address for orders.</span>
                             <span asp-validation-for="Address" class="up-form-error" id="Address-error"></span>
                         </div>
 

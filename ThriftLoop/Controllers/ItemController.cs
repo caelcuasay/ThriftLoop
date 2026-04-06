@@ -36,6 +36,29 @@ public class ItemsController : Controller
         return User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
     }
 
+    // ── Helper to check if a user has a complete profile ─────────────────────
+    /// <summary>
+    /// Returns true only when the user has both a non-empty PhoneNumber and Address.
+    /// Required before the user can list or purchase items.
+    /// </summary>
+    private async Task<bool> HasCompleteProfileAsync(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        return user is not null
+            && !string.IsNullOrWhiteSpace(user.PhoneNumber)
+            && !string.IsNullOrWhiteSpace(user.Address);
+    }
+
+    /// <summary>
+    /// Redirects the user to their profile page with an explanatory message.
+    /// </summary>
+    private IActionResult RedirectToCompleteProfile(string action)
+    {
+        TempData["ProfileIncomplete"] =
+            $"Please add your phone number and address before you can {action}.";
+        return RedirectToAction("Index", "User");
+    }
+
     // ── INDEX ─────────────────────────────────────────────────────────────────
 
     [HttpGet]
@@ -84,7 +107,7 @@ public class ItemsController : Controller
     // ── BUY NOW ───────────────────────────────────────────────────────────────
 
     [HttpGet]
-    public IActionResult BuyNow(int id)
+    public async Task<IActionResult> BuyNow(int id)
     {
         // Redirect riders to their dashboard
         if (IsRider())
@@ -92,13 +115,20 @@ public class ItemsController : Controller
             _logger.LogWarning("Rider attempted to access Items/BuyNow");
             return RedirectToAction("Index", "Rider");
         }
+
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId)) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(userId))
+            return RedirectToCompleteProfile("purchase items");
+
         return RedirectToAction("Checkout", "Orders", new { itemId = id });
     }
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
     [HttpGet]
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
         // Redirect riders to their dashboard
         if (IsRider())
@@ -106,6 +136,13 @@ public class ItemsController : Controller
             _logger.LogWarning("Rider attempted to access Items/Create");
             return RedirectToAction("Index", "Rider");
         }
+
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId)) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(userId))
+            return RedirectToCompleteProfile("list items for sale");
+
         return View(new ItemCreateViewModel());
     }
 
@@ -120,10 +157,13 @@ public class ItemsController : Controller
             return RedirectToAction("Index", "Rider");
         }
 
-        if (!ModelState.IsValid) return View(viewModel);
-
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int userId)) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(userId))
+            return RedirectToCompleteProfile("list items for sale");
+
+        if (!ModelState.IsValid) return View(viewModel);
 
         var imageUrls = new List<string>();
 
@@ -308,6 +348,9 @@ public class ItemsController : Controller
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int buyerId)) return Unauthorized();
 
+        if (!await HasCompleteProfileAsync(buyerId))
+            return RedirectToCompleteProfile("claim items");
+
         var item = await _itemRepository.GetByIdAsync(id);
         if (item is null) return NotFound();
 
@@ -413,6 +456,9 @@ public class ItemsController : Controller
 
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(rawId, out int stealerId)) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(stealerId))
+            return RedirectToCompleteProfile("steal items");
 
         var item = await _itemRepository.GetByIdAsync(id);
         if (item is null) return NotFound();
