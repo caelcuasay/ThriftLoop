@@ -1,7 +1,7 @@
 ﻿@{
     ViewData["Title"] = "Rider Application Status";
     Layout = null;
-    var isApproved = ViewBag.IsApproved ?? false;
+    var isApproved = (bool)(ViewBag.IsApproved ?? false);
 }
 
 <!DOCTYPE html>
@@ -14,77 +14,127 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/AuthRider.css" asp-append-version="true" />
 </head>
 <body>
-    <div class="auth-shell">
+    <div class="rider-page">
 
-        <aside class="auth-panel auth-panel--brand">
-            <div class="brand-wordmark">ThriftLoop</div>
-            <p class="brand-tagline">@(isApproved ? "Welcome aboard!" : "Application pending")</p>
-            <div class="brand-decoration" aria-hidden="true">
-                <span class="deco-ring deco-ring--lg"></span>
-                <span class="deco-ring deco-ring--md"></span>
-                <span class="deco-ring deco-ring--sm"></span>
+        <nav class="rider-topbar">
+            <a href="/" class="rider-topbar__brand">ThriftLoop</a>
+            <div class="rider-topbar__links">
+                @if (!isApproved)
+                {
+                    <form asp-action="Logout" asp-controller="Auth" method="post" style="margin:0;padding:0;">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="rider-topbar__link rider-topbar__link--btn"
+                                style="background:rgba(255,255,255,0.12);border:none;cursor:pointer;font-family:inherit;">
+                            Sign Out
+                        </button>
+                    </form>
+                }
             </div>
-        </aside>
+        </nav>
 
-        <main class="auth-panel auth-panel--form">
-            <div class="form-card">
+        <div class="rider-status-page">
+            <div class="rider-status-card">
 
                 @if (isApproved)
                 {
-                    <header class="form-card__header">
-                        <h1 class="form-card__title">Application Approved!</h1>
-                        <p class="form-card__subtitle">
-                            Your rider account has been approved. You can now access the rider dashboard.
-                        </p>
-                    </header>
-
-                    <div class="confirm-icon" aria-hidden="true" style="color: #10b981;">
+                    <div class="status-icon status-icon--approved" aria-hidden="true">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".2" />
                             <path d="M14 24l6 6 14-14" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </div>
 
-                    <div class="form-card__footer">
-                        <a asp-controller="Rider" asp-action="Index" class="btn btn--primary" style="text-decoration: none; display: inline-block;">
-                            Go to Dashboard
-                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
-                        </a>
+                    <h1 class="rider-status-card__title">Application Approved!</h1>
+                    <p class="rider-status-card__subtitle">
+                        Your rider account is active. You're ready to start delivering.
+                    </p>
+
+                    <div class="alert alert--success" role="status">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+                        <span>Your identity and vehicle information have been verified by our team.</span>
                     </div>
+
+                    <a asp-controller="Rider" asp-action="Index" class="btn btn--primary" style="text-decoration:none;">
+                        Go to Rider Dashboard
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                    </a>
                 }
                 else
                 {
-                    <header class="form-card__header">
-                        <h1 class="form-card__title">Application Submitted</h1>
-                        <p class="form-card__subtitle">
-                            Thank you for applying to become a ThriftLoop rider.
-                        </p>
-                    </header>
-
-                    <div class="confirm-icon" aria-hidden="true">
+                    <div class="status-icon status-icon--pending" aria-hidden="true">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".15" />
-                            <path d="M24 12v12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                            <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3" />
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".2" />
+                            <path d="M24 14v10l5 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </div>
 
-                    <div class="alert alert--info" role="alert" style="background: #eff6ff; border-color: #3b82f6; color: #1e3a8a;">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20" style="flex-shrink: 0;"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
-                        <span>Your application is pending review. An administrator will review it shortly. You'll receive an email notification once approved.</span>
+                    <div style="text-align:center;">
+                        <div class="application-badge application-badge--pending">Under Review</div>
                     </div>
 
-                    <footer class="form-card__footer">
-                        <p>
-                            <a asp-action="Login" asp-controller="Auth" class="footer-link">Return to sign in</a>
-                        </p>
-                    </footer>
+                    <h1 class="rider-status-card__title">Application Submitted</h1>
+                    <p class="rider-status-card__subtitle">
+                        Thank you for applying. We'll notify you by email once your application has been reviewed.
+                    </p>
+
+                    <div class="next-steps">
+                        <p class="next-steps__label">What happens next</p>
+                        <ol class="steps-list" aria-label="Application review steps">
+                            <li class="step step--done">
+                                <div class="step__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 01.208 1.04l-5 7.5a.75.75 0 01-1.154.114l-3-3a.75.75 0 011.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 011.04-.207z" clip-rule="evenodd" /></svg>
+                                </div>
+                                <div class="step__body">
+                                    <p class="step__title">Application received</p>
+                                    <p class="step__desc">Your information has been submitted successfully.</p>
+                                </div>
+                            </li>
+                            <li class="step step--active">
+                                <div class="step__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3.25a.75.75 0 01.75.75v2.69l1.28 1.28a.75.75 0 11-1.06 1.06l-1.5-1.5A.75.75 0 017.25 9.5v-3A.75.75 0 018 5.75z" /></svg>
+                                </div>
+                                <div class="step__body">
+                                    <p class="step__title">Identity &amp; document review</p>
+                                    <p class="step__desc">Our team is verifying your license and vehicle details. This takes 1&ndash;3 business days.</p>
+                                </div>
+                            </li>
+                            <li class="step step--upcoming">
+                                <div class="step__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1013 0 6.5 6.5 0 00-13 0z" /></svg>
+                                </div>
+                                <div class="step__body">
+                                    <p class="step__title">Approval notification</p>
+                                    <p class="step__desc">You'll receive an email once your application is approved or if more information is needed.</p>
+                                </div>
+                            </li>
+                            <li class="step step--upcoming">
+                                <div class="step__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1013 0 6.5 6.5 0 00-13 0z" /></svg>
+                                </div>
+                                <div class="step__body">
+                                    <p class="step__title">Start delivering</p>
+                                    <p class="step__desc">Once approved, sign back in to access your rider dashboard and begin accepting deliveries.</p>
+                                </div>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="rider-status-footer">
+                        <span>Have questions? <a href="mailto:support@thriftloop.com">Contact support</a></span>
+                        <span>
+                            <form asp-action="Logout" asp-controller="Auth" method="post" style="display:inline;margin:0;padding:0;">
+                                @Html.AntiForgeryToken()
+                                <button type="submit">Sign out and return to login</button>
+                            </form>
+                        </span>
+                    </div>
                 }
 
             </div>
-        </main>
+        </div>
 
     </div>
 </body>

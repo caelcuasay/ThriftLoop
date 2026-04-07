@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using ThriftLoop.Repositories.Interface;
@@ -36,7 +38,15 @@ public class RiderController : BaseController
         if (rider == null)
         {
             _logger.LogWarning("Rider {RiderId} not found in database.", riderId);
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction("Login", "Auth");
+        }
+
+        // Check if rider is approved - if not, redirect to approval page
+        if (!rider.IsApproved)
+        {
+            _logger.LogInformation("Unapproved rider {RiderId} attempted to access dashboard, redirecting to approval page.", riderId);
+            return RedirectToAction("RiderApproval", "Auth");
         }
 
         // Check if rider has an active delivery
@@ -64,6 +74,12 @@ public class RiderController : BaseController
         if (!int.TryParse(userIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+        {
+            return RedirectToAction("Login", "Auth");
+        }
+
         var success = await _deliveryRepository.AcceptDeliveryAsync(deliveryId, riderId);
 
         if (!success)
@@ -88,6 +104,12 @@ public class RiderController : BaseController
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+        {
+            return RedirectToAction("Login", "Auth");
+        }
+
         var activeDelivery = await _deliveryRepository.GetActiveDeliveryByRiderIdAsync(riderId);
 
         if (activeDelivery == null)
@@ -110,6 +132,12 @@ public class RiderController : BaseController
         var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+        {
+            return RedirectToAction("Login", "Auth");
+        }
 
         var success = await _deliveryRepository.MarkPickedUpAsync(deliveryId, riderId);
 
@@ -136,6 +164,12 @@ public class RiderController : BaseController
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+        {
+            return RedirectToAction("Login", "Auth");
+        }
+
         var success = await _deliveryRepository.MarkDeliveredAsync(deliveryId, riderId);
 
         if (!success)
@@ -159,6 +193,12 @@ public class RiderController : BaseController
         var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+        {
+            return RedirectToAction("Login", "Auth");
+        }
 
         var deliveries = await _deliveryRepository.GetDeliveriesByRiderIdAsync(riderId);
         return View(deliveries);

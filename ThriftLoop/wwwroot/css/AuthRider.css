@@ -1,0 +1,671 @@
+﻿/* --------------------------------------------- */
+/* RIDER PAGES — AuthRider.css                   */
+/* Depends on Auth.css for base tokens & helpers */
+/* --------------------------------------------- */
+
+/* --------------------------------- */
+/* Page shell                         */
+/* --------------------------------- */
+.rider-page {
+    min-height: 100vh;
+    background: var(--c-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+/* --------------------------------- */
+/* Top navigation bar                 */
+/* --------------------------------- */
+.rider-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 56px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.rider-topbar__brand {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+}
+
+.rider-topbar__links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 0.78rem;
+}
+
+.rider-topbar__link {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+    .rider-topbar__link:hover {
+        color: #fff;
+    }
+
+.rider-topbar__link--btn {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.15s;
+}
+
+    .rider-topbar__link--btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+/* --------------------------------- */
+/* Page header / hero strip           */
+/* --------------------------------- */
+.rider-hero {
+    background: var(--c-primary);
+    color: #fff;
+    padding: 32px 40px 28px;
+}
+
+.rider-hero__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.rider-hero__text {
+}
+
+.rider-hero__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.9);
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-radius: 20px;
+    padding: 4px 10px;
+    margin-bottom: 10px;
+}
+
+.rider-hero__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.rider-hero__subtitle {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    max-width: 480px;
+    line-height: 1.5;
+}
+
+.rider-hero__perks {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-top: 4px;
+}
+
+.rider-hero__perk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+    .rider-hero__perk svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+/* --------------------------------- */
+/* Form body                          */
+/* --------------------------------- */
+.rider-body {
+    flex: 1;
+    padding: 32px 40px 48px;
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* --------------------------------- */
+/* Validation error banner            */
+/* --------------------------------- */
+.rider-error-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--c-error-bg);
+    color: var(--c-error);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    margin-bottom: 24px;
+}
+
+    .rider-error-banner svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+/* --------------------------------- */
+/* Sections grid                      */
+/* --------------------------------- */
+.rider-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+/* --------------------------------- */
+/* Individual section card            */
+/* --------------------------------- */
+.rider-section {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.rider-section--span2 {
+    grid-column: span 2;
+}
+
+.rider-section__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--c-primary);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+    .rider-section__title svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+.rider-section .field:last-child {
+    margin-bottom: 0;
+}
+
+/* --------------------------------- */
+/* Two-column field grid inside       */
+/* a section                          */
+/* --------------------------------- */
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+}
+
+/* --------------------------------- */
+/* Textarea                           */
+/* --------------------------------- */
+.field__textarea {
+    resize: vertical;
+    min-height: 64px;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+/* --------------------------------- */
+/* Field hint                         */
+/* --------------------------------- */
+.field__hint {
+    font-size: 0.67rem;
+    color: var(--c-muted-light);
+    margin-top: 3px;
+}
+
+/* --------------------------------- */
+/* Select                             */
+/* --------------------------------- */
+.field__select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.field__select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.field__select-icon {
+    position: absolute;
+    right: 10px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-muted);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+/* --------------------------------- */
+/* File / license upload              */
+/* --------------------------------- */
+.file-upload {
+    display: block;
+    cursor: pointer;
+}
+
+.file-upload__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.file-upload__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px dashed var(--c-border);
+    border-radius: 8px;
+    padding: 22px 16px;
+    background: var(--c-bg);
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+    .file-upload__body svg {
+        width: 28px;
+        height: 28px;
+        color: var(--c-muted-light);
+    }
+
+.file-upload__text {
+    font-size: 0.78rem;
+    color: var(--c-muted);
+    line-height: 1.5;
+}
+
+    .file-upload__text strong {
+        color: var(--c-primary);
+    }
+
+.file-upload:hover .file-upload__body,
+.file-upload:focus-within .file-upload__body {
+    border-color: var(--c-primary);
+    background: var(--c-primary-soft);
+}
+
+.file-upload__preview {
+    width: 100%;
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--c-border);
+}
+
+/* --------------------------------- */
+/* Form footer (submit + legal)       */
+/* --------------------------------- */
+.rider-form-footer {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+    .rider-form-footer .btn {
+        width: auto;
+        min-width: 200px;
+    }
+
+.rider-legal {
+    font-size: 0.68rem;
+    color: var(--c-muted);
+    line-height: 1.5;
+    max-width: 420px;
+}
+
+    .rider-legal a {
+        color: var(--c-primary);
+        text-decoration: none;
+    }
+
+        .rider-legal a:hover {
+            text-decoration: underline;
+        }
+
+.rider-page-footer {
+    margin-top: 20px;
+    font-size: 0.78rem;
+    color: var(--c-muted);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+    .rider-page-footer a {
+        color: var(--c-primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+        .rider-page-footer a:hover {
+            text-decoration: underline;
+        }
+
+/* --------------------------------- */
+/* APPROVAL PAGE                      */
+/* --------------------------------- */
+.rider-status-page {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.rider-status-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.06);
+    width: 100%;
+    max-width: 560px;
+    padding: 40px;
+}
+
+.status-icon {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+    .status-icon svg {
+        width: 64px;
+        height: 64px;
+    }
+
+.status-icon--approved {
+    color: var(--c-success);
+}
+
+.status-icon--pending {
+    color: var(--c-primary);
+}
+
+.rider-status-card__title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.rider-status-card__subtitle {
+    font-size: 0.85rem;
+    color: var(--c-muted);
+    text-align: center;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.rider-status-card .btn {
+    margin-top: 8px;
+}
+
+/* --------------------------------- */
+/* Application badge                  */
+/* --------------------------------- */
+.application-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--c-badge-bg);
+    color: var(--c-badge-txt);
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-radius: 20px;
+    padding: 4px 10px;
+    margin-bottom: 10px;
+}
+
+.application-badge--pending {
+    background: var(--c-warning-bg);
+    color: var(--c-warning);
+}
+
+/* --------------------------------- */
+/* Next-steps / timeline              */
+/* --------------------------------- */
+.next-steps {
+    margin: 24px 0;
+}
+
+.next-steps__label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--c-muted);
+    margin-bottom: 14px;
+}
+
+.steps-list {
+    list-style: none;
+}
+
+.step {
+    display: flex;
+    gap: 14px;
+    position: relative;
+    padding-bottom: 20px;
+}
+
+    .step:last-child {
+        padding-bottom: 0;
+    }
+
+    .step:not(:last-child)::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 30px;
+        bottom: 0;
+        width: 2px;
+        background: var(--c-border);
+    }
+
+.step--done:not(:last-child)::before {
+    background: var(--c-success);
+    opacity: 0.35;
+}
+
+.step--active:not(:last-child)::before {
+    background: var(--c-primary);
+    opacity: 0.2;
+}
+
+.step__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 2px solid var(--c-border);
+    background: var(--c-surface);
+    color: var(--c-muted-light);
+    z-index: 1;
+}
+
+    .step__icon svg {
+        width: 14px;
+        height: 14px;
+    }
+
+.step--done .step__icon {
+    background: var(--c-success-bg);
+    border-color: var(--c-success);
+    color: var(--c-success);
+}
+
+.step--active .step__icon {
+    background: var(--c-primary-soft);
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+}
+
+.step__body {
+    padding-top: 5px;
+}
+
+.step__title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 2px;
+}
+
+.step--upcoming .step__title {
+    color: var(--c-muted);
+}
+
+.step__desc {
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    line-height: 1.4;
+}
+
+.rider-status-footer {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--c-border);
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--c-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .rider-status-footer a,
+    .rider-status-footer button {
+        color: var(--c-primary);
+        text-decoration: none;
+        font-weight: 500;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: inherit;
+        font-family: inherit;
+        padding: 0;
+    }
+
+        .rider-status-footer a:hover,
+        .rider-status-footer button:hover {
+            text-decoration: underline;
+        }
+
+/* --------------------------------- */
+/* Responsive                         */
+/* --------------------------------- */
+@media (max-width: 900px) {
+    .rider-sections {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .rider-section--span2 {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 640px) {
+    .rider-topbar {
+        padding: 0 20px;
+    }
+
+    .rider-hero {
+        padding: 24px 20px 20px;
+    }
+
+    .rider-hero__inner {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .rider-hero__perks {
+        gap: 12px;
+    }
+
+    .rider-body {
+        padding: 20px 20px 40px;
+    }
+
+    .rider-sections {
+        grid-template-columns: 1fr;
+    }
+
+    .rider-section--span2 {
+        grid-column: span 1;
+    }
+
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
+    .rider-form-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+        .rider-form-footer .btn {
+            width: 100%;
+        }
+
+    .rider-status-page {
+        padding: 20px;
+        align-items: flex-start;
+    }
+
+    .rider-status-card {
+        padding: 24px 20px;
+    }
+}

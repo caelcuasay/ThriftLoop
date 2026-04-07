@@ -14,14 +14,16 @@ public class RiderAuthService : IRiderAuthService
     private readonly IRiderRepository _riderRepo;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<RiderAuthService> _logger;
-
+    private readonly IWebHostEnvironment _env;
     public RiderAuthService(
         IRiderRepository riderRepo,
         ApplicationDbContext context,
+        IWebHostEnvironment env,
         ILogger<RiderAuthService> logger)
     {
         _riderRepo = riderRepo;
         _context = context;
+        _env = env;
         _logger = logger;
     }
 
@@ -32,6 +34,20 @@ public class RiderAuthService : IRiderAuthService
         if (await _riderRepo.EmailExistsAsync(normalizedEmail))
             return null;
 
+        // ── Save license image ──────────────────────────────────────
+        var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "rider-licenses");
+        Directory.CreateDirectory(uploadsDir); // no-op if already exists
+
+        var ext = Path.GetExtension(dto.DriversLicense.FileName).ToLowerInvariant();
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+            await dto.DriversLicense.CopyToAsync(stream);
+
+        var licenseRelativePath = $"/uploads/rider-licenses/{fileName}";
+        // ───────────────────────────────────────────────────────────
+
         var rider = new Rider
         {
             Email = normalizedEmail,
@@ -39,8 +55,14 @@ public class RiderAuthService : IRiderAuthService
             FullName = dto.FullName.Trim(),
             PhoneNumber = dto.PhoneNumber.Trim(),
             IsApproved = false,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            DriversLicense = licenseRelativePath,   // stores the file path
+            VehicleType = dto.VehicleType.Trim(),
+            VehicleColor = dto.VehicleColor.Trim(),
+            LicensePlate = dto.LicensePlate.Trim().ToUpperInvariant(),
+            Address = dto.Address.Trim(),
         };
+                    
 
         await _riderRepo.CreateAsync(rider);
 

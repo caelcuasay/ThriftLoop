@@ -120,6 +120,12 @@ public class AuthController : Controller
             return RedirectToAction("Login");
         }
 
+        // If rider is already approved, redirect to rider dashboard
+        if (rider.IsApproved)
+        {
+            return RedirectToAction("Index", "Rider");
+        }
+
         ViewBag.IsApproved = rider.IsApproved;
         return View();
     }
@@ -130,7 +136,7 @@ public class AuthController : Controller
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null)
+    public async Task<IActionResult> Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
         {
@@ -147,8 +153,15 @@ public class AuthController : Controller
                 var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (int.TryParse(riderIdClaim, out var riderId))
                 {
-                    return RedirectToAction("Index", "Rider");
+                    var rider = await _riderAuthService.GetByIdAsync(riderId);
+                    if (rider != null && !rider.IsApproved)
+                    {
+                        // Unapproved rider - redirect to approval page, not dashboard
+                        return RedirectToAction("RiderApproval", "Auth");
+                    }
                 }
+                // Approved rider - go to dashboard
+                return RedirectToAction("Index", "Rider");
             }
             return RedirectToLocal(returnUrl);
         }
