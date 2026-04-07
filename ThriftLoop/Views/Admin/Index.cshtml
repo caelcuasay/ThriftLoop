@@ -1,4 +1,4 @@
-﻿<!-- Views/Admin/Index.cshtml -->
+<!-- Views/Admin/Index.cshtml -->
 @model ThriftLoop.ViewModels.Admin.AdminDashboardViewModel
 @using ThriftLoop.Enums
 @{
@@ -6,35 +6,52 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/Admin.css" asp-append-version="true" />
+}
+
 <div class="admin-dashboard">
     <div class="admin-header">
-        <h1>Admin Dashboard</h1>
-        <p>Platform overview and management</p>
+        <div>
+            <p class="admin-header__eyebrow">Control Center</p>
+            <h1>Admin Dashboard</h1>
+            <p>Platform overview, moderation queue, and key operational signals.</p>
+        </div>
+        <div class="admin-header__actions">
+            <a asp-action="Users" class="admin-header__btn admin-header__btn--ghost">Manage users</a>
+            <a asp-action="Withdrawals" class="admin-header__btn admin-header__btn--primary">Review payouts</a>
+        </div>
     </div>
 
     <!-- Stats Cards -->
     <div class="stats-grid">
         <div class="stat-card">
+            <div class="stat-card__kicker">People</div>
             <div class="stat-card__value">@Model.TotalUsers</div>
             <div class="stat-card__label">Total Users</div>
         </div>
         <div class="stat-card">
+            <div class="stat-card__kicker">Commerce</div>
             <div class="stat-card__value">@Model.TotalSellers</div>
             <div class="stat-card__label">Sellers</div>
         </div>
         <div class="stat-card">
+            <div class="stat-card__kicker">Delivery</div>
             <div class="stat-card__value">@Model.TotalRiders</div>
             <div class="stat-card__label">Riders</div>
         </div>
         <div class="stat-card">
+            <div class="stat-card__kicker">Transactions</div>
             <div class="stat-card__value">@Model.TotalOrders</div>
             <div class="stat-card__label">Orders</div>
         </div>
         <div class="stat-card">
+            <div class="stat-card__kicker">Cashflow</div>
             <div class="stat-card__value">₱@Model.TotalRevenue.ToString("N2")</div>
             <div class="stat-card__label">Revenue</div>
         </div>
         <div class="stat-card stat-card--warning">
+            <div class="stat-card__kicker">Attention</div>
             <div class="stat-card__value">₱@Model.PendingWithdrawals.ToString("N2")</div>
             <div class="stat-card__label">Pending Withdrawals</div>
         </div>
@@ -66,25 +83,32 @@
                 <h2>Recent Users</h2>
                 <a asp-action="Users" class="recent-card__link">View all →</a>
             </div>
-            <table class="recent-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Joined</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var user in Model.RecentUsers)
-                    {
+            @if (Model.RecentUsers?.Any() == true)
+            {
+                <table class="recent-table">
+                    <thead>
                         <tr>
-                            <td>@user.Email</td>
-                            <td>@user.Role</td>
-                            <td>@user.CreatedAt.ToString("MMM d, yyyy")</td>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Joined</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Model.RecentUsers)
+                        {
+                            <tr>
+                                <td>@user.Email</td>
+                                <td>@user.Role</td>
+                                <td>@user.CreatedAt.ToString("MMM d, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="recent-card__empty">No recent user activity yet.</p>
+            }
         </div>
 
         <!-- Recent Withdrawals -->
@@ -93,25 +117,32 @@
                 <h2>Pending Withdrawals</h2>
                 <a asp-action="Withdrawals" class="recent-card__link">View all →</a>
             </div>
-            <table class="recent-table">
-                <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Amount</th>
-                        <th>Requested</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var wd in Model.RecentWithdrawals)
-                    {
+            @if (Model.RecentWithdrawals?.Any() == true)
+            {
+                <table class="recent-table">
+                    <thead>
                         <tr>
-                            <td>@wd.User?.Email</td>
-                            <td>₱@wd.Amount.ToString("N2")</td>
-                            <td>@wd.RequestedAt.ToString("MMM d, yyyy")</td>
+                            <th>User</th>
+                            <th>Amount</th>
+                            <th>Requested</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var wd in Model.RecentWithdrawals)
+                        {
+                            <tr>
+                                <td>@wd.User?.Email</td>
+                                <td>₱@wd.Amount.ToString("N2")</td>
+                                <td>@wd.RequestedAt.ToString("MMM d, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="recent-card__empty">No pending withdrawals in queue.</p>
+            }
         </div>
 
         <!-- Recent Seller Applications -->
@@ -120,25 +151,32 @@
                 <h2>Seller Applications</h2>
                 <a asp-action="SellerApprovals" class="recent-card__link">View all →</a>
             </div>
-            <table class="recent-table">
-                <thead>
-                    <tr>
-                        <th>Shop Name</th>
-                        <th>User</th>
-                        <th>Applied</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var app in Model.RecentSellerApplications)
-                    {
+            @if (Model.RecentSellerApplications?.Any() == true)
+            {
+                <table class="recent-table">
+                    <thead>
                         <tr>
-                            <td>@app.ShopName</td>
-                            <td>@app.User?.Email</td>
-                            <td>@app.AppliedAt.ToString("MMM d, yyyy")</td>
+                            <th>Shop Name</th>
+                            <th>User</th>
+                            <th>Applied</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var app in Model.RecentSellerApplications)
+                        {
+                            <tr>
+                                <td>@app.ShopName</td>
+                                <td>@app.User?.Email</td>
+                                <td>@app.AppliedAt.ToString("MMM d, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="recent-card__empty">No pending seller applications.</p>
+            }
         </div>
 
         <!-- Recent Rider Applications -->
@@ -147,25 +185,32 @@
                 <h2>Rider Applications</h2>
                 <a asp-action="RiderApprovals" class="recent-card__link">View all →</a>
             </div>
-            <table class="recent-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Applied</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var rider in Model.RecentRiderApplications)
-                    {
+            @if (Model.RecentRiderApplications?.Any() == true)
+            {
+                <table class="recent-table">
+                    <thead>
                         <tr>
-                            <td>@rider.FullName</td>
-                            <td>@rider.Email</td>
-                            <td>@rider.CreatedAt.ToString("MMM d, yyyy")</td>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Applied</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var rider in Model.RecentRiderApplications)
+                        {
+                            <tr>
+                                <td>@rider.FullName</td>
+                                <td>@rider.Email</td>
+                                <td>@rider.CreatedAt.ToString("MMM d, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="recent-card__empty">No pending rider applications.</p>
+            }
         </div>
     </div>
 </div>

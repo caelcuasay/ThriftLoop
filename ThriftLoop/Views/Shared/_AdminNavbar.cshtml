@@ -1,0 +1,73 @@
+<nav class="tl-admin-nav">
+    <div class="tl-admin-nav__sidebar-zone">
+        <a asp-controller="Admin" asp-action="Index" class="tl-admin-nav__mark" aria-label="ThriftLoop Admin home">
+            <svg class="tl-admin-nav__infinity" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="#2d1c61" d="M382,136c-40.87,0-73.46,20.53-93.6,37.76l-.71.61-11.47,12.47,25.32,41.61,18.74-18.79C339.89,193.1,361.78,184,382,184c40.8,0,74,32.3,74,72s-33.2,72-74,72c-62,0-104.14-81.95-104.56-82.78h0C275,240.29,221.56,136,130,136,62.73,136,8,189.83,8,256S62.73,376,130,376c32.95,0,65.38-13.11,93.79-37.92l.61-.54,11.38-12.38-25.33-41.61-18.83,18.88C172,319.4,151.26,328,130,328c-40.8,0-74-32.3-74-72s33.2-72,74-72c62,0,104.14,81.95,104.56,82.78h0C237,271.71,290.44,376,382,376c67.27,0,122-53.83,122-120S449.27,136,382,136Z" />
+            </svg>
+        </a>
+    </div>
+    <div class="tl-admin-nav__rest">
+        <a asp-controller="Admin" asp-action="Index" class="tl-admin-nav__logo">ThriftLoop Admin</a>
+    </div>
+</nav>
+
+<style>
+    :root {
+        --admin-nav-h: 56px;
+        --admin-sidebar-w: 280px;
+    }
+
+    .tl-admin-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 220;
+        height: var(--admin-nav-h, 56px);
+        background: #fff;
+        border-bottom: 1px solid var(--c-border, #e4e4ea);
+        display: flex;
+        align-items: stretch;
+    }
+
+    /* Same width as sidebar: infinity centered in this column */
+    .tl-admin-nav__sidebar-zone {
+        width: var(--admin-sidebar-w, 280px);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid var(--c-border, #e4e4ea);
+    }
+
+    .tl-admin-nav__mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
+        text-decoration: none;
+    }
+
+    .tl-admin-nav__infinity {
+        width: 56px;
+        height: 56px;
+        display: block;
+    }
+
+    .tl-admin-nav__rest {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 1rem;
+    }
+
+    .tl-admin-nav__logo {
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--c-primary, #2d1b69);
+        text-decoration: none;
+    }
+</style>

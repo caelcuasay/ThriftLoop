@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -14,14 +14,22 @@
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
+    @{
+        var isAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+    }
 
     @* Only render the navbar on non-auth pages.
        Login and Register set ViewData["HideNavbar"] = true to opt out. *@
     @if (ViewData["HideNavbar"] as bool? != true)
     {
         <header>
-            @{
-                await Html.RenderPartialAsync("_Navbar");
+            @if (isAdmin)
+            {
+                @await Html.PartialAsync("_AdminNavbar")
+            }
+            else
+            {
+                @await Html.PartialAsync("_Navbar")
             }
         </header>
     }
@@ -33,17 +41,125 @@
     }
     else
     {
-        <div class="container">
-            <main role="main" class="pb-3">
-                @RenderBody()
-            </main>
-        </div>
+        @if (isAdmin)
+        {
+            <div class="tl-admin-shell">
+                @await Html.PartialAsync("_AdminSidebar")
+                <main role="main" class="tl-admin-shell__main">
+                    @RenderBody()
+                </main>
+            </div>
+        }
+        else
+        {
+            <div class="container">
+                <main role="main" class="pb-3">
+                    @RenderBody()
+                </main>
+            </div>
+        }
     }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    <style>
+        .tl-admin-shell {
+            position: relative;
+            min-height: calc(100vh - var(--admin-nav-h, 56px));
+        }
+
+        .tl-admin-shell__main {
+            min-width: 0;
+            margin-left: var(--admin-sidebar-w, 280px);
+            margin-top: var(--admin-nav-h, 56px);
+            padding: 1.25rem 1.5rem 2rem;
+        }
+
+        .tl-admin-sidebar {
+            position: fixed;
+            left: 0;
+            top: var(--admin-nav-h, 56px);
+            bottom: 0;
+            width: var(--admin-sidebar-w, 280px);
+            border-right: 1px solid var(--color-border, #e2ddd6);
+            background: #fff;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            overflow-y: auto;
+            z-index: 20;
+        }
+
+        .tl-admin-sidebar__nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .tl-admin-sidebar__link {
+            text-decoration: none;
+            color: var(--color-text, #1a1814);
+            border-radius: 9px;
+            padding: 0.5rem 0.65rem;
+            font-weight: 500;
+        }
+
+        .tl-admin-sidebar__link:hover {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 7%, transparent);
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .tl-admin-sidebar__link--active {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 12%, transparent);
+            color: var(--color-primary, #2d5a27);
+            font-weight: 600;
+        }
+
+        .tl-admin-sidebar__logout {
+            margin-top: auto;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--color-border, #e2ddd6);
+        }
+
+        .tl-admin-sidebar__logout-btn {
+            width: 100%;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 9px;
+            background: #fff;
+            padding: 0.5rem 0.65rem;
+            text-align: left;
+            font-weight: 600;
+            color: #7a2f2f;
+        }
+
+        .tl-admin-sidebar__logout-btn:hover {
+            background: #fff5f5;
+            border-color: #f2c7c7;
+        }
+
+        @@media (max-width: 991px) {
+            .tl-admin-shell {
+                min-height: auto;
+            }
+
+            .tl-admin-shell__main {
+                margin-left: 0;
+                margin-top: 0;
+                padding: 1rem;
+            }
+
+            .tl-admin-sidebar {
+                position: static;
+                width: 100%;
+                border-right: 0;
+                border-bottom: 1px solid var(--color-border, #e2ddd6);
+            }
+        }
+    </style>
 
 </body>
 </html>

@@ -1,0 +1,31 @@
+@{
+    var currentPath = Context.Request.Path.Value ?? string.Empty;
+}
+
+@if (User.Identity?.IsAuthenticated == true && User.IsInRole("Admin"))
+{
+    <aside class="tl-admin-sidebar" aria-label="Admin Navigation">
+        <nav class="tl-admin-sidebar__nav">
+            <a asp-controller="Admin" asp-action="Index" class="tl-admin-sidebar__link @(currentPath.Equals("/Admin", StringComparison.OrdinalIgnoreCase) ? "tl-admin-sidebar__link--active" : "")">
+                Dashboard
+            </a>
+            <a asp-controller="Admin" asp-action="Users" class="tl-admin-sidebar__link @(currentPath.StartsWith("/Admin/Users", StringComparison.OrdinalIgnoreCase) ? "tl-admin-sidebar__link--active" : "")">
+                Users
+            </a>
+            <a asp-controller="Admin" asp-action="Withdrawals" class="tl-admin-sidebar__link @(currentPath.StartsWith("/Admin/Withdrawals", StringComparison.OrdinalIgnoreCase) ? "tl-admin-sidebar__link--active" : "")">
+                Withdrawals
+            </a>
+            <a asp-controller="Admin" asp-action="SellerApprovals" class="tl-admin-sidebar__link @(currentPath.StartsWith("/Admin/SellerApprovals", StringComparison.OrdinalIgnoreCase) ? "tl-admin-sidebar__link--active" : "")">
+                Seller Approvals
+            </a>
+            <a asp-controller="Admin" asp-action="RiderApprovals" class="tl-admin-sidebar__link @(currentPath.StartsWith("/Admin/RiderApprovals", StringComparison.OrdinalIgnoreCase) ? "tl-admin-sidebar__link--active" : "")">
+                Rider Approvals
+            </a>
+        </nav>
+
+        <form asp-action="Logout" asp-controller="Auth" method="post" class="tl-admin-sidebar__logout">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="tl-admin-sidebar__logout-btn">Sign out</button>
+        </form>
+    </aside>
+}
