@@ -1,10 +1,8 @@
-﻿/* --------------------------------------------- */
+﻿﻿ /* --------------------------------------------- */
 /* ThriftLoop - Sellers Page Stylesheet           */
 /* Includes: Shop suggestion row, shop cards      */
 /* --------------------------------------------- */
-
 :root {
-    /* Colors - high contrast for accessibility */
     --c-primary: #2d1b69;
     --c-primary-light: #3d2880;
     --c-primary-soft: #e9e5f5;
@@ -14,26 +12,8 @@
     --c-text: #111118;
     --c-muted: #4b4b63;
     --c-muted-light: #8f8fa3;
-    --c-badge-bg: #ece8f8;
-    --c-badge-txt: #2d1b69;
-    --c-success: #0e6245;
-    --c-success-bg: #e8f3ef;
-    --c-error: #b91c1c;
-    --c-error-bg: #fee9e9;
-    --c-warning: #b45309;
-    --c-warning-bg: #feedd5;
-    --c-info: #1e40af;
-    --c-info-bg: #e0edff;
-    --c-new: #0e6245;
-    --c-like-new: #1e40af;
-    --c-good: #b45309;
-    --c-fair: #b91c6f;
-    --c-poor: #4b5563;
 }
 
-/* --------------------------------- */
-/* Base & Reset                      */
-/* --------------------------------- */
 * {
     margin: 0;
     padding: 0;
@@ -49,14 +29,13 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 24px 32px 48px;
+    padding-left: calc(280px + 48px);
 }
 
-/* --------------------------------- */
-/* Typography                        */
-/* --------------------------------- */
+/* Typography */
 h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -67,254 +46,12 @@ h1 {
     font-size: 1.5rem;
 }
 
-h2 {
-    font-size: 1.2rem;
-}
-
-/* --------------------------------- */
-/* Buttons - consistent, accessible  */
-/* --------------------------------- */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    line-height: 1;
-}
-
-    .btn svg {
-        width: 18px;
-        height: 18px;
-        fill: currentColor;
-    }
-
-.btn--primary {
-    background: var(--c-primary);
-    color: white;
-}
-
-    .btn--primary:hover {
-        background: var(--c-primary-light);
-        transform: translateY(-1px);
-    }
-
-    .btn--primary:active {
-        transform: translateY(0);
-    }
-
-.btn--ghost {
-    background: transparent;
-    color: var(--c-muted);
-    border: 1px solid var(--c-border);
-}
-
-    .btn--ghost:hover {
-        background: var(--c-bg);
-        color: var(--c-text);
-    }
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-/* --------------------------------------------- */
-/* HOME - For You Feed (reused for Sellers)      */
-/* --------------------------------------------- */
-.fy-shell {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 20px;
-}
-
-/* Sidebar filters */
-.fy-sidebar {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: 12px;
-    padding: 16px;
-    height: fit-content;
-    position: sticky;
-    top: 20px;
-}
-
-.fy-sidebar__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.fy-sidebar__title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--c-muted);
-}
-
-.fy-sidebar__reset {
-    background: none;
-    border: none;
-    color: var(--c-primary);
-    font-size: 0.7rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-}
-
-    .fy-sidebar__reset:hover {
-        background: var(--c-primary-soft);
-    }
-
-.fy-filter-group {
-    margin-bottom: 16px;
-}
-
-.fy-filter-group__label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--c-muted);
-    margin-bottom: 6px;
-    display: block;
-}
-
-/* Search */
-.fy-search-wrap {
-    display: flex;
-    align-items: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 0 8px;
-}
-
-    .fy-search-wrap svg {
-        width: 14px;
-        height: 14px;
-        color: var(--c-muted);
-        margin-right: 6px;
-    }
-
-.fy-search-input {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 8px 0;
-    font-size: 0.8rem;
-    outline: none;
-}
-
-    .fy-search-input:focus {
-        color: var(--c-text);
-    }
-
-/* Price range */
-.fy-price-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.fy-price-field {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-}
-
-.fy-price-field__sym {
-    padding: 0 6px;
-    color: var(--c-muted);
-    font-size: 0.75rem;
-}
-
-.fy-price-input {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 6px 6px 6px 0;
-    font-size: 0.8rem;
-    outline: none;
-}
-
-.fy-price-sep {
-    color: var(--c-muted);
-    font-size: 0.75rem;
-}
-
-/* Checkbox list */
-.fy-check-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.fy-check-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 0;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.fy-check {
-    position: absolute;
-    opacity: 0;
-}
-
-.fy-check-box {
-    width: 14px;
-    height: 14px;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    border-radius: 3px;
-    flex-shrink: 0;
-}
-
-.fy-check:checked + .fy-check-box {
-    background: var(--c-primary);
-    border-color: var(--c-primary);
-    position: relative;
-}
-
-    .fy-check:checked + .fy-check-box::after {
-        content: '';
-        position: absolute;
-        left: 3px;
-        top: 0px;
-        width: 4px;
-        height: 8px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-    }
-
-.fy-check-text {
-    color: var(--c-text);
-}
-
 /* Main feed */
 .fy-feed-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
 }
 
 .fy-feed-title {
@@ -328,18 +65,18 @@ h2 {
     color: var(--c-muted);
 }
 
-/* Item grid - smaller cards */
+/* Item grid */
 .fy-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
 }
 
 .fy-card {
     position: relative;
     background: var(--c-surface);
     border: 1px solid var(--c-border);
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -378,12 +115,11 @@ h2 {
         height: 40px;
     }
 
-/* Multi-image cycling crossfade */
+/* Multi-image cycling */
 .fy-card__img-wrap .fy-card__img.fy-img--fading {
     opacity: 0;
 }
 
-/* Progress dots */
 .fy-card__dots {
     position: absolute;
     bottom: 8px;
@@ -458,7 +194,7 @@ h2 {
 }
 
 .fy-card__body {
-    padding: 8px;
+    padding: 10px;
     position: relative;
 }
 
@@ -466,7 +202,7 @@ h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .fy-card__category {
@@ -490,7 +226,7 @@ h2 {
     font-size: 0.85rem;
     font-weight: 600;
     margin: 0 0 4px;
-    line-height: 1.2;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -501,23 +237,13 @@ h2 {
     font-weight: 700;
     color: var(--c-primary);
     margin: 0;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.fy-card__from-label {
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: var(--c-muted);
-    margin-right: 1px;
 }
 
 .fy-card__shop-attr {
     font-size: 0.72rem;
     color: rgba(139, 92, 246, 0.85);
     font-weight: 600;
-    margin: 0.15rem 0 0;
+    margin: 4px 0 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -534,7 +260,7 @@ h2 {
 .fy-card__actions {
     position: relative;
     z-index: 2;
-    padding: 0 8px 8px;
+    padding: 0 10px 10px;
 }
 
 .fy-btn--manage {
@@ -555,7 +281,6 @@ h2 {
         border-color: var(--c-primary);
     }
 
-/* Shop card styling */
 .fy-card--shop {
     box-shadow: 0 0 0 1.5px rgba(139, 92, 246, 0.25), 0 2px 8px rgba(139, 92, 246, 0.08);
 }
@@ -564,10 +289,10 @@ h2 {
         box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 4px 18px rgba(139, 92, 246, 0.15);
     }
 
-/* Filter empty state */
+/* Empty state */
 .fy-empty {
     text-align: center;
-    padding: 48px 20px;
+    padding: 60px 20px;
 }
 
 .fy-empty--hidden {
@@ -610,36 +335,30 @@ h2 {
         background: var(--c-bg);
     }
 
-/* ── Shop suggestion row ──────────────────────────────────────────── */
+/* Shop suggestion row */
 .sl-shops-section {
-    margin-bottom: 1.75rem;
+    margin-bottom: 32px;
 }
 
 .sl-shops-section__label {
-    font-family: 'DM Sans', sans-serif;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--c-muted);
-    margin: 0 0 0.75rem;
+    margin: 0 0 12px;
 }
 
 .sl-shops-row {
     display: flex;
-    gap: 0.75rem;
+    gap: 12px;
     overflow-x: auto;
-    padding-bottom: 0.5rem;
+    padding-bottom: 8px;
     scrollbar-width: thin;
-    scrollbar-color: var(--c-border) transparent;
 }
 
     .sl-shops-row::-webkit-scrollbar {
         height: 4px;
-    }
-
-    .sl-shops-row::-webkit-scrollbar-track {
-        background: transparent;
     }
 
     .sl-shops-row::-webkit-scrollbar-thumb {
@@ -652,22 +371,21 @@ h2 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.375rem;
-    padding: 0.875rem 1rem;
+    gap: 6px;
+    padding: 14px 16px;
     border: 1.5px solid var(--c-border);
     border-radius: 14px;
     text-decoration: none;
     min-width: 110px;
     max-width: 130px;
     text-align: center;
-    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    transition: all 0.15s;
     background: var(--c-surface);
 }
 
     .sl-shop-card:hover {
         border-color: rgba(139, 92, 246, 0.5);
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        background: color-mix(in srgb, rgba(139,92,246,1) 3%, var(--c-surface));
     }
 
 .sl-shop-card--hidden {
@@ -679,7 +397,6 @@ h2 {
     height: 52px;
     border-radius: 12px;
     object-fit: cover;
-    flex-shrink: 0;
 }
 
 .sl-shop-card__logo--placeholder {
@@ -688,7 +405,6 @@ h2 {
     border-radius: 12px;
     background: var(--c-primary);
     color: #fff;
-    font-family: 'DM Serif Display', serif;
     font-size: 1.4rem;
     display: flex;
     align-items: center;
@@ -696,64 +412,42 @@ h2 {
 }
 
 .sl-shop-card__name {
-    font-family: 'DM Sans', sans-serif;
     font-size: 0.8rem;
     font-weight: 700;
-    color: var(--c-text);
-    line-height: 1.3;
-    word-break: break-word;
+    color: black !important;
 }
 
 .sl-shop-card__bio {
-    font-family: 'DM Sans', sans-serif;
     font-size: 0.7rem;
-    color: var(--c-muted);
-    line-height: 1.4;
+    color: #8f8fa3 !important;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-/* --------------------------------------------- */
-/* Responsive                                     */
-/* --------------------------------------------- */
-@media (max-width: 992px) {
-    .fy-shell {
-        grid-template-columns: 220px 1fr;
-    }
-
-    .fy-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+/* Responsive */
+@media (max-width: 1024px) {
+    .container {
+        padding-left: calc(260px + 32px);
     }
 }
 
 @media (max-width: 768px) {
     .container {
         padding: 16px 20px 32px;
-    }
-
-    .fy-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .fy-sidebar {
-        position: static;
-        margin-bottom: 20px;
+        padding-left: 20px;
+        padding-right: 20px;
     }
 
     .fy-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 10px;
-    }
-
-    .fy-card__category {
-        max-width: 65%;
+        gap: 12px;
     }
 
     .sl-shop-card {
         min-width: 90px;
-        padding: 0.625rem 0.75rem;
+        padding: 10px 12px;
     }
 
     .sl-shop-card__logo,
@@ -762,53 +456,10 @@ h2 {
         height: 44px;
         font-size: 1.2rem;
     }
-
-    .sl-shop-card__name {
-        font-size: 0.72rem;
-    }
-
-    .sl-shop-card__bio {
-        font-size: 0.62rem;
-        -webkit-line-clamp: 1;
-    }
 }
 
 @media (max-width: 480px) {
     .fy-grid {
         grid-template-columns: 1fr;
     }
-}
-
-/* Add to the end of both Home.css and Sellers.css */
-
-/* Full card clickable wrapper */
-.fy-card-link {
-    display: block;
-    text-decoration: none;
-    color: inherit;
-}
-
-.fy-card-link--hidden {
-    display: none;
-}
-
-/* Ensure the card maintains hover effects when wrapped */
-.fy-card-link:hover .fy-card {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,.08);
-}
-
-.fy-card-link:hover .fy-card--shop {
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 4px 18px rgba(139, 92, 246, 0.15);
-}
-
-/* Prevent the manage button from triggering the card link */
-.fy-card__actions {
-    position: relative;
-    z-index: 2;
-}
-
-.fy-btn--manage {
-    display: inline-block;
-    cursor: pointer;
 }

@@ -7,11 +7,8 @@
     ViewData["Title"] = "Sellers";
     Layout = null;
 
-    var categories = ItemCreateViewModel.Categories;
-    var conditions = ItemCreateViewModel.Conditions;
-    var maxPrice = Model.Items.Any()
-        ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price))
-        : 100000;
+    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
+    ViewBag.MaxPrice = maxPrice;
 }
 
 <!DOCTYPE html>
@@ -25,396 +22,287 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Sellers.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Filter.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
+    @await Html.PartialAsync("_Filter")
 
     <div class="container">
-        <div class="fy-shell">
+        <main class="fy-main" id="fyMain">
+            <header class="fy-feed-header">
+                <h1 class="fy-feed-title">Sellers</h1>
+                <p class="fy-feed-meta" id="feedMeta">
+                    <span id="visibleCount">@Model.Items.Count</span>&nbsp;listings
+                </p>
+            </header>
 
-            @* ── Left: filter sidebar (mirrors Home) ─────────────────────────────── *@
-            <aside class="fy-sidebar" id="fySidebar" aria-label="Filter listings">
-
-                <div class="fy-sidebar__header">
-                    <span class="fy-sidebar__title">Filters</span>
-                    <button type="button" class="fy-sidebar__reset" id="resetFilters">Clear all</button>
-                </div>
-
-                <div class="fy-filter-group">
-                    <label class="fy-filter-group__label" for="searchInput">Search</label>
-                    <div class="fy-search-wrap">
-                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                             stroke-width="1.6" aria-hidden="true">
-                            <circle cx="8.5" cy="8.5" r="5.5" />
-                            <path d="M13.5 13.5L18 18" stroke-linecap="round" />
-                        </svg>
-                        <input type="search" id="searchInput" class="fy-search-input"
-                               placeholder="Title, description or shop…" autocomplete="off" />
-                    </div>
-                </div>
-
-                <div class="fy-filter-group">
-                    <label class="fy-filter-group__label">Price</label>
-                    <div class="fy-price-row">
-                        <div class="fy-price-field">
-                            <span class="fy-price-field__sym">₱</span>
-                            <input type="number" id="priceMin" class="fy-price-input"
-                                   placeholder="0" min="0" max="@maxPrice" value="0" />
-                        </div>
-                        <span class="fy-price-sep">–</span>
-                        <div class="fy-price-field">
-                            <span class="fy-price-field__sym">₱</span>
-                            <input type="number" id="priceMax" class="fy-price-input"
-                                   placeholder="@maxPrice" min="0" max="@maxPrice" value="@maxPrice" />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="fy-filter-group">
-                    <p class="fy-filter-group__label">Category</p>
-                    <ul class="fy-check-list" id="catFilters">
-                        @foreach (var cat in categories)
+            @* Shop suggestion row *@
+            @if (Model.Shops.Any())
+            {
+                <div class="sl-shops-section">
+                    <p class="sl-shops-section__label">Shops</p>
+                    <div class="sl-shops-row" id="shopsRow">
+                        @foreach (var shop in Model.Shops)
                         {
-                            <li>
-                                <label class="fy-check-label">
-                                    <input type="checkbox" class="fy-check" value="@cat" />
-                                    <span class="fy-check-box"></span>
-                                    <span class="fy-check-text">@cat</span>
-                                </label>
-                            </li>
-                        }
-                    </ul>
-                </div>
-
-                <div class="fy-filter-group">
-                    <p class="fy-filter-group__label">Condition</p>
-                    <ul class="fy-check-list" id="condFilters">
-                        @foreach (var cond in conditions)
-                        {
-                            <li>
-                                <label class="fy-check-label">
-                                    <input type="checkbox" class="fy-check" value="@cond" />
-                                    <span class="fy-check-box"></span>
-                                    <span class="fy-check-text">@cond</span>
-                                </label>
-                            </li>
-                        }
-                    </ul>
-                </div>
-
-            </aside>
-
-            @* ── Right: feed ──────────────────────────────────────────────────────── *@
-            <main class="fy-main" id="fyMain">
-
-                <header class="fy-feed-header">
-                    <h1 class="fy-feed-title">Sellers</h1>
-                    <p class="fy-feed-meta" id="feedMeta">
-                        <span id="visibleCount">@Model.Items.Count</span>&nbsp;listings
-                    </p>
-                </header>
-
-                @* ── Shop suggestion row ──────────────────────────────────────────── *@
-                @if (Model.Shops.Any())
-                {
-                    <div class="sl-shops-section">
-                        <p class="sl-shops-section__label">Shops</p>
-                        <div class="sl-shops-row" id="shopsRow">
-                            @foreach (var shop in Model.Shops)
-                            {
-                                <a asp-controller="Shop" asp-action="Index"
+                            <a asp-controller="Shop" asp-action="Index"
                                    asp-route-id="@shop.Id"
                                    class="sl-shop-card"
                                    data-shop-name="@shop.ShopName.ToLower()">
 
-                                    @* Logo *@
-                                    @if (!string.IsNullOrWhiteSpace(shop.LogoUrl))
-                                    {
-                                        <img src="@shop.LogoUrl" alt="@shop.ShopName"
-                                             class="sl-shop-card__logo" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <div class="sl-shop-card__logo sl-shop-card__logo--placeholder"
-                                             aria-hidden="true">
-                                            @char.ToUpper(shop.ShopName.FirstOrDefault())
-                                        </div>
-                                    }
-
-                                    <span class="sl-shop-card__name">@shop.ShopName</span>
-
-                                    @if (!string.IsNullOrWhiteSpace(shop.Bio))
-                                    {
-                                        <span class="sl-shop-card__bio">@shop.Bio</span>
-                                    }
-
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @* ── Items feed ───────────────────────────────────────────────────── *@
-                @if (!Model.Items.Any())
-                {
-                    <div class="fy-empty" id="globalEmpty">
-                        <div class="fy-empty__icon" aria-hidden="true">
-                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
-                                <rect x="8" y="14" width="48" height="36" rx="6" />
-                                <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
-                                <path d="M24 33h16M32 25v16" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <h2 class="fy-empty__title">No shop listings yet</h2>
-                        <p class="fy-empty__body">Sellers haven't posted any items.</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="fy-empty fy-empty--hidden" id="filterEmpty" aria-live="polite">
-                        <div class="fy-empty__icon" aria-hidden="true">
-                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
-                                <circle cx="28" cy="28" r="18" />
-                                <path d="M42 42l14 14" stroke-linecap="round" />
-                                <path d="M22 28h12M28 22v12" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <h2 class="fy-empty__title">No matches</h2>
-                        <p class="fy-empty__body">Try adjusting or clearing your filters.</p>
-                        <button type="button" class="fy-empty__reset-btn" id="resetFilters2">
-                            Clear filters
-                        </button>
-                    </div>
-
-                    <div class="fy-grid" id="itemGrid">
-                        @foreach (var item in Model.Items)
-                        {
-                            var isOwner = Model.CurrentUserId.HasValue
-                            && item.UserId == Model.CurrentUserId.Value;
-                            var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
-
-                            @* Resolve shop name for search / display *@
-                            var shopName = item.Shop?.ShopName ?? string.Empty;
-
-                            <article class="fy-card fy-card--shop"
-                                     data-category="@item.Category"
-                                     data-condition="@item.Condition"
-                                     data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
-                                     data-title="@item.Title.ToLower()"
-                                     data-desc="@item.Description.ToLower()"
-                                     data-shop="@shopName.ToLower()">
-
-                                <div class="fy-card__img-wrap" data-images="@imagesJson">
-
-                                    @if (item.ImageUrls.Count > 0)
-                                    {
-                                        <img src="@item.ImageUrls[0]" alt="@item.Title"
-                                             class="fy-card__img" loading="lazy" />
-
-                                        @if (item.ImageUrls.Count > 1)
-                                        {
-                                            <div class="fy-card__dots" aria-hidden="true">
-                                                @for (int d = 0; d < item.ImageUrls.Count; d++)
-                                                {
-                                                    <span class="fy-card__dot @(d == 0 ? "fy-card__dot--active" : "")"></span>
-                                                }
-                                            </div>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <div class="fy-card__img fy-card__img--placeholder" aria-hidden="true">
-                                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
-                                                <rect x="4" y="8" width="40" height="32" rx="4" />
-                                                <circle cx="17" cy="20" r="4" />
-                                                <path d="M4 36l12-10 8 8 6-5 14 11"
-                                                      stroke-linecap="round" stroke-linejoin="round" />
-                                            </svg>
-                                        </div>
-                                    }
-
-                                    <span class="fy-card__condition-badge">@item.Condition</span>
-                                    <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
-
-                                    @if (isOwner)
-                                    {
-                                        <span class="fy-card__owner-badge" aria-label="Your listing">
-                                            Your listing
-                                        </span>
-                                    }
-                                </div>
-
-                                <div class="fy-card__body">
-                                    <div class="fy-card__top">
-                                        <span class="fy-card__category">@item.Category</span>
-                                        <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
-                                    </div>
-
-                                    @* Price display section in the card body *@
-                                    <h2 class="fy-card__title">@item.Title</h2>
-
-                                    <p class="fy-card__price">
-                                        @if (Model.ShopItemPriceDisplay.ContainsKey(item.Id))
-                                        {
-                                            @Model.ShopItemPriceDisplay[item.Id]
-                                        }
-                                        else
-                                        {
-                                            <span>₱@item.Price.ToString("N2")</span>
-                                        }
-                                    </p>
-
-                                    @* Shop attribution line *@
-                                    @if (!string.IsNullOrWhiteSpace(shopName))
-                                    {
-                                        <p class="fy-card__shop-attr">@shopName</p>
-                                    }
-
-                                    @* FIXED: Link to item details page *@
-                                    <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
-                                </div>
-
-                                @if (isOwner)
+                                @if (!string.IsNullOrWhiteSpace(shop.LogoUrl))
                                 {
-                                    <div class="fy-card__actions fy-card__actions--owner">
-                                        <a asp-controller="Shop" asp-action="Edit"
-                                           asp-route-id="@item.Id"
-                                           class="fy-btn fy-btn--manage">
-                                            Manage listing
-                                        </a>
+                                    <img src="@shop.LogoUrl" alt="@shop.ShopName"
+                                         class="sl-shop-card__logo" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="sl-shop-card__logo sl-shop-card__logo--placeholder"
+                                         aria-hidden="true">
+                                        @char.ToUpper(shop.ShopName.FirstOrDefault())
                                     </div>
                                 }
 
-                            </article>
+                                <span class="sl-shop-card__name">@shop.ShopName</span>
+
+                                @if (!string.IsNullOrWhiteSpace(shop.Bio))
+                                {
+                                    <span class="sl-shop-card__bio">@shop.Bio</span>
+                                }
+                            </a>
                         }
                     </div>
-                }
+                </div>
+            }
 
-            </main>
-        </div>
+            @if (!Model.Items.Any())
+            {
+                <div class="fy-empty" id="globalEmpty">
+                    <div class="fy-empty__icon" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                            <rect x="8" y="14" width="48" height="36" rx="6" />
+                            <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                            <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h2 class="fy-empty__title">No shop listings yet</h2>
+                    <p class="fy-empty__body">Sellers haven't posted any items.</p>
+                </div>
+            }
+            else
+            {
+                <div class="fy-empty fy-empty--hidden" id="filterEmpty" aria-live="polite">
+                    <div class="fy-empty__icon" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                            <circle cx="28" cy="28" r="18" />
+                            <path d="M42 42l14 14" stroke-linecap="round" />
+                            <path d="M22 28h12M28 22v16" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h2 class="fy-empty__title">No matches</h2>
+                    <p class="fy-empty__body">Try adjusting or clearing your filters.</p>
+                    <button type="button" class="fy-empty__reset-btn" id="resetFilters2">
+                        Clear filters
+                    </button>
+                </div>
+
+                <div class="fy-grid" id="itemGrid">
+                    @foreach (var item in Model.Items)
+                    {
+                        var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                        var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
+                        var shopName = item.Shop?.ShopName ?? string.Empty;
+
+                        <article class="fy-card fy-card--shop"
+                                 data-category="@item.Category"
+                                 data-condition="@item.Condition"
+                                 data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                 data-title="@item.Title.ToLower()"
+                                 data-desc="@item.Description.ToLower()"
+                                 data-shop="@shopName.ToLower()">
+
+                            <div class="fy-card__img-wrap" data-images="@imagesJson">
+                                @if (item.ImageUrls.Count > 0)
+                                {
+                                    <img src="@item.ImageUrls[0]" alt="@item.Title"
+                                         class="fy-card__img" loading="lazy" />
+
+                                    @if (item.ImageUrls.Count > 1)
+                                    {
+                                        <div class="fy-card__dots" aria-hidden="true">
+                                            @for (int d = 0; d < item.ImageUrls.Count; d++)
+                                            {
+                                                <span class="fy-card__dot @(d == 0 ? "fy-card__dot--active" : "")"></span>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="fy-card__img fy-card__img--placeholder" aria-hidden="true">
+                                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                            <rect x="4" y="8" width="40" height="32" rx="4" />
+                                            <circle cx="17" cy="20" r="4" />
+                                            <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                }
+
+                                <span class="fy-card__condition-badge">@item.Condition</span>
+                                <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
+
+                                @if (isOwner)
+                                {
+                                    <span class="fy-card__owner-badge" aria-label="Your listing">
+                                        Your listing
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="fy-card__body">
+                                <div class="fy-card__top">
+                                    <span class="fy-card__category">@item.Category</span>
+                                    <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
+                                </div>
+
+                                <h2 class="fy-card__title">@item.Title</h2>
+
+                                <p class="fy-card__price">
+                                    @if (Model.ShopItemPriceDisplay.ContainsKey(item.Id))
+                                    {
+                                        @Model.ShopItemPriceDisplay[item.Id]
+                                    }
+                                    else
+                                    {
+                                        <span>₱@item.Price.ToString("N2")</span>
+                                    }
+                                </p>
+
+                                @if (!string.IsNullOrWhiteSpace(shopName))
+                                {
+                                    <p class="fy-card__shop-attr">@shopName</p>
+                                }
+
+                                <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+                            </div>
+
+                            @if (isOwner)
+                            {
+                                <div class="fy-card__actions fy-card__actions--owner">
+                                    <a asp-controller="Shop" asp-action="Edit"
+                                           asp-route-id="@item.Id"
+                                           class="fy-btn fy-btn--manage">
+                                        Manage listing
+                                    </a>
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </main>
     </div>
 
     <script>
-        (function () {
-            'use strict';
+            (function() {
+                var grid = document.getElementById('itemGrid');
+                var shopsRow = document.getElementById('shopsRow');
+                var filterEmpty = document.getElementById('filterEmpty');
+                var visibleCount = document.getElementById('visibleCount');
 
-            var grid         = document.getElementById('itemGrid');
-            var shopsRow     = document.getElementById('shopsRow');
-            var filterEmpty  = document.getElementById('filterEmpty');
-            var visibleCount = document.getElementById('visibleCount');
-            var searchInput  = document.getElementById('searchInput');
-            var priceMin     = document.getElementById('priceMin');
-            var priceMax     = document.getElementById('priceMax');
-            var catChecks    = document.querySelectorAll('#catFilters .fy-check');
-            var condChecks   = document.querySelectorAll('#condFilters .fy-check');
+                if (!grid) return;
 
-            var cards     = grid     ? Array.prototype.slice.call(grid.querySelectorAll('.fy-card'))          : [];
-            var shopCards = shopsRow ? Array.prototype.slice.call(shopsRow.querySelectorAll('.sl-shop-card')) : [];
+                var cards = Array.prototype.slice.call(grid.querySelectorAll('.fy-card'));
+                var shopCards = shopsRow ? Array.prototype.slice.call(shopsRow.querySelectorAll('.sl-shop-card')) : [];
 
-            // ── Multi-image hover cycling ─────────────────────────────────────
-            cards.forEach(function (card) {
-                var wrap   = card.querySelector('.fy-card__img-wrap');
-                var img    = card.querySelector('.fy-card__img');
-                var dotsEl = card.querySelector('.fy-card__dots');
-                if (!wrap || !img) return;
+                // Multi-image hover cycling
+                cards.forEach(function(card) {
+                    var wrap = card.querySelector('.fy-card__img-wrap');
+                    var img = card.querySelector('.fy-card__img');
+                    var dotsEl = card.querySelector('.fy-card__dots');
 
-                var images = [];
-                try { images = JSON.parse(wrap.getAttribute('data-images') || '[]'); } catch(e) {}
-                if (images.length < 2) return;
+                    if (!wrap || !img) return;
 
-                var dots    = dotsEl ? Array.prototype.slice.call(dotsEl.querySelectorAll('.fy-card__dot')) : [];
-                var current = 0;
-                var timer   = null;
+                    var raw = wrap.getAttribute('data-images');
+                    var images = [];
+                    try { images = JSON.parse(raw); } catch (e) { }
+                    if (images.length < 2) return;
 
-                function goTo(idx) {
-                    img.classList.add('fy-img--fading');
-                    setTimeout(function () {
-                        img.src = images[idx];
-                        img.classList.remove('fy-img--fading');
-                    }, 220);
-                    dots.forEach(function (d, i) { d.classList.toggle('fy-card__dot--active', i === idx); });
-                    current = idx;
+                    var dots = dotsEl ? Array.prototype.slice.call(dotsEl.querySelectorAll('.fy-card__dot')) : [];
+                    var current = 0;
+                    var timer = null;
+
+                    function goTo(idx) {
+                        img.classList.add('fy-img--fading');
+                        setTimeout(function() {
+                            img.src = images[idx];
+                            img.classList.remove('fy-img--fading');
+                        }, 220);
+                        dots.forEach(function(d, i) {
+                            d.classList.toggle('fy-card__dot--active', i === idx);
+                        });
+                        current = idx;
+                    }
+
+                    card.addEventListener('mouseenter', function() {
+                        if (timer) return;
+                        timer = setInterval(function() { goTo((current + 1) % images.length); }, 900);
+                    });
+                    card.addEventListener('mouseleave', function() {
+                        if (timer) { clearInterval(timer); timer = null; }
+                        if (current !== 0) goTo(0);
+                    });
+                });
+
+                // Filter callback
+                window.applyFiltersCallback = function(state) {
+                    var query = state.search.toLowerCase();
+                    var minVal = state.priceMin;
+                    var maxVal = state.priceMax;
+                    var activeCats = state.categories;
+                    var activeConds = state.conditions;
+
+                    var shown = 0;
+
+                    cards.forEach(function(card) {
+                        var cat = card.dataset.category;
+                        var cond = card.dataset.condition;
+                        var price = parseFloat(card.dataset.price);
+                        var title = card.dataset.title || '';
+                        var desc = card.dataset.desc || '';
+                        var shop = card.dataset.shop || '';
+
+                        var catOk = activeCats.length === 0 || activeCats.indexOf(cat) !== -1;
+                        var condOk = activeConds.length === 0 || activeConds.indexOf(cond) !== -1;
+                        var priceOk = price >= minVal && price <= maxVal;
+                        var textOk = !query || title.indexOf(query) !== -1 || desc.indexOf(query) !== -1 || shop.indexOf(query) !== -1;
+
+                        var visible = catOk && condOk && priceOk && textOk;
+                        card.classList.toggle('fy-card--hidden', !visible);
+                        if (visible) shown++;
+                    });
+
+                    // Filter shop cards
+                    shopCards.forEach(function(sc) {
+                        var name = sc.dataset.shopName || '';
+                        sc.classList.toggle('sl-shop-card--hidden',
+                            query.length > 0 && name.indexOf(query) === -1);
+                    });
+
+                    if (visibleCount) visibleCount.textContent = shown;
+                    if (filterEmpty) filterEmpty.classList.toggle('fy-empty--hidden', shown > 0);
+                };
+
+                // Reset button inside empty state
+                var resetBtn2 = document.getElementById('resetFilters2');
+                if (resetBtn2) {
+                    resetBtn2.addEventListener('click', function() {
+                        if (window.resetFiltersFromPartial) {
+                            window.resetFiltersFromPartial();
+                        }
+                    });
                 }
-
-                card.addEventListener('mouseenter', function () {
-                    if (timer) return;
-                    timer = setInterval(function () { goTo((current + 1) % images.length); }, 900);
-                });
-                card.addEventListener('mouseleave', function () {
-                    if (timer) { clearInterval(timer); timer = null; }
-                    if (current !== 0) goTo(0);
-                });
-            });
-
-            // ── Filter ────────────────────────────────────────────────────────
-            function applyFilters() {
-                var query  = searchInput ? searchInput.value.trim().toLowerCase() : '';
-                var minVal = priceMin    ? parseFloat(priceMin.value) || 0        : 0;
-                var maxVal = priceMax    ? parseFloat(priceMax.value) || Infinity : Infinity;
-
-                var activeCats  = [];
-                var activeConds = [];
-                catChecks.forEach(function (cb)  { if (cb.checked) activeCats.push(cb.value); });
-                condChecks.forEach(function (cb) { if (cb.checked) activeConds.push(cb.value); });
-
-                var shown = 0;
-
-                cards.forEach(function (card) {
-                    var price = parseFloat(card.dataset.price);
-                    var catOk   = activeCats.length  === 0 || activeCats.indexOf(card.dataset.category)  !== -1;
-                    var condOk  = activeConds.length === 0 || activeConds.indexOf(card.dataset.condition) !== -1;
-                    var priceOk = price >= minVal && price <= maxVal;
-                    var textOk  = !query
-                        || (card.dataset.title  || '').indexOf(query) !== -1
-                        || (card.dataset.desc   || '').indexOf(query) !== -1
-                        || (card.dataset.shop   || '').indexOf(query) !== -1;
-
-                    var visible = catOk && condOk && priceOk && textOk;
-                    card.classList.toggle('fy-card--hidden', !visible);
-                    if (visible) shown++;
-                });
-
-                // Also filter shop cards in the suggestion row by search text
-                shopCards.forEach(function (sc) {
-                    var name = sc.dataset.shopName || '';
-                    sc.classList.toggle('sl-shop-card--hidden',
-                        query.length > 0 && name.indexOf(query) === -1);
-                });
-
-                if (visibleCount) visibleCount.textContent = shown;
-                if (filterEmpty)  filterEmpty.classList.toggle('fy-empty--hidden', shown > 0);
-            }
-
-            if (searchInput) searchInput.addEventListener('input',  applyFilters);
-            if (priceMin)    priceMin.addEventListener('input',     applyFilters);
-            if (priceMax)    priceMax.addEventListener('input',     applyFilters);
-            catChecks.forEach(function (cb)  { cb.addEventListener('change', applyFilters); });
-            condChecks.forEach(function (cb) { cb.addEventListener('change', applyFilters); });
-
-            function resetAll() {
-                if (searchInput) searchInput.value = '';
-                if (priceMin)    priceMin.value    = priceMin.min  || 0;
-                if (priceMax)    priceMax.value    = priceMax.max  || 100000;
-                catChecks.forEach(function (cb)  { cb.checked = false; });
-                condChecks.forEach(function (cb) { cb.checked = false; });
-                applyFilters();
-            }
-
-            var rb1 = document.getElementById('resetFilters');
-            var rb2 = document.getElementById('resetFilters2');
-            if (rb1) rb1.addEventListener('click', resetAll);
-            if (rb2) rb2.addEventListener('click', resetAll);
-
-            var toggleBtn = document.getElementById('fyFilterToggle');
-            var sidebar   = document.getElementById('fySidebar');
-            if (toggleBtn && sidebar) {
-                toggleBtn.addEventListener('click', function () {
-                    sidebar.classList.toggle('fy-sidebar--open');
-                    toggleBtn.setAttribute('aria-expanded',
-                        sidebar.classList.contains('fy-sidebar--open').toString());
-                });
-            }
-        }());
+            }());
     </script>
 </body>
 </html>
