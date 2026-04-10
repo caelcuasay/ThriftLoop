@@ -3,9 +3,16 @@
 @{
     ViewData["Title"] = "My Profile";
     Layout = null;
-    
+
     var profile = ViewBag.Profile as ThriftLoop.DTOs.User.UserProfileDTO;
     var sellerApp = ViewBag.SellerApplication as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
+
+    @* ── Address field validation state ───────────────────────── *@
+    var addrError = ViewData.ModelState.ContainsKey("Address")
+                    && ViewData.ModelState["Address"]!.Errors.Count > 0;
+    var addrErrorMsg = addrError
+                       ? ViewData.ModelState["Address"]!.Errors[0].ErrorMessage
+                       : string.Empty;
 }
 
 <!DOCTYPE html>
@@ -19,13 +26,17 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/User.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+
+    @* ── Leaflet + Map Picker ──────────────────────────────────── *@
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
     <div class="up-container">
         <div class="up-shell">
-            
+
             @* ── Left sidebar: user info ───────────────────────────────────────── *@
             <aside class="up-sidebar" aria-label="Profile information">
                 <div class="up-sidebar__header">
@@ -101,7 +112,7 @@
                         <p class="up-form-hint" style="margin-top: 10px; text-align: center; font-size: 0.75rem;">
                             Start selling your items to thousands of buyers
                         </p>
-                        
+
                         @if (sellerApp != null && sellerApp.Status == ApplicationStatus.Pending)
                         {
                             <div class="up-alert up-alert--info" style="margin-top: 16px; padding: 10px; font-size: 0.75rem;">
@@ -176,26 +187,34 @@
 
                         <div class="up-form-group">
                             <label asp-for="FullName" class="up-form-label">Full Name</label>
-                            <input asp-for="FullName" class="up-form-input @(ViewData.ModelState.ContainsKey("FullName") && ViewData.ModelState["FullName"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                            <input asp-for="FullName"
+                                   class="up-form-input @(ViewData.ModelState.ContainsKey("FullName") && ViewData.ModelState["FullName"]!.Errors.Count > 0 ? "up-form-input--error" : "")"
                                    placeholder="Enter your full name" />
                             <span asp-validation-for="FullName" class="up-form-error"></span>
                         </div>
 
                         <div class="up-form-group">
                             <label asp-for="PhoneNumber" class="up-form-label">Phone Number</label>
-                            <input asp-for="PhoneNumber" class="up-form-input @(ViewData.ModelState.ContainsKey("PhoneNumber") && ViewData.ModelState["PhoneNumber"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                            <input asp-for="PhoneNumber"
+                                   class="up-form-input @(ViewData.ModelState.ContainsKey("PhoneNumber") && ViewData.ModelState["PhoneNumber"]!.Errors.Count > 0 ? "up-form-input--error" : "")"
                                    placeholder="e.g., +63 912 345 6789" />
                             <span asp-validation-for="PhoneNumber" class="up-form-error"></span>
                             <span class="up-form-hint">Include country code for better delivery coordination</span>
                         </div>
 
-                        <div class="up-form-group">
-                            <label asp-for="Address" class="up-form-label">Address</label>
-                            <textarea asp-for="Address" class="up-form-input up-form-textarea" rows="3"
-                                      placeholder="Street, Barangay, City/Municipality, Province"></textarea>
-                            <span asp-validation-for="Address" class="up-form-error"></span>
-                            <span class="up-form-hint">Your delivery address for purchases</span>
-                        </div>
+                        @* ── Address with map picker ──────────────────────────── *@
+                        @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+                            new ViewDataDictionary(ViewData)
+                            {
+                                { "FieldId",      "Address" },
+                                { "FieldName",    "Address" },
+                                { "Label",        "Address" },
+                                { "CurrentValue", Model?.Address ?? string.Empty },
+                                { "Placeholder",  "Street, Barangay, City/Municipality, Province" },
+                                { "HintText",     "Your delivery address for purchases — or click Map to pin it" },
+                                { "HasError",     addrError },
+                                { "ErrorMessage", addrErrorMsg }
+                            })
 
                         <div class="up-form-actions">
                             <button type="submit" class="up-btn up-btn--primary">
@@ -231,8 +250,12 @@
         </div>
     </div>
 
-    @section Scripts {
-        <partial name="_ValidationScriptsPartial" />
-    }
+    @* ── Address map modal (shared, rendered once) ──────────────── *@
+    @await Html.PartialAsync("_AddressMapModal")
+
+    @* ── Scripts ────────────────────────────────────────────────── *@
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="~/js/map-picker.js" asp-append-version="true"></script>
 </body>
 </html>

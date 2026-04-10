@@ -1,0 +1,117 @@
+﻿@* Views/Shared/_AddressInputWithMap.cshtml
+   ─────────────────────────────────────────────────────────────────
+   Reusable address field that includes a "Pick on Map" button.
+   Drop this partial wherever you have an address <textarea>.
+
+   REQUIRED ViewData keys
+   ───────────────────────
+   FieldId       (string)  — id & name attr of the <textarea>, e.g. "Address"
+   FieldName     (string)  — form field name (usually same as FieldId)
+   Label         (string)  — visible label text, e.g. "Address"
+   CurrentValue  (string)  — pre-populated value (Model.Address, dto.StoreAddress, …)
+
+   OPTIONAL ViewData keys
+   ───────────────────────
+   Placeholder   (string)  — textarea placeholder
+   HintText      (string)  — small hint rendered below the field
+   HasError      (bool)    — whether to apply error styling
+   ErrorMessage  (string)  — validation error message to display
+
+   EXAMPLE (User profile page)
+   ────────────────────────────
+   @{
+       var addrError = ViewData.ModelState.ContainsKey("Address")
+                       && ViewData.ModelState["Address"]!.Errors.Count > 0;
+   }
+   @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+       new ViewDataDictionary(ViewData)
+       {
+           { "FieldId",      "Address" },
+           { "FieldName",    "Address" },
+           { "Label",        "Address" },
+           { "CurrentValue", Model?.Address ?? string.Empty },
+           { "Placeholder",  "Street, Barangay, City/Municipality, Province" },
+           { "HintText",     "Your delivery address for purchases" },
+           { "HasError",     addrError },
+           { "ErrorMessage", addrError
+                             ? ViewData.ModelState["Address"]!.Errors[0].ErrorMessage
+                             : string.Empty }
+       })
+
+   EXAMPLE (Seller application — StoreAddress)
+   ─────────────────────────────────────────────
+   @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+       new ViewDataDictionary(ViewData)
+       {
+           { "FieldId",      "StoreAddress" },
+           { "FieldName",    "StoreAddress" },
+           { "Label",        "Store / Pickup Address" },
+           { "CurrentValue", Model?.StoreAddress ?? string.Empty },
+           { "Placeholder",  "Full store address visible to buyers" },
+           { "HintText",     "This address will be shown on your shop page" },
+           { "HasError",     false },
+           { "ErrorMessage", string.Empty }
+       })
+
+   PREREQUISITES (add to the host page's <head> / end-of-body)
+   ──────────────────────────────────────────────────────────────
+   In <head>:
+       <link rel="stylesheet"
+             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+       <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
+
+   Before </body>:
+       @await Html.PartialAsync("_AddressMapModal")
+       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+       <script src="~/js/map-picker.js" asp-append-version="true"></script>
+   ─────────────────────────────────────────────────────────────────
+*@
+@{
+    var fieldId = ViewData["FieldId"] as string ?? "Address";
+    var fieldName = ViewData["FieldName"] as string ?? "Address";
+    var label = ViewData["Label"] as string ?? "Address";
+    var currentValue = ViewData["CurrentValue"] as string ?? string.Empty;
+    var placeholder = ViewData["Placeholder"] as string ?? string.Empty;
+    var hintText = ViewData["HintText"] as string ?? string.Empty;
+    var hasError = ViewData["HasError"] is bool b && b;
+    var errorMessage = ViewData["ErrorMessage"] as string ?? string.Empty;
+
+    var inputCss = "up-form-input up-form-textarea" + (hasError ? " up-form-input--error" : "");
+}
+
+<div class="up-form-group">
+    <label for="@fieldId" class="up-form-label">@label</label>
+
+    <div class="map-input-wrapper">
+        <textarea id="@fieldId"
+                  name="@fieldName"
+                  class="@inputCss"
+                  rows="3"
+                  placeholder="@placeholder"
+                  aria-describedby="@(fieldId)-hint @(fieldId)-error">@currentValue</textarea>
+
+        <button type="button"
+                class="map-pick-btn"
+                onclick="openMapPicker('@fieldId')"
+                title="Pick location on map"
+                aria-label="Pick @label on map">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span>Map</span>
+        </button>
+    </div>
+
+    @if (hasError && !string.IsNullOrEmpty(errorMessage))
+    {
+        <span id="@(fieldId)-error" class="up-form-error">@errorMessage</span>
+    }
+
+    @if (!string.IsNullOrEmpty(hintText))
+    {
+        <span id="@(fieldId)-hint" class="up-form-hint">@hintText</span>
+    }
+</div>

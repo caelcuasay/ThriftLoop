@@ -1,0 +1,107 @@
+﻿@* Views/Shared/_AddressMapModal.cshtml
+   ─────────────────────────────────────────────────────────────────
+   Reusable Leaflet address-picker modal.
+
+   USAGE — render ONCE per page, anywhere inside <body>:
+       @await Html.PartialAsync("_AddressMapModal")
+
+   The modal is controlled entirely by map-picker.js:
+     openMapPicker(inputId)  — opens and targets a <textarea>
+     closeMapPicker()        — closes without saving
+     confirmMapAddress()     — copies geocoded address and closes
+     searchMapAddress()      — forward-geocodes the search query
+   ─────────────────────────────────────────────────────────────────
+*@
+
+<div id="map-picker-modal" class="map-modal-overlay" role="dialog"
+     aria-modal="true" aria-labelledby="map-modal-title">
+
+    <div class="map-modal">
+
+        @* ── Header ──────────────────────────────────────────────── *@
+        <div class="map-modal__header">
+            <span id="map-modal-title" class="map-modal__title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                </svg>
+                Pick Address on Map
+            </span>
+            <button type="button" class="map-modal__close"
+                    onclick="closeMapPicker()" aria-label="Close map picker">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        @* ── Search bar ───────────────────────────────────────────── *@
+        <div class="map-modal__search">
+            <div class="map-search-wrapper">
+                <svg class="map-search-icon" width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input id="map-picker-search"
+                       type="text"
+                       class="map-search-input"
+                       placeholder="Search for an address or place…"
+                       autocomplete="off"
+                       aria-label="Search address" />
+                <button type="button" class="map-search-btn" onclick="searchMapAddress()">
+                    Search
+                </button>
+            </div>
+        </div>
+
+        @* ── Map ──────────────────────────────────────────────────── *@
+        <div class="map-modal__map">
+            <div class="map-click-hint" aria-hidden="true">
+                Click the map to drop a pin
+            </div>
+            <div id="map-picker-map" aria-label="Address selection map"></div>
+        </div>
+
+        @* ── Geocoded address preview ──────────────────────────────── *@
+        <div class="map-modal__result">
+            <p class="map-result-label">Selected Address</p>
+            <textarea id="map-picker-address-preview"
+                      class="map-address-preview"
+                      rows="2"
+                      placeholder="Click the map or search to select an address…"
+                      aria-label="Selected address preview"></textarea>
+        </div>
+
+        @* ── Footer ───────────────────────────────────────────────── *@
+        <div class="map-modal__footer">
+
+            <div id="map-geocode-spinner" class="map-geocode-spinner"
+                 aria-live="polite" aria-label="Loading address">
+                <div class="map-spinner-dot"></div>
+                <div class="map-spinner-dot"></div>
+                <div class="map-spinner-dot"></div>
+                <span>Fetching address…</span>
+            </div>
+
+            <button type="button" class="up-btn up-btn--outline" onclick="closeMapPicker()">
+                Cancel
+            </button>
+            <button type="button" class="up-btn up-btn--primary" onclick="confirmMapAddress()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Use This Address
+            </button>
+        </div>
+
+    </div>
+</div>

@@ -3,8 +3,15 @@
 @{
     ViewData["Title"] = "Seller Application";
     Layout = null;
-    
+
     var existingApp = ViewBag.Application as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
+
+    @* ── StoreAddress validation state ────────────────────────── *@
+    var storeAddrError = ViewData.ModelState.ContainsKey("StoreAddress")
+                         && ViewData.ModelState["StoreAddress"]!.Errors.Count > 0;
+    var storeAddrErrorMsg = storeAddrError
+                            ? ViewData.ModelState["StoreAddress"]!.Errors[0].ErrorMessage
+                            : string.Empty;
 }
 
 <!DOCTYPE html>
@@ -18,13 +25,17 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/User.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+
+    @* ── Leaflet + Map Picker ──────────────────────────────────── *@
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
     <div class="up-container">
         <div class="up-shell">
-            
+
             @* ── Left sidebar: user context ─────────────────────────────────── *@
             <aside class="up-sidebar" aria-label="Application status">
                 <div class="up-sidebar__header">
@@ -173,7 +184,6 @@
                     <p class="up-feed-meta">Complete the form below to apply for seller status</p>
                 </header>
 
-                @* Display TempData messages *@
                 @if (TempData["SuccessMessage"] != null)
                 {
                     <div class="up-alert up-alert--success">
@@ -207,7 +217,8 @@
                                     Shop Name
                                     <span class="up-form-label__required">Required</span>
                                 </label>
-                                <input asp-for="ShopName" class="up-form-input @(ViewData.ModelState.ContainsKey("ShopName") && ViewData.ModelState["ShopName"].Errors.Count > 0 ? "up-form-input--error" : "")"
+                                <input asp-for="ShopName"
+                                       class="up-form-input @(ViewData.ModelState.ContainsKey("ShopName") && ViewData.ModelState["ShopName"]!.Errors.Count > 0 ? "up-form-input--error" : "")"
                                        placeholder="e.g., Vintage Threads PH" />
                                 <span asp-validation-for="ShopName" class="up-form-error"></span>
                                 <span class="up-form-hint">This will be your public shop name shown to buyers.</span>
@@ -221,23 +232,31 @@
                                 <span class="up-form-hint">A short description of your shop (max 500 characters).</span>
                             </div>
 
-                            <div class="up-form-group">
-                                <label asp-for="StoreAddress" class="up-form-label">
-                                    Store / Pickup Address
-                                    <span class="up-form-label__required">Required</span>
-                                </label>
-                                <input asp-for="StoreAddress" class="up-form-input @(ViewData.ModelState.ContainsKey("StoreAddress") && ViewData.ModelState["StoreAddress"].Errors.Count > 0 ? "up-form-input--error" : "")"
-                                       placeholder="Unit, Building, Street, City, Province" />
-                                <span asp-validation-for="StoreAddress" class="up-form-error"></span>
-                                <span class="up-form-hint">This address will be verified by our team. It's where customers can pick up items.</span>
-                            </div>
+                            @* ── Store address with map picker ─────────────────── *@
+                            @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+                                new ViewDataDictionary(ViewData)
+                                {
+                                    { "FieldId",      "StoreAddress" },
+                                    { "FieldName",    "StoreAddress" },
+                                    { "Label",        "Store / Pickup Address" },
+                                    { "CurrentValue", Model?.StoreAddress ?? string.Empty },
+                                    { "Placeholder",  "Unit, Building, Street, City, Province" },
+                                    { "HintText",     "This address will be verified by our team. It's where customers can pick up items." },
+                                    { "HasError",     storeAddrError },
+                                    { "ErrorMessage", storeAddrErrorMsg }
+                                })
+
+                            @* Required label is added via a wrapper since the partial
+                               renders its own <label>. Swap the partial's Label value
+                               above if you want to embed "Required" inline instead. *@
 
                             <div class="up-form-group">
                                 <label asp-for="GovId" class="up-form-label">
                                     Government-Issued ID
                                     <span class="up-form-label__required">Required</span>
                                 </label>
-                                <input type="file" asp-for="GovId" class="up-form-input" accept=".jpg,.jpeg,.png,.pdf" />
+                                <input type="file" asp-for="GovId" class="up-form-input"
+                                       accept=".jpg,.jpeg,.png,.pdf" />
                                 <span asp-validation-for="GovId" class="up-form-error"></span>
                                 <span class="up-form-hint">
                                     Accepted formats: JPG, PNG, PDF (max 10MB).<br />
@@ -315,8 +334,14 @@
         </div>
     </div>
 
-    @section Scripts {
-        <partial name="_ValidationScriptsPartial" />
-    }
+    @* ── Address map modal (shared, rendered once) ──────────────── *@
+    @await Html.PartialAsync("_AddressMapModal")
+
+    @* ── Scripts ─────────────────────────────────────────────────── *@
+    @* Note: @section Scripts has no effect when Layout = null.      *@
+    @* Scripts are inlined here directly instead.                    *@
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="~/js/map-picker.js" asp-append-version="true"></script>
 </body>
 </html>

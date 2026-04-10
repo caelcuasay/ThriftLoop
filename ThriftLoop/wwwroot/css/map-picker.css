@@ -1,0 +1,346 @@
+﻿/* wwwroot/css/map-picker.css
+   Styles for the address map picker modal and input wrapper.
+   Designed to match ThriftLoop's existing CSS-variable system.
+   ------------------------------------------------------------------ */
+
+/* ── Input wrapper ─────────────────────────────────────────────────── */
+
+.map-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+    .map-input-wrapper .up-form-textarea {
+        flex: 1;
+        /* keep textarea occupying all available width minus the button */
+        min-width: 0;
+    }
+
+/* "Pick on Map" trigger button */
+.map-pick-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: 42px; /* visually aligned with a single-line input */
+    border-radius: 10px;
+    border: 1.5px solid var(--c-border, #e2e8f0);
+    background: var(--c-surface, #fff);
+    color: var(--c-text-secondary, #64748b);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    margin-top: 2px; /* slight optical alignment with textarea top */
+}
+
+    .map-pick-btn:hover {
+        background: var(--c-bg, #f8fafc);
+        border-color: var(--c-accent, #6366f1);
+        color: var(--c-accent, #6366f1);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent, #6366f1) 10%, transparent);
+    }
+
+    .map-pick-btn:active {
+        transform: translateY(1px);
+    }
+
+/* ── Modal overlay ─────────────────────────────────────────────────── */
+
+.map-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    /* hidden by default */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+    .map-modal-overlay.is-open {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+/* ── Modal shell ───────────────────────────────────────────────────── */
+
+.map-modal {
+    background: var(--c-surface, #fff);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+    width: 100%;
+    max-width: 720px;
+    max-height: 90dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(14px) scale(0.98);
+    transition: transform 0.22s ease;
+}
+
+.map-modal-overlay.is-open .map-modal {
+    transform: translateY(0) scale(1);
+}
+
+/* ── Modal header ──────────────────────────────────────────────────── */
+
+.map-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--c-border, #e2e8f0);
+    flex-shrink: 0;
+}
+
+.map-modal__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--c-text, #1e293b);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.map-modal__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-text-secondary, #64748b);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .map-modal__close:hover {
+        background: var(--c-bg, #f8fafc);
+        color: var(--c-text, #1e293b);
+    }
+
+/* ── Search bar inside modal ───────────────────────────────────────── */
+
+.map-modal__search {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--c-border, #e2e8f0);
+    flex-shrink: 0;
+}
+
+.map-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.map-search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--c-text-secondary, #64748b);
+    pointer-events: none;
+}
+
+.map-search-input {
+    width: 100%;
+    padding: 9px 12px 9px 38px;
+    border: 1.5px solid var(--c-border, #e2e8f0);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    color: var(--c-text, #1e293b);
+    background: var(--c-bg, #f8fafc);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+    .map-search-input:focus {
+        border-color: var(--c-accent, #6366f1);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent, #6366f1) 12%, transparent);
+        background: var(--c-surface, #fff);
+    }
+
+.map-search-btn {
+    position: absolute;
+    right: 6px;
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: none;
+    background: var(--c-accent, #6366f1);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+    .map-search-btn:hover {
+        opacity: 0.88;
+    }
+
+/* ── Map container ─────────────────────────────────────────────────── */
+
+/* Leaflet REQUIRES a concrete pixel height on its container.
+   height:100% fails when the parent height comes from flexbox,
+   leaving a blank white box. We give the wrapper a fixed height
+   and let the inner div match it explicitly.                        */
+
+.map-modal__map {
+    position: relative;
+    height: 340px; /* concrete height — do not use flex:1 here  */
+    flex-shrink: 0;
+}
+
+#map-picker-map {
+    width: 100%;
+    height: 340px; /* must match .map-modal__map exactly         */
+}
+
+/* Instruction chip overlaid on the map */
+.map-click-hint {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--c-text, #1e293b);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* ── Result / preview strip ────────────────────────────────────────── */
+
+.map-modal__result {
+    padding: 12px 22px;
+    border-top: 1px solid var(--c-border, #e2e8f0);
+    flex-shrink: 0;
+}
+
+.map-result-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--c-text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
+.map-address-preview {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--c-border, #e2e8f0);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    color: var(--c-text, #1e293b);
+    background: var(--c-bg, #f8fafc);
+    resize: vertical;
+    min-height: 54px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+    .map-address-preview:focus {
+        border-color: var(--c-accent, #6366f1);
+        background: var(--c-surface, #fff);
+    }
+
+/* ── Modal footer ──────────────────────────────────────────────────── */
+
+.map-modal__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--c-border, #e2e8f0);
+    flex-shrink: 0;
+}
+
+/* Loading spinner shown during geocode */
+.map-geocode-spinner {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--c-text-secondary, #64748b);
+    margin-right: auto;
+}
+
+    .map-geocode-spinner.is-loading {
+        display: flex;
+    }
+
+.map-spinner-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-accent, #6366f1);
+    animation: mapDotPulse 1.2s infinite ease-in-out;
+}
+
+    .map-spinner-dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .map-spinner-dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+@keyframes mapDotPulse {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+    .map-modal {
+        border-radius: 14px 14px 0 0;
+        max-height: 92dvh;
+        align-self: flex-end;
+        margin-bottom: 0;
+    }
+
+    .map-modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    #map-picker-map {
+        min-height: 260px;
+    }
+
+    .map-pick-btn span {
+        display: none; /* icon only on small screens */
+    }
+}
