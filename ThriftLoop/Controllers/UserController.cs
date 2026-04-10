@@ -75,7 +75,9 @@ public class UserController : Controller
         {
             FullName = profile.FullName,
             PhoneNumber = profile.PhoneNumber,
-            Address = profile.Address
+            Address = profile.Address,
+            Latitude = profile.Latitude,
+            Longitude = profile.Longitude
         };
 
         ViewBag.Profile = profile;

@@ -20,4 +20,8 @@ public class UpdateProfileDTO
     [Display(Name = "Address")]
     [MaxLength(300, ErrorMessage = "Address cannot exceed 300 characters.")]
     public string? Address { get; set; }
+
+    // Optional coordinates saved when the user picks a point on the map
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 }

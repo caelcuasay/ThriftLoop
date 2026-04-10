@@ -61,6 +61,9 @@ public class ShopController : Controller
             Bio = shop.Bio,
             BannerUrl = shop.BannerUrl,
             LogoUrl = shop.LogoUrl,
+            Latitude = shop.Latitude,
+            Longitude = shop.Longitude,
+            StoreAddress = shop.StoreAddress,
             Items = items
         };
 
@@ -121,9 +124,41 @@ public class ShopController : Controller
                 shop.Bio = string.IsNullOrWhiteSpace(value) ? null : value;
                 break;
 
+                case "StoreAddress":
+                    if (value?.Length > 1000)
+                        return Json(new { ok = false, error = "Address is too long." });
+                    shop.StoreAddress = string.IsNullOrWhiteSpace(value) ? null : value;
+                    break;
+
             default:
                 return Json(new { ok = false, error = "Unknown field." });
         }
+
+        await _shopRepo.UpdateAsync(shop);
+        return Json(new { ok = true });
+    }
+
+    // POST /Shop/SaveLocation (AJAX — save shop coordinates)
+    [HttpPost]
+    [Authorize(Roles = "Seller")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveLocation([FromBody] SaveLocationDto dto)
+    {
+        if (!ModelState.IsValid)
+            return Json(new { ok = false, error = "Invalid request." });
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Json(new { ok = false, error = "Not authenticated." });
+
+        var shop = await _shopRepo.GetByIdAsync(dto.ShopId);
+        if (shop is null || shop.UserId != userId.Value)
+            return Json(new { ok = false, error = "Permission denied." });
+
+        shop.Latitude = dto.Latitude;
+        shop.Longitude = dto.Longitude;
+        if (!string.IsNullOrWhiteSpace(dto.Address))
+            shop.StoreAddress = dto.Address.Trim();
 
         await _shopRepo.UpdateAsync(shop);
         return Json(new { ok = true });

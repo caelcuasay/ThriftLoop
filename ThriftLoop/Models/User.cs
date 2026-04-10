@@ -25,6 +25,18 @@ public class User
     /// </summary>
     public string? Address { get; set; }
 
+    /// <summary>
+    /// Optional geolocation: latitude of the pinned address.
+    /// Stored as decimal for precision. Null when not set.
+    /// </summary>
+    public decimal? Latitude { get; set; }
+
+    /// <summary>
+    /// Optional geolocation: longitude of the pinned address.
+    /// Stored as decimal for precision. Null when not set.
+    /// </summary>
+    public decimal? Longitude { get; set; }
+
     // ── Security ──────────────────────────────────────────────────────────────
 
     /// <summary>

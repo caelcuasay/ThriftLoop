@@ -16,8 +16,11 @@
     let map = null;
     let marker = null;
     let targetId = null;   // id of the textarea we are filling
+    let userCallback = null; // optional callback passed by caller
+    let altTextId = null; // optional id of a visible text input to use for forward geocoding
     let geocodeCtrl = null;   // AbortController for in-flight fetch
     let mapInitialized = false;
+    let allowEdit = true; // when false, map is view-only (no placing/draggable)
 
     /* ── DOM helpers ────────────────────────────────────────────── */
     const $ = id => document.getElementById(id);
@@ -30,6 +33,17 @@
     function setPreview(text) {
         const el = $('map-picker-address-preview');
         if (el) el.value = text;
+    }
+
+    function showPinpointPreview(lat, lng) {
+        // Hide editing UI when viewing-only
+        const confirmBtn = $('map-picker-confirm-btn');
+        if (confirmBtn) confirmBtn.style.display = 'none';
+        const searchWrapper = $('map-picker-search-wrapper');
+        if (searchWrapper) searchWrapper.style.display = 'none';
+        const footer = $('map-picker-footer');
+        if (footer) footer.style.justifyContent = 'flex-end';
+        // preview text will be filled by reverseGeocode; leave it intact otherwise
     }
 
     /* ── Map initialisation ─────────────────────────────────────── */
@@ -47,6 +61,15 @@
         if (map) {
             // Already initialised — invalidate size to recalculate tiles
             map.invalidateSize();
+            // If a marker exists, ensure we pan to it so the user sees the selected location
+            setTimeout(() => {
+                try {
+                    map.invalidateSize();
+                    if (marker) {
+                        map.panTo(marker.getLatLng());
+                    }
+                } catch (err) { /* ignore */ }
+            }, 100);
             return;
         }
 
@@ -70,6 +93,7 @@
     /* ── Map interactions ───────────────────────────────────────── */
 
     function onMapClick(e) {
+        if (!allowEdit) return;
         placeMarker(e.latlng.lat, e.latlng.lng);
         reverseGeocode(e.latlng.lat, e.latlng.lng);
     }
@@ -78,13 +102,24 @@
         if (marker) {
             marker.setLatLng([lat, lng]);
         } else {
-            marker = L.marker([lat, lng], { draggable: true }).addTo(map);
-            marker.on('dragend', function () {
-                const pos = marker.getLatLng();
-                reverseGeocode(pos.lat, pos.lng);
-            });
+            marker = L.marker([lat, lng], { draggable: allowEdit }).addTo(map);
+            if (allowEdit) {
+                marker.on('dragend', function () {
+                    const pos = marker.getLatLng();
+                    reverseGeocode(pos.lat, pos.lng);
+                });
+            }
         }
         map.panTo([lat, lng]);
+        // Write coordinates to the hidden inputs associated with the current target
+        if (targetId) {
+            const latEl = $(targetId + '-latitude');
+            const lngEl = $(targetId + '-longitude');
+            if (latEl) latEl.value = lat.toFixed(6);
+            if (lngEl) lngEl.value = lng.toFixed(6);
+            // If view-only, also show pinpoint preview
+            if (!allowEdit) showPinpointPreview(lat, lng);
+        }
     }
 
     /* ── Geocoding ──────────────────────────────────────────────── */
@@ -173,18 +208,34 @@
      * forward-geocode it so the map centres on the current address.
      */
     function tryPrePopulate(inputId) {
+        // If coordinates hidden inputs exist, use them to position the marker
+        const latEl = $(inputId + '-latitude');
+        const lngEl = $(inputId + '-longitude');
         const existing = ($(inputId)?.value ?? '').trim();
-        if (existing) {
-            // Wait for map to be ready before geocoding
-            const waitForMap = () => {
-                if (map) {
-                    geocodeQuery(existing);
-                } else {
-                    setTimeout(waitForMap, 100);
+
+        const tryMap = () => {
+            if (!map) {
+                setTimeout(tryMap, 100);
+                return;
+            }
+
+            if (latEl && lngEl && latEl.value && lngEl.value) {
+                const lat = parseFloat(latEl.value);
+                const lng = parseFloat(lngEl.value);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    map.setView([lat, lng], 17);
+                    placeMarker(lat, lng);
+                    reverseGeocode(lat, lng);
+                    return;
                 }
-            };
-            waitForMap();
-        }
+            }
+
+            if (existing) {
+                geocodeQuery(existing);
+            }
+        };
+
+        tryMap();
     }
 
     /* ── Public API ─────────────────────────────────────────────── */
@@ -192,8 +243,21 @@
     /**
      * Open the map picker targeting the <textarea id="inputId">.
      */
-    window.openMapPicker = function (inputId) {
+    // signature: openMapPicker(inputId, [callbackOrAlt], [mode])
+    window.openMapPicker = function (inputId, secondArg, mode) {
+        // Support optional second arg: a callback function to receive (latLng, addressString)
         targetId = inputId;
+        userCallback = null;
+        altTextId = null;
+        if (typeof secondArg === 'function') userCallback = secondArg;
+        if (typeof secondArg === 'string') altTextId = secondArg;
+
+        // determine view-only vs editable mode early so pre-population uses correct behaviour
+        allowEdit = true;
+        if (typeof mode === 'string' && mode === 'view') allowEdit = false;
+        if (!allowEdit && marker && marker.dragging) {
+            try { marker.dragging.disable(); } catch (e) { /* ignore */ }
+        }
 
         const overlay = $('map-picker-modal');
         if (!overlay) {
@@ -211,7 +275,48 @@
         // before initializing the map to ensure the container has dimensions
         setTimeout(() => {
             initMap();
+            // Pre-populate; tryPrePopulate will use hidden lat/lng inputs if present
             tryPrePopulate(inputId);
+            // If view-only and coords exist, ensure UI reflects view-only immediately
+            if (!allowEdit) {
+                const latEl = $(inputId + '-latitude');
+                const lngEl = $(inputId + '-longitude');
+                if (latEl && lngEl && latEl.value && lngEl.value) {
+                    const lat = parseFloat(latEl.value);
+                    const lng = parseFloat(lngEl.value);
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        // ensure marker placed and map centered
+                        placeMarker(lat, lng);
+                        showPinpointPreview(lat, lng);
+                    }
+                }
+            }
+            // After a short delay ensure map repaint and marker centering
+            setTimeout(() => {
+                try {
+                    if (map) map.invalidateSize();
+                    const latEl = $(inputId + '-latitude');
+                    const lngEl = $(inputId + '-longitude');
+                    if (map && marker == null && latEl && lngEl && latEl.value && lngEl.value) {
+                        const lat = parseFloat(latEl.value);
+                        const lng = parseFloat(lngEl.value);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            map.setView([lat, lng], 17);
+                            placeMarker(lat, lng);
+                            // ensure preview populated for view-only
+                            if (!allowEdit) reverseGeocode(lat, lng);
+                        }
+                    } else if (map && marker) {
+                        map.panTo(marker.getLatLng());
+                        // if view-only, refresh preview from marker
+                        if (!allowEdit) {
+                            const pos = marker.getLatLng();
+                            showPinpointPreview(pos.lat, pos.lng);
+                            reverseGeocode(pos.lat, pos.lng);
+                        }
+                    }
+                } catch (err) { /* ignore */ }
+            }, 200);
         }, 250);
     };
 
@@ -237,8 +342,27 @@
                 // Fire a native 'input' event so frameworks/validation pick up the change
                 target.dispatchEvent(new Event('input', { bubbles: true }));
                 target.dispatchEvent(new Event('change', { bubbles: true }));
+
+                // Also ensure hidden fields are updated (in case marker was placed but not dragged)
+                const latEl = $(targetId + '-latitude');
+                const lngEl = $(targetId + '-longitude');
+                if (marker && latEl && lngEl) {
+                    const pos = marker.getLatLng();
+                    latEl.value = pos.lat.toFixed(6);
+                    lngEl.value = pos.lng.toFixed(6);
+                }
             }
         }
+        // If caller provided a callback, invoke it with selected coords and preview text
+        try {
+            if (userCallback && marker) {
+                const pos = marker.getLatLng();
+                userCallback({ lat: pos.lat, lng: pos.lng }, preview);
+            }
+        } catch (err) {
+            console.warn('[map-picker] user callback threw:', err);
+        }
+
         closeMapPicker();
     };
 
@@ -256,6 +380,8 @@
         }
 
         setSpinner(false);
+        // clear optional callback so it doesn't leak between opens
+        userCallback = null;
     };
 
     /* ── Keyboard support ───────────────────────────────────────── */

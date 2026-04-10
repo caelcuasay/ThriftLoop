@@ -11,6 +11,8 @@ public class UserProfileDTO
     public string? FullName { get; init; }
     public string? PhoneNumber { get; init; }
     public string? Address { get; init; }
+    public decimal? Latitude { get; init; }
+    public decimal? Longitude { get; init; }
     public string Role { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
 

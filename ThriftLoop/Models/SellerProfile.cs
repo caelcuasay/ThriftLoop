@@ -68,6 +68,10 @@ public class SellerProfile
     /// <summary>Path or URL to the shop logo/avatar image.</summary>
     public string? LogoUrl { get; set; }
 
+    // Optional geolocation for the shop (latitude/longitude)
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+
     // ── Navigation ────────────────────────────────────────────────────────────
 
     public User? User { get; set; }

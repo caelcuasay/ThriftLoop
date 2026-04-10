@@ -1,4 +1,11 @@
-﻿@model ThriftLoop.ViewModels.ShopPageViewModel
+﻿<!-----------------------------------------------------------------------------------------
+    Index.cshtml (Full update)
+    - Reduced gap between bio and address (tight spacing)
+    - Address is now inline-editable: owner can click the text, edit in a modal, and save
+    - Removed the separate "Edit location" button (map picker is opened from address edit)
+    - Maintained all other functionality (image uploads, inline name/bio editing, etc.)
+------------------------------------------------------------------------------------------>
+@model ThriftLoop.ViewModels.ShopPageViewModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
 @{
@@ -11,6 +18,8 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/shop.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/navbar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
 }
 
 @* ── Image upload modal ───────────────────────────────────────────────────── *@
@@ -115,7 +124,7 @@
             }
         </div>
 
-        @* Name + bio *@
+        @* Name + bio + address (tight spacing) *@
         <div class="sp-identity__text">
 
             @* Shop name *@
@@ -146,7 +155,7 @@
                 }
             </div>
 
-            @* Bio *@
+            @* Bio (tight margin below) *@
             <div class="sp-inline @(isOwner ? "sp-inline--editable" : "")"
                  data-field="Bio" data-maxlength="500">
                 <p class="sp-identity__bio sp-inline__display @(!string.IsNullOrWhiteSpace(Model.Bio) ? "" : "sp-identity__bio--empty")">
@@ -157,7 +166,7 @@
                         {
                             <span class="sp-inline__edit-hint" aria-hidden="true">
                                 <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
-                                    <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.23 11.33a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.064l6.52-6.52z" />
+                                    <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />
                                 </svg>
                             </span>
                         }
@@ -178,6 +187,55 @@
                         </div>
                         <p class="sp-field__error sp-inline__error" hidden></p>
                     </div>
+                }
+            </div>
+
+            @* Address — Now inline-editable like name/bio. No dedicated button. *@
+            <div class="sp-address @(isOwner ? "sp-inline sp-inline--editable" : "")" data-field="StoreAddress">
+                <div class="sp-address__line-wrapper">
+                    <p id="shopAddressDisplay" class="sp-address__line sp-inline__display">
+                        @(!string.IsNullOrWhiteSpace(Model.StoreAddress) ? Model.StoreAddress : "No address set")
+                        @if (isOwner)
+                        {
+                            <span class="sp-inline__edit-hint" aria-hidden="true">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                    <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />
+                                </svg>
+                            </span>
+                        }
+                    </p>
+                </div>
+
+                @if (isOwner)
+                {
+                    @* Hidden editor for address (opens map picker + text input) *@
+                    <div class="sp-address__editor" hidden>
+                        <div class="sp-address__editor-field">
+                            <input type="text" id="addressTextInput" class="sp-field__input" placeholder="Street address, city, postal code" value="@Model.StoreAddress" />
+                            <button type="button" id="openMapPickerBtn" class="tl-btn tl-btn--outline sp-address__map-btn">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" />
+                                </svg>
+                                Pick on map
+                            </button>
+                        </div>
+                        <div class="sp-inline__actions">
+                            <button type="button" class="tl-btn tl-btn--primary sp-address__save">Save</button>
+                            <button type="button" class="tl-btn tl-btn--ghost sp-address__cancel">Cancel</button>
+                        </div>
+                        <p class="sp-field__error sp-address__error" hidden></p>
+                    </div>
+
+                    @* Hidden inputs for map picker *@
+                    <input type="hidden" id="ShopLocation-latitude" value="@(Model.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
+                    <input type="hidden" id="ShopLocation-longitude" value="@(Model.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
+                }
+                else
+                {
+                    @* Ensure hidden lat/lng inputs exist for viewers so the map picker can pre-populate the pin in view-only mode *@
+                    <input type="hidden" id="ShopLocation-latitude" value="@(Model.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
+                    <input type="hidden" id="ShopLocation-longitude" value="@(Model.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
                 }
             </div>
 
@@ -256,16 +314,16 @@
                     {
                         <div class="sp-item-card__owner-actions">
                             <a href="/Shop/Edit/@item.Id"
-                               class="sp-item-card__action sp-item-card__action--edit"
-                               onclick="event.stopPropagation()">
+                                   class="sp-item-card__action sp-item-card__action--edit"
+                                   onclick="event.stopPropagation()">
                                 <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" aria-hidden="true" style="vertical-align:middle;margin-right:3px">
                                     <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />
                                 </svg>
                                 Edit
                             </a>
                             <a href="/Shop/Delete/@item.Id"
-                               class="sp-item-card__action sp-item-card__action--delete"
-                               onclick="event.stopPropagation()">
+                                   class="sp-item-card__action sp-item-card__action--delete"
+                                   onclick="event.stopPropagation()">
                                 <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" aria-hidden="true" style="vertical-align:middle;margin-right:3px">
                                     <path d="M11 1.75V3h2.25a.75.75 0 010 1.5H2.75a.75.75 0 010-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75z" />
                                 </svg>
@@ -280,379 +338,586 @@
 
 </div>
 
+@* Render map modal and picker for all viewers (view-only or editable depending on openMapPicker args) *@
+@await Html.PartialAsync("_AddressMapModal")
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="~/js/map-picker.js" asp-append-version="true"></script>
+
+    <script>
+    (function () {
+        'use strict';
+
+        // Attach a simple view-only opener for non-owners so they can see the exact pin
+        const isOwnerFlag = @isOwner.ToString().ToLowerInvariant();
+        if (isOwnerFlag === 'false') {
+            function attachViewClick() {
+                const el = document.getElementById('shopAddressDisplay');
+                if (!el) return;
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    console.log('[shop] address clicked — attempting to open map picker');
+                    try {
+                        if (typeof window.openMapPicker === 'function') {
+                            window.openMapPicker('ShopLocation', null, 'view');
+                            return;
+                        }
+
+                        // If map-picker isn't loaded for some reason, load it dynamically then open
+                        const scriptUrl = '/js/map-picker.js';
+                        await new Promise((resolve, reject) => {
+                            const s = document.createElement('script');
+                            s.src = scriptUrl;
+                            s.async = false;
+                            s.onload = resolve;
+                            s.onerror = () => reject(new Error('Failed to load ' + scriptUrl));
+                            document.head.appendChild(s);
+                        });
+
+                        if (typeof window.openMapPicker === 'function') {
+                            window.openMapPicker('ShopLocation', null, 'view');
+                        } else {
+                            console.warn('[shop] openMapPicker still not available after loading script');
+                            alert('Map picker is not available.');
+                        }
+                    } catch (err) {
+                        console.warn('Map picker not available', err);
+                        alert('Unable to open map picker. See console for details.');
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachViewClick);
+            else attachViewClick();
+        }
+    }());
+</script>
+
 @if (isOwner)
 {
     <input type="hidden" id="afToken" value="@afToken" />
-    
     <script>
         (function () {
-            'use strict';
+        'use strict';
 
-            const SHOP_ID   = @Model.ShopId;
-            const AF_TOKEN  = document.getElementById('afToken').value;
-            const FIELD_URL = '/Shop/SaveField';
-            const IMAGE_URL = '/Shop/SaveImage';
+        const SHOP_ID   = @Model.ShopId;
+        const AF_TOKEN  = document.getElementById('afToken').value;
+        const FIELD_URL = '/Shop/SaveField';
+        const IMAGE_URL = '/Shop/SaveImage';
 
-            // ── AJAX helpers ───────────────────────────────────────────────────────
-            async function saveTextField(field, value) {
-                const res = await fetch(FIELD_URL, {
+        // ── AJAX helpers ───────────────────────────────────────────────────────
+        async function saveTextField(field, value) {
+        const res = await fetch(FIELD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
+        body: JSON.stringify({ shopId: SHOP_ID, field, value })
+        });
+        return res.json();
+        }
+
+        async function uploadImage(field, file) {
+        const fd = new FormData();
+        fd.append('shopId', SHOP_ID);
+        fd.append('field',  field);
+        fd.append('file',   file);
+        const res = await fetch(IMAGE_URL, {
+        method: 'POST',
+        headers: { 'RequestVerificationToken': AF_TOKEN },
+        body: fd
+        });
+        return res.json();
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  IMAGE MODAL (unchanged)
+        // ══════════════════════════════════════════════════════════════════════
+        const backdrop    = document.getElementById('imgModalBackdrop');
+        const modalTitle  = document.getElementById('imgModalTitle');
+        const previewArea = document.getElementById('imgPreviewArea');
+        const dropZone    = document.getElementById('imgDropZone');
+        const fileInput   = document.getElementById('imgFileInput');
+        const dropInner   = document.getElementById('imgDropInner');
+        const saveBtn     = document.getElementById('imgModalSave');
+        const cancelBtn   = document.getElementById('imgModalCancel');
+        const closeBtn    = document.getElementById('imgModalClose');
+        const errorEl     = document.getElementById('imgModalError');
+
+        let activeField = null;
+        let pendingFile = null;
+
+        function openModal(field, currentUrl, title) {
+        activeField      = field;
+        pendingFile      = null;
+        saveBtn.disabled = true;
+        errorEl.hidden   = true;
+        fileInput.value  = '';
+        modalTitle.textContent = title;
+
+        previewArea.innerHTML = '';
+        if (currentUrl && currentUrl !== 'null') {
+        if (field === 'BannerUrl') {
+        const div = document.createElement('div');
+        div.className = 'sp-modal__banner-preview';
+        const cleanUrl = currentUrl.split('?')[0];
+        div.style.backgroundImage = `url('${cleanUrl}')`;
+        previewArea.appendChild(div);
+        } else {
+        const img = document.createElement('img');
+        const cleanUrl = currentUrl.split('?')[0];
+        img.src = cleanUrl;
+        img.className = 'sp-modal__logo-preview';
+        previewArea.appendChild(img);
+        }
+        } else {
+        const empty = document.createElement('div');
+        empty.className = 'sp-modal__preview-empty';
+        empty.textContent = 'No image set — upload one below';
+        previewArea.appendChild(empty);
+        }
+
+        dropInner.querySelector('.sp-modal__drop-label').textContent = 'Click or drag an image here';
+        backdrop.removeAttribute('hidden');
+        dropZone.focus();
+        }
+
+        function closeModal() {
+        backdrop.setAttribute('hidden', '');
+        activeField = pendingFile = null;
+        }
+
+        closeBtn?.addEventListener('click',  closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+        backdrop?.addEventListener('click',  e => { if (e.target === backdrop) closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        function handleFile(file) {
+        if (!file) return;
+        const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
+        if (!allowed.includes(file.type)) { showModalError('Only JPEG, PNG, WebP, or GIF images are allowed.'); return; }
+        if (file.size > 5 * 1024 * 1024)  { showModalError('File exceeds the 5 MB limit.'); return; }
+
+        errorEl.hidden     = true;
+        pendingFile        = file;
+        saveBtn.disabled   = false;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+        previewArea.innerHTML = '';
+        if (activeField === 'BannerUrl') {
+        const div = document.createElement('div');
+        div.className = 'sp-modal__banner-preview';
+        div.style.backgroundImage = `url('${e.target.result}')`;
+        previewArea.appendChild(div);
+        } else {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'sp-modal__logo-preview';
+        previewArea.appendChild(img);
+        }
+        };
+        reader.readAsDataURL(file);
+        dropInner.querySelector('.sp-modal__drop-label').textContent = file.name;
+        }
+
+        fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
+        dropZone?.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('sp-modal__drop-zone--over'); });
+        dropZone?.addEventListener('dragleave', ()  => dropZone.classList.remove('sp-modal__drop-zone--over'));
+        dropZone?.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('sp-modal__drop-zone--over');
+        handleFile(e.dataTransfer.files[0]);
+        });
+
+        saveBtn?.addEventListener('click', async () => {
+        if (!pendingFile || !activeField) return;
+                
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled    = true;
+        saveBtn.textContent = 'Uploading…';
+        errorEl.hidden      = true;
+
+        try {
+        const res = await uploadImage(activeField, pendingFile);
+                    
+        if (!res.ok) {
+        showModalError(res.error || 'Upload failed');
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+        return;
+        }
+
+        const cacheBuster = `${res.url}?v=${Date.now()}`;
+
+        if (activeField === 'BannerUrl') {
+        const banner = document.getElementById('shopBanner');
+        banner.style.backgroundImage = `url('${cacheBuster}')`;
+        const placeholder = banner.querySelector('.sp-banner__placeholder');
+        if (placeholder) placeholder.remove();
+        banner.setAttribute('data-original-bg', res.url);
+        } else {
+        const existingLogo = document.getElementById('shopLogoImg');
+                        
+        if (existingLogo) {
+        if (existingLogo.tagName === 'DIV') {
+        const img = document.createElement('img');
+        img.src = cacheBuster;
+        img.id = 'shopLogoImg';
+        img.alt = 'Shop logo';
+        img.className = 'sp-identity__logo';
+        img.setAttribute('data-original-src', res.url);
+        existingLogo.replaceWith(img);
+        } else if (existingLogo.tagName === 'IMG') {
+        existingLogo.src = cacheBuster;
+        existingLogo.setAttribute('data-original-src', res.url);
+        }
+        }
+        }
+                    
+        const tempMsg = document.createElement('div');
+        tempMsg.textContent = 'Image uploaded successfully!';
+        tempMsg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0e6245;color:#fff;padding:10px 20px;border-radius:8px;z-index:1000;animation:fadeOut 2s ease forwards;';
+        document.body.appendChild(tempMsg);
+        setTimeout(() => tempMsg.remove(), 2000);
+                    
+        } catch (err) {
+        showModalError('Network error. Please try again.');
+        console.error('Upload error:', err);
+        } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+        }
+                
+        closeModal();
+        });
+
+        function showModalError(msg) {
+        errorEl.textContent = msg;
+        errorEl.hidden      = false;
+        }
+
+        const bannerElement = document.getElementById('shopBanner');
+        if (bannerElement) {
+        bannerElement.addEventListener('click', () => {
+        const style = bannerElement.style.backgroundImage;
+        let current = null;
+        if (style && style !== 'none') {
+        current = style.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '').split('?')[0];
+        }
+        openModal('BannerUrl', current, 'Banner Image');
+        });
+        }
+
+        const logoWrap = document.getElementById('shopLogoWrap');
+        if (logoWrap) {
+        const openLogo = () => {
+        const img = document.getElementById('shopLogoImg');
+        let current = null;
+        if (img && img.tagName === 'IMG') {
+        current = img.getAttribute('data-original-src') || img.src.split('?')[0];
+        }
+        openModal('LogoUrl', current, 'Logo Image');
+        };
+        logoWrap.addEventListener('click', openLogo);
+        logoWrap.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openLogo();
+        }
+        });
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+        @@keyframes fadeOut {
+        0% { opacity: 1; transform: translateY(0); }
+        70% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); visibility: hidden; }
+        }
+        `;
+        document.head.appendChild(style);
+
+        function refreshImagesWithCacheBuster() {
+        const logo = document.getElementById('shopLogoImg');
+        if (logo && logo.tagName === 'IMG' && logo.src) {
+        const originalSrc = logo.getAttribute('data-original-src') || logo.src.split('?')[0];
+        if (originalSrc && originalSrc !== '') {
+        logo.src = originalSrc + '?v=' + Date.now();
+        }
+        }
+                
+        const banner = document.getElementById('shopBanner');
+        if (banner && banner.style.backgroundImage) {
+        const bg = banner.style.backgroundImage;
+        const urlMatch = bg.match(/url\(['"]?([^'"]+)['"]?\)/);
+        if (urlMatch && urlMatch[1]) {
+        const cleanUrl = urlMatch[1].split('?')[0];
+        if (cleanUrl && cleanUrl !== '' && cleanUrl !== 'none') {
+        banner.style.backgroundImage = `url('${cleanUrl}?v=${Date.now()}')`;
+        }
+        }
+        }
+        }
+
+        if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', refreshImagesWithCacheBuster);
+        } else {
+        refreshImagesWithCacheBuster();
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  INLINE TEXT EDITING (ShopName + Bio) - unchanged
+        // ══════════════════════════════════════════════════════════════════════
+        document.querySelectorAll('.sp-inline--editable').forEach(block => {
+        const display   = block.querySelector('.sp-inline__display');
+        const editor    = block.querySelector('.sp-inline__editor');
+        const input     = block.querySelector('.sp-inline__input');
+        const saveBtn   = block.querySelector('.sp-inline__save');
+        const cancelBtn = block.querySelector('.sp-inline__cancel');
+        const errorEl   = block.querySelector('.sp-inline__error');
+        const field     = block.dataset.field;
+
+        if (!display || !editor || !input) return;
+
+        let originalValue = input.value;
+
+        function openEditor() {
+        input.value = originalValue;
+        display.hidden = true;
+        editor.removeAttribute('hidden');
+        block.classList.add('sp-inline--editing');
+        input.focus();
+        if (input.tagName === 'INPUT')
+        input.setSelectionRange(input.value.length, input.value.length);
+        }
+        function closeEditor(restore) {
+        if (restore) input.value = originalValue;
+        display.hidden = false;
+        editor.setAttribute('hidden', '');
+        errorEl.hidden = true;
+        block.classList.remove('sp-inline--editing');
+        }
+
+        display.addEventListener('click', openEditor);
+        cancelBtn.addEventListener('click', () => closeEditor(true));
+
+        input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveBtn.click();
+        });
+
+        saveBtn.addEventListener('click', async () => {
+        const val = input.value.trim();
+        errorEl.hidden      = true;
+        saveBtn.disabled    = true;
+        saveBtn.textContent = 'Saving…';
+
+        const res = await saveTextField(field, val);
+
+        saveBtn.disabled    = false;
+        saveBtn.textContent = 'Save';
+
+        if (!res.ok) {
+        errorEl.textContent = res.error;
+        errorEl.hidden      = false;
+        return;
+        }
+
+        originalValue = val;
+
+        if (field === 'ShopName') {
+        const h1 = display;
+        const editHint = h1.querySelector('.sp-inline__edit-hint');
+        if (editHint) {
+        h1.childNodes[0].textContent = val + ' ';
+        } else {
+        h1.textContent = val;
+        }
+        document.title = val;
+        } else {
+        display.textContent = val || 'Click to add a bio…';
+        display.classList.toggle('sp-identity__bio--empty', !val);
+        if (val) {
+        const hint = block.querySelector('.sp-inline__edit-hint');
+        if (hint) display.appendChild(hint);
+        }
+        }
+
+        closeEditor(false);
+        });
+        });
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  ADDRESS INLINE EDIT (click on address line opens editor with map picker)
+        // ══════════════════════════════════════════════════════════════════════
+        const addressContainer = document.querySelector('.sp-address');
+        if (addressContainer && addressContainer.classList.contains('sp-inline--editable')) {
+        const displayEl = document.getElementById('shopAddressDisplay');
+        const editorDiv = addressContainer.querySelector('.sp-address__editor');
+        const addressInput = document.getElementById('addressTextInput');
+        const saveAddressBtn = addressContainer.querySelector('.sp-address__save');
+        const cancelAddressBtn = addressContainer.querySelector('.sp-address__cancel');
+        const addressError = addressContainer.querySelector('.sp-address__error');
+        const mapPickerBtn = document.getElementById('openMapPickerBtn');
+                
+        let originalAddress = addressInput?.value || '';
+
+        function openAddressEditor() {
+        if (!editorDiv) return;
+        originalAddress = addressInput?.value || '';
+        displayEl.style.display = 'none';
+        editorDiv.removeAttribute('hidden');
+        addressInput?.focus();
+        }
+
+        function closeAddressEditor(restore) {
+        if (restore && addressInput) addressInput.value = originalAddress;
+        displayEl.style.display = 'block';
+        editorDiv?.setAttribute('hidden', '');
+        if (addressError) addressError.hidden = true;
+        }
+
+        // Click on address line opens editor
+        displayEl?.addEventListener('click', openAddressEditor);
+
+        // Cancel button
+        cancelAddressBtn?.addEventListener('click', () => closeAddressEditor(true));
+
+        // Save address (text + lat/lng)
+        saveAddressBtn?.addEventListener('click', async () => {
+        const newAddress = addressInput?.value.trim() || '';
+        if (addressError) addressError.hidden = true;
+        saveAddressBtn.disabled = true;
+        saveAddressBtn.textContent = 'Saving…';
+
+        // Get current lat/lng from hidden fields
+        let lat = document.getElementById('ShopLocation-latitude')?.value || '';
+        let lng = document.getElementById('ShopLocation-longitude')?.value || '';
+
+        // Save both address text and coordinates via SaveField?
+        // Since the backend expects a single field per call, we save address text first,
+        // then coordinates if they changed (map picker would have updated them).
+        // For simplicity, we call SaveField for StoreAddress.
+        const res = await saveTextField('StoreAddress', newAddress);
+
+        // If saving text failed, show error and stop
+        if (!res.ok) {
+            saveAddressBtn.disabled = false;
+            saveAddressBtn.textContent = 'Save';
+            if (addressError) {
+                addressError.textContent = res.error || 'Failed to save address';
+                addressError.hidden = false;
+            }
+            return;
+        }
+
+        // If we have coordinates, send them via SaveLocation so server persists lat/lng
+        try {
+            const latNum = lat ? parseFloat(lat) : null;
+            const lngNum = lng ? parseFloat(lng) : null;
+            if (latNum != null && lngNum != null) {
+                const locRes = await fetch('/Shop/SaveLocation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
-                    body: JSON.stringify({ shopId: SHOP_ID, field, value })
+                    body: JSON.stringify({ shopId: SHOP_ID, latitude: latNum, longitude: lngNum })
                 });
-                return res.json();
-            }
-
-            async function uploadImage(field, file) {
-                const fd = new FormData();
-                fd.append('shopId', SHOP_ID);
-                fd.append('field',  field);
-                fd.append('file',   file);
-                const res = await fetch(IMAGE_URL, {
-                    method: 'POST',
-                    headers: { 'RequestVerificationToken': AF_TOKEN },
-                    body: fd
-                });
-                return res.json();
-            }
-
-            // ══════════════════════════════════════════════════════════════════════
-            //  IMAGE MODAL
-            // ══════════════════════════════════════════════════════════════════════
-            const backdrop    = document.getElementById('imgModalBackdrop');
-            const modalTitle  = document.getElementById('imgModalTitle');
-            const previewArea = document.getElementById('imgPreviewArea');
-            const dropZone    = document.getElementById('imgDropZone');
-            const fileInput   = document.getElementById('imgFileInput');
-            const dropInner   = document.getElementById('imgDropInner');
-            const saveBtn     = document.getElementById('imgModalSave');
-            const cancelBtn   = document.getElementById('imgModalCancel');
-            const closeBtn    = document.getElementById('imgModalClose');
-            const errorEl     = document.getElementById('imgModalError');
-
-            let activeField = null;
-            let pendingFile = null;
-
-            function openModal(field, currentUrl, title) {
-                activeField      = field;
-                pendingFile      = null;
-                saveBtn.disabled = true;
-                errorEl.hidden   = true;
-                fileInput.value  = '';
-                modalTitle.textContent = title;
-
-                previewArea.innerHTML = '';
-                if (currentUrl && currentUrl !== 'null') {
-                    if (field === 'BannerUrl') {
-                        const div = document.createElement('div');
-                        div.className = 'sp-modal__banner-preview';
-                        // Clean URL for preview (remove cache buster)
-                        const cleanUrl = currentUrl.split('?')[0];
-                        div.style.backgroundImage = `url('${cleanUrl}')`;
-                        previewArea.appendChild(div);
-                    } else {
-                        const img = document.createElement('img');
-                        const cleanUrl = currentUrl.split('?')[0];
-                        img.src = cleanUrl;
-                        img.className = 'sp-modal__logo-preview';
-                        previewArea.appendChild(img);
-                    }
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'sp-modal__preview-empty';
-                    empty.textContent = 'No image set — upload one below';
-                    previewArea.appendChild(empty);
-                }
-
-                dropInner.querySelector('.sp-modal__drop-label').textContent = 'Click or drag an image here';
-                backdrop.removeAttribute('hidden');
-                dropZone.focus();
-            }
-
-            function closeModal() {
-                backdrop.setAttribute('hidden', '');
-                activeField = pendingFile = null;
-            }
-
-            closeBtn?.addEventListener('click',  closeModal);
-            cancelBtn?.addEventListener('click', closeModal);
-            backdrop?.addEventListener('click',  e => { if (e.target === backdrop) closeModal(); });
-            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-            // ── File selection ──────────────────────────────────────────────────
-            function handleFile(file) {
-                if (!file) return;
-                const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
-                if (!allowed.includes(file.type)) { showModalError('Only JPEG, PNG, WebP, or GIF images are allowed.'); return; }
-                if (file.size > 5 * 1024 * 1024)  { showModalError('File exceeds the 5 MB limit.'); return; }
-
-                errorEl.hidden     = true;
-                pendingFile        = file;
-                saveBtn.disabled   = false;
-
-                const reader = new FileReader();
-                reader.onload = e => {
-                    previewArea.innerHTML = '';
-                    if (activeField === 'BannerUrl') {
-                        const div = document.createElement('div');
-                        div.className = 'sp-modal__banner-preview';
-                        div.style.backgroundImage = `url('${e.target.result}')`;
-                        previewArea.appendChild(div);
-                    } else {
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.className = 'sp-modal__logo-preview';
-                        previewArea.appendChild(img);
-                    }
-                };
-                reader.readAsDataURL(file);
-                dropInner.querySelector('.sp-modal__drop-label').textContent = file.name;
-            }
-
-            fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
-            dropZone?.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('sp-modal__drop-zone--over'); });
-            dropZone?.addEventListener('dragleave', ()  => dropZone.classList.remove('sp-modal__drop-zone--over'));
-            dropZone?.addEventListener('drop', e => {
-                e.preventDefault();
-                dropZone.classList.remove('sp-modal__drop-zone--over');
-                handleFile(e.dataTransfer.files[0]);
-            });
-
-            // ── Upload ──────────────────────────────────────────────────────────
-            saveBtn?.addEventListener('click', async () => {
-                if (!pendingFile || !activeField) return;
-                
-                const originalText = saveBtn.textContent;
-                saveBtn.disabled    = true;
-                saveBtn.textContent = 'Uploading…';
-                errorEl.hidden      = true;
-
-                try {
-                    const res = await uploadImage(activeField, pendingFile);
-                    
-                    if (!res.ok) {
-                        showModalError(res.error || 'Upload failed');
-                        saveBtn.disabled = false;
-                        saveBtn.textContent = originalText;
-                        return;
-                    }
-
-                    // Add timestamp to prevent caching issues
-                    const cacheBuster = `${res.url}?v=${Date.now()}`;
-
-                    if (activeField === 'BannerUrl') {
-                        const banner = document.getElementById('shopBanner');
-                        banner.style.backgroundImage = `url('${cacheBuster}')`;
-                        const placeholder = banner.querySelector('.sp-banner__placeholder');
-                        if (placeholder) placeholder.remove();
-                        // Store the clean URL for future reference
-                        banner.setAttribute('data-original-bg', res.url);
-                    } else {
-                        // Handle logo update
-                        const existingLogo = document.getElementById('shopLogoImg');
-                        
-                        if (existingLogo) {
-                            if (existingLogo.tagName === 'DIV') {
-                                // Replace placeholder div with img
-                                const img = document.createElement('img');
-                                img.src = cacheBuster;
-                                img.id = 'shopLogoImg';
-                                img.alt = 'Shop logo';
-                                img.className = 'sp-identity__logo';
-                                img.setAttribute('data-original-src', res.url);
-                                existingLogo.replaceWith(img);
-                            } else if (existingLogo.tagName === 'IMG') {
-                                // Update existing img src
-                                existingLogo.src = cacheBuster;
-                                existingLogo.setAttribute('data-original-src', res.url);
-                            }
-                        }
-                    }
-                    
-                    // Show success indicator
-                    const tempMsg = document.createElement('div');
-                    tempMsg.textContent = 'Image uploaded successfully!';
-                    tempMsg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0e6245;color:#fff;padding:10px 20px;border-radius:8px;z-index:1000;animation:fadeOut 2s ease forwards;';
-                    document.body.appendChild(tempMsg);
-                    setTimeout(() => tempMsg.remove(), 2000);
-                    
-                } catch (err) {
-                    showModalError('Network error. Please try again.');
-                    console.error('Upload error:', err);
-                } finally {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
-                }
-                
-                closeModal();
-            });
-
-            function showModalError(msg) {
-                errorEl.textContent = msg;
-                errorEl.hidden      = false;
-            }
-
-            // ── Trigger: Banner & Logo clicks ───────────────────────────────────
-            const bannerElement = document.getElementById('shopBanner');
-            if (bannerElement) {
-                bannerElement.addEventListener('click', () => {
-                    const style = bannerElement.style.backgroundImage;
-                    let current = null;
-                    if (style && style !== 'none') {
-                        current = style.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '').split('?')[0];
-                    }
-                    openModal('BannerUrl', current, 'Banner Image');
-                });
-            }
-
-            const logoWrap = document.getElementById('shopLogoWrap');
-            if (logoWrap) {
-                const openLogo = () => {
-                    const img = document.getElementById('shopLogoImg');
-                    let current = null;
-                    if (img && img.tagName === 'IMG') {
-                        current = img.getAttribute('data-original-src') || img.src.split('?')[0];
-                    }
-                    openModal('LogoUrl', current, 'Logo Image');
-                };
-                logoWrap.addEventListener('click', openLogo);
-                logoWrap.addEventListener('keydown', e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openLogo();
-                    }
-                });
-            }
-
-            // Add fade-out animation for success message
-            const style = document.createElement('style');
-            style.textContent = `
-                @@keyframes fadeOut {
-                    0% { opacity: 1; transform: translateY(0); }
-                    70% { opacity: 1; transform: translateY(0); }
-                    100% { opacity: 0; transform: translateY(-20px); visibility: hidden; }
-                }
-            `;
-            document.head.appendChild(style);
-
-            // ══════════════════════════════════════════════════════════════════════
-            //  FORCE REFRESH IMAGES ON PAGE LOAD (CACHE BUSTING)
-            // ══════════════════════════════════════════════════════════════════════
-            function refreshImagesWithCacheBuster() {
-                // Refresh logo if it's an image
-                const logo = document.getElementById('shopLogoImg');
-                if (logo && logo.tagName === 'IMG' && logo.src) {
-                    const originalSrc = logo.getAttribute('data-original-src') || logo.src.split('?')[0];
-                    if (originalSrc && originalSrc !== '') {
-                        logo.src = originalSrc + '?v=' + Date.now();
-                    }
-                }
-                
-                // Refresh banner if it has background image
-                const banner = document.getElementById('shopBanner');
-                if (banner && banner.style.backgroundImage) {
-                    const bg = banner.style.backgroundImage;
-                    const urlMatch = bg.match(/url\(['"]?([^'"]+)['"]?\)/);
-                    if (urlMatch && urlMatch[1]) {
-                        const cleanUrl = urlMatch[1].split('?')[0];
-                        if (cleanUrl && cleanUrl !== '' && cleanUrl !== 'none') {
-                            banner.style.backgroundImage = `url('${cleanUrl}?v=${Date.now()}')`;
-                        }
+                const locJson = await locRes.json();
+                if (!locJson.ok) {
+                    // non-fatal: show error but keep address text saved
+                    if (addressError) {
+                        addressError.textContent = locJson.error || 'Failed to save coordinates';
+                        addressError.hidden = false;
                     }
                 }
             }
+        } catch (err) {
+            console.warn('Failed to save coordinates', err);
+        } finally {
+            saveAddressBtn.disabled = false;
+            saveAddressBtn.textContent = 'Save';
+        }
 
-            // Run on page load
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', refreshImagesWithCacheBuster);
-            } else {
-                refreshImagesWithCacheBuster();
-            }
+        // Update displayed address
+        displayEl.innerHTML = (newAddress || 'No address set') +
+            `<span class="sp-inline__edit-hint" aria-hidden="true">` +
+            `<svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">` +
+            `<path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />` +
+            `</svg></span>`;
+        originalAddress = newAddress;
+        closeAddressEditor(false);
+        });
 
-            // ══════════════════════════════════════════════════════════════════════
-            //  INLINE TEXT EDITING (ShopName + Bio)
-            // ══════════════════════════════════════════════════════════════════════
-            document.querySelectorAll('.sp-inline--editable').forEach(block => {
-                const display   = block.querySelector('.sp-inline__display');
-                const editor    = block.querySelector('.sp-inline__editor');
-                const input     = block.querySelector('.sp-inline__input');
-                const saveBtn   = block.querySelector('.sp-inline__save');
-                const cancelBtn = block.querySelector('.sp-inline__cancel');
-                const errorEl   = block.querySelector('.sp-inline__error');
-                const field     = block.dataset.field;
+        // Map picker integration
+        if (mapPickerBtn && typeof window.openMapPicker === 'function') {
+        mapPickerBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Open map picker, after selection it will fill lat/lng hidden inputs and address text field
+        window.openMapPicker('ShopLocation', (latLng, addressString) => {
+        if (addressInput && addressString) {
+        addressInput.value = addressString;
+        }
+        // The map-picker.js also updates hidden lat/lng inputs
+        });
+        });
+        } else if (mapPickerBtn) {
+        // Fallback if map picker not loaded
+        console.warn('openMapPicker not available');
+        }
 
-                if (!display || !editor || !input) return;
+        @* For non-owners: clicking the address should open the map in view-only mode *@
+        @if (!isOwner)
+        {
+            <text>
+        const shopAddressDisplayView = document.getElementById('shopAddressDisplay');
+        shopAddressDisplayView?.addEventListener('click', function (e) {
+            e.preventDefault();
+            // open in view-only mode so users can see the precise pin (no editing)
+            window.openMapPicker('ShopLocation', null, 'view');
+        });
+            </text>
+        }
 
-                let originalValue = input.value;
-
-                function openEditor() {
-                    input.value = originalValue;
-                    display.hidden = true;
-                    editor.removeAttribute('hidden');
-                    block.classList.add('sp-inline--editing');
-                    input.focus();
-                    if (input.tagName === 'INPUT')
-                        input.setSelectionRange(input.value.length, input.value.length);
-                }
-                function closeEditor(restore) {
-                    if (restore) input.value = originalValue;
-                    display.hidden = false;
-                    editor.setAttribute('hidden', '');
-                    errorEl.hidden = true;
-                    block.classList.remove('sp-inline--editing');
-                }
-
-                display.addEventListener('click', openEditor);
-                cancelBtn.addEventListener('click', () => closeEditor(true));
-
-                input.addEventListener('keydown', e => {
-                    if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); }
-                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveBtn.click();
-                });
-
-                saveBtn.addEventListener('click', async () => {
-                    const val = input.value.trim();
-                    errorEl.hidden      = true;
-                    saveBtn.disabled    = true;
-                    saveBtn.textContent = 'Saving…';
-
-                    const res = await saveTextField(field, val);
-
-                    saveBtn.disabled    = false;
-                    saveBtn.textContent = 'Save';
-
-                    if (!res.ok) {
-                        errorEl.textContent = res.error;
-                        errorEl.hidden      = false;
-                        return;
-                    }
-
-                    originalValue = val;
-
-                    if (field === 'ShopName') {
-                        // Update the text node inside the <h1> without clobbering the hint icon
-                        const h1 = display;
-                        const editHint = h1.querySelector('.sp-inline__edit-hint');
-                        if (editHint) {
-                            h1.childNodes[0].textContent = val + ' ';
-                        } else {
-                            h1.textContent = val;
-                        }
-                        document.title = val;
-                    } else {
-                        display.textContent = val || 'Click to add a bio…';
-                        display.classList.toggle('sp-identity__bio--empty', !val);
-                        if (val) {
-                            // Re-append the hint icon for bio
-                            const hint = block.querySelector('.sp-inline__edit-hint');
-                            if (hint) display.appendChild(hint);
-                        }
-                    }
-
-                    closeEditor(false);
-                });
-            });
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && editorDiv && !editorDiv.hidden) {
+        closeAddressEditor(true);
+        }
+        });
+        }
 
         }());
     </script>
 }
+
+<script>
+    (function () {
+        'use strict';
+        var isOwner = @isOwner.ToString().ToLowerInvariant();
+        if (!isOwner) {
+            function attachViewerAddressClick() {
+                var addr = document.getElementById('shopAddressDisplay');
+                if (!addr) return;
+                addr.style.cursor = 'pointer';
+                addr.setAttribute('role', 'button');
+                addr.tabIndex = 0;
+                addr.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    try {
+                        if (typeof window.openMapPicker === 'function') {
+                            window.openMapPicker('ShopLocation', null, 'view');
+                            return;
+                        }
+                        var s = document.createElement('script');
+                        s.src = '/js/map-picker.js';
+                        s.onload = function () { if (typeof window.openMapPicker === 'function') window.openMapPicker('ShopLocation', null, 'view'); };
+                        s.onerror = function () { console.warn('Failed to load map-picker.js'); };
+                        document.head.appendChild(s);
+                    } catch (err) {
+                        console.warn('openMapPicker failed', err);
+                    }
+                });
+                addr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addr.click(); } });
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachViewerAddressClick); else attachViewerAddressClick();
+        }
+    }());
+</script>

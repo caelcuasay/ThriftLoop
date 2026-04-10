@@ -52,6 +52,8 @@ public class UserProfileService : IUserProfileService
             FullName = user.FullName,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
+            Latitude = user.Latitude,
+            Longitude = user.Longitude,
             Role = user.Role.ToString(),
             CreatedAt = user.CreatedAt,
             IsGoogleAccount = string.IsNullOrEmpty(user.PasswordHash)
@@ -72,6 +74,8 @@ public class UserProfileService : IUserProfileService
         user.FullName = dto.FullName?.Trim();
         user.PhoneNumber = dto.PhoneNumber?.Trim();
         user.Address = dto.Address?.Trim();
+        user.Latitude = dto.Latitude;
+        user.Longitude = dto.Longitude;
 
         await _userRepo.UpdateAsync(user);
 

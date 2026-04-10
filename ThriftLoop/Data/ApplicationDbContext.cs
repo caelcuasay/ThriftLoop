@@ -64,6 +64,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(u => u.DisabledAt)
                   .IsRequired(false)
                   .HasColumnType("datetime2");
+
+            // Coordinates precision — prevent SQL truncation warnings
+            entity.Property(u => u.Latitude)
+                  .IsRequired(false)
+                  .HasPrecision(9,6);
+
+            entity.Property(u => u.Longitude)
+                  .IsRequired(false)
+                  .HasPrecision(9,6);
         });
 
         // ── Riders ─────────────────────────────────────────────────────────────
@@ -92,13 +101,6 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(r => r.ActiveDeliveryId)
                   .OnDelete(DeleteBehavior.Restrict);
-            entity.Property(r => r.RejectionReason)
-                  .IsRequired(false)
-                  .HasMaxLength(500);
-
-            entity.Property(r => r.UpdatedAt)
-                  .IsRequired(false)
-                  .HasColumnType("datetime2");
             entity.Property(r => r.RejectionReason)
                   .IsRequired(false)
                   .HasMaxLength(500);
@@ -167,6 +169,15 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(i => i.ShopId)
                   .IsRequired(false)
                   .OnDelete(DeleteBehavior.NoAction);
+
+            // Optional shop coordinates for geolocation
+            entity.Property(sp => sp.Latitude)
+                  .IsRequired(false)
+                  .HasPrecision(9,6);
+
+            entity.Property(sp => sp.Longitude)
+                  .IsRequired(false)
+                  .HasPrecision(9,6);
         });
 
         // ── Items ─────────────────────────────────────────────────────────────
@@ -262,6 +273,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(o => o.Id);
             entity.Property(o => o.Id).ValueGeneratedOnAdd();
             entity.Property(o => o.FinalPrice).IsRequired().HasColumnType("decimal(10,2)");
+            entity.Property(o => o.DeliveryFee).IsRequired().HasColumnType("decimal(10,2)");
             entity.Property(o => o.Quantity).IsRequired().HasDefaultValue(1);
             entity.Property(o => o.OrderDate)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");

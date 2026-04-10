@@ -15,9 +15,20 @@ public class ShopPageViewModel
     public string? Bio { get; set; }
     public string? BannerUrl { get; set; }
     public string? LogoUrl { get; set; }
+    public string? StoreAddress { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 
     /// <summary>Listings belonging to this shop — loaded on Index.</summary>
     public IReadOnlyList<ThriftLoop.Models.Item> Items { get; set; } = new List<ThriftLoop.Models.Item>();
+}
+
+public class SaveLocationDto
+{
+    public int ShopId { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? Address { get; set; }
 }
 
 /// <summary>

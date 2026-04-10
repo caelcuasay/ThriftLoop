@@ -41,7 +41,7 @@
         </div>
 
         @* ── Search bar ───────────────────────────────────────────── *@
-        <div class="map-modal__search">
+        <div id="map-picker-search-wrapper" class="map-modal__search">
             <div class="map-search-wrapper">
                 <svg class="map-search-icon" width="16" height="16" viewBox="0 0 24 24"
                      fill="none" stroke="currentColor" stroke-width="2"
@@ -80,7 +80,7 @@
         </div>
 
         @* ── Footer ───────────────────────────────────────────────── *@
-        <div class="map-modal__footer">
+        <div id="map-picker-footer" class="map-modal__footer">
 
             <div id="map-geocode-spinner" class="map-geocode-spinner"
                  aria-live="polite" aria-label="Loading address">
@@ -93,7 +93,7 @@
             <button type="button" class="up-btn up-btn--outline" onclick="closeMapPicker()">
                 Cancel
             </button>
-            <button type="button" class="up-btn up-btn--primary" onclick="confirmMapAddress()">
+            <button id="map-picker-confirm-btn" type="button" class="up-btn up-btn--primary" onclick="confirmMapAddress()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                      stroke-linejoin="round" aria-hidden="true">

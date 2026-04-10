@@ -23,6 +23,8 @@
        var addrError = ViewData.ModelState.ContainsKey("Address")
                        && ViewData.ModelState["Address"]!.Errors.Count > 0;
    }
+@using System.Globalization
+@using System
    @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
        new ViewDataDictionary(ViewData)
        {
@@ -89,6 +91,34 @@
                   rows="3"
                   placeholder="@placeholder"
                   aria-describedby="@(fieldId)-hint @(fieldId)-error">@currentValue</textarea>
+
+        @* Hidden fields to store the selected coordinates from the map picker *@
+        @{ 
+            var latKey = $"{fieldId}-Latitude";
+            var lngKey = $"{fieldId}-Longitude";
+
+            string? viewDataLat = null;
+            if (ViewData[latKey] is not null)
+                viewDataLat = ViewData[latKey].ToString();
+            else if (ViewData["Latitude"] is not null)
+                viewDataLat = ViewData["Latitude"].ToString();
+
+            string? viewDataLng = null;
+            if (ViewData[lngKey] is not null)
+                viewDataLng = ViewData[lngKey].ToString();
+            else if (ViewData["Longitude"] is not null)
+                viewDataLng = ViewData["Longitude"].ToString();
+
+            var latVal = viewDataLat
+                         ?? (ViewBag.Profile?.Latitude is decimal lat ? lat.ToString(System.Globalization.CultureInfo.InvariantCulture) : ViewBag.Profile?.Latitude?.ToString())
+                         ?? string.Empty;
+            var lngVal = viewDataLng
+                         ?? (ViewBag.Profile?.Longitude is decimal lng ? lng.ToString(System.Globalization.CultureInfo.InvariantCulture) : ViewBag.Profile?.Longitude?.ToString())
+                         ?? string.Empty;
+        }
+
+        <input type="hidden" id="@(fieldId)-latitude" name="Latitude" value="@latVal" />
+        <input type="hidden" id="@(fieldId)-longitude" name="Longitude" value="@lngVal" />
 
         <button type="button"
                 class="map-pick-btn"
