@@ -198,6 +198,26 @@ public class AdminController : BaseController
         return View(applications);
     }
 
+    /// <summary>
+    /// Detail page — lets the admin review rider's full application details
+    /// including driver's license photo, vehicle info, and address before deciding.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> RiderApplicationDetail(int id)
+    {
+        var application = await _adminRepo.GetRiderApplicationByIdAsync(id);
+
+        if (application is null)
+        {
+            TempData["ErrorMessage"] = "Rider application not found.";
+            return RedirectToAction(nameof(RiderApprovals));
+        }
+
+        return View(application);
+    }
+
+    // Controllers/AdminController.cs - Rider Approval Actions
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ApproveRider(int riderId)
@@ -205,11 +225,21 @@ public class AdminController : BaseController
         var success = await _adminRepo.ApproveRiderAsync(riderId);
 
         if (!success)
-            TempData["ErrorMessage"] = "Failed to approve rider.";
+        {
+            TempData["ErrorMessage"] = "Failed to approve rider. Please try again.";
+            _logger.LogWarning("Failed to approve rider {RiderId}.", riderId);
+        }
         else
         {
             _logger.LogInformation("Admin approved rider {RiderId}.", riderId);
             TempData["SuccessMessage"] = "Rider approved. They can now accept delivery jobs.";
+        }
+
+        // Redirect back to the detail page if coming from there, otherwise to the list
+        var referer = Request.Headers["Referer"].ToString();
+        if (referer.Contains("RiderApplicationDetail"))
+        {
+            return RedirectToAction(nameof(RiderApplicationDetail), new { id = riderId });
         }
 
         return RedirectToAction(nameof(RiderApprovals));
@@ -222,11 +252,72 @@ public class AdminController : BaseController
         var success = await _adminRepo.RejectRiderAsync(riderId);
 
         if (!success)
-            TempData["ErrorMessage"] = "Failed to reject rider.";
+        {
+            TempData["ErrorMessage"] = "Failed to reject rider. Please try again.";
+            _logger.LogWarning("Failed to reject rider {RiderId}.", riderId);
+        }
         else
         {
             _logger.LogInformation("Admin rejected rider {RiderId}.", riderId);
             TempData["SuccessMessage"] = "Rider rejected.";
+        }
+
+        // Redirect back to the detail page if coming from there, otherwise to the list
+        var referer = Request.Headers["Referer"].ToString();
+        if (referer.Contains("RiderApplicationDetail"))
+        {
+            return RedirectToAction(nameof(RiderApplicationDetail), new { id = riderId });
+        }
+
+        return RedirectToAction(nameof(RiderApprovals));
+    }
+
+    // Controllers/AdminController.cs - Add new action
+
+    [HttpGet]
+    public async Task<IActionResult> RejectRiderWithReason(int id)
+    {
+        var rider = await _adminRepo.GetRiderApplicationByIdAsync(id);
+        if (rider is null)
+        {
+            TempData["ErrorMessage"] = "Rider application not found.";
+            return RedirectToAction(nameof(RiderApprovals));
+        }
+
+        var model = new ThriftLoop.DTOs.Admin.RejectRiderDto
+        {
+            RiderId = rider.Id
+        };
+
+        ViewBag.RiderName = rider.FullName;
+        ViewBag.RiderEmail = rider.Email;
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectRiderWithReason(ThriftLoop.DTOs.Admin.RejectRiderDto model)
+    {
+        if (!ModelState.IsValid)
+        {
+            var rider = await _adminRepo.GetRiderApplicationByIdAsync(model.RiderId);
+            ViewBag.RiderName = rider?.FullName;
+            ViewBag.RiderEmail = rider?.Email;
+            return View(model);
+        }
+
+        var success = await _adminRepo.RejectRiderWithReasonAsync(model.RiderId, model.Reason);
+
+        if (!success)
+        {
+            TempData["ErrorMessage"] = "Failed to reject rider. Please try again.";
+            _logger.LogWarning("Failed to reject rider {RiderId}.", model.RiderId);
+        }
+        else
+        {
+            _logger.LogInformation("Admin rejected rider {RiderId} with reason: {Reason}", model.RiderId, model.Reason);
+            TempData["SuccessMessage"] = $"Rider rejected. Reason: {model.Reason}";
         }
 
         return RedirectToAction(nameof(RiderApprovals));

@@ -1,0 +1,260 @@
+﻿<!-- Views/Rider/EditApplication.cshtml -->
+@model ThriftLoop.DTOs.Auth.RiderEditDTO
+@{
+    ViewData["Title"] = "Edit Rider Application";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/AuthRider.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="rider-page">
+
+        <nav class="rider-topbar">
+            <a href="/" class="rider-topbar__brand">ThriftLoop</a>
+            <div class="rider-topbar__links">
+                <form asp-action="Logout" asp-controller="Auth" method="post" style="margin:0;padding:0;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="rider-topbar__link rider-topbar__link--btn"
+                            style="background:rgba(255,255,255,0.12);border:none;cursor:pointer;font-family:inherit;">
+                        Sign Out
+                    </button>
+                </form>
+            </div>
+        </nav>
+
+        <div class="rider-hero">
+            <div class="rider-hero__inner">
+                <div class="rider-hero__text">
+                    <div class="rider-hero__badge" style="background:#fee2e2;color:#991b1b;">Resubmit Application</div>
+                    <h1 class="rider-hero__title">Edit Your Application</h1>
+                    <p class="rider-hero__subtitle">
+                        @if (!string.IsNullOrEmpty(ViewBag.RejectionReason as string))
+                        {
+                            <span style="color:#991b1b;">Reason for rejection: @ViewBag.RejectionReason</span>
+                        }
+                        <br />
+                        Please correct the issues above and resubmit your application for review.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <main class="rider-body">
+
+            @if (TempData["ErrorMessage"] is string errMsg)
+            {
+                <div class="rider-error-banner" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                    <div>@errMsg</div>
+                </div>
+            }
+
+            <form asp-action="EditApplication" asp-controller="Rider"
+                  method="post" enctype="multipart/form-data" novalidate>
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="ExistingLicenseUrl" />
+
+                <div class="rider-sections">
+
+                    <!-- Personal Information -->
+                    <div class="rider-section">
+                        <h2 class="rider-section__title">
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" /></svg>
+                            Personal Information
+                        </h2>
+
+                        <div class="field-row">
+                            <div class="field">
+                                <label asp-for="FullName" class="field__label"></label>
+                                <input asp-for="FullName" class="field__input" type="text" autocomplete="name" />
+                                <span asp-validation-for="FullName" class="field__error"></span>
+                            </div>
+
+                            <div class="field">
+                                <label asp-for="PhoneNumber" class="field__label"></label>
+                                <input asp-for="PhoneNumber" class="field__input" type="tel" autocomplete="tel" />
+                                <span asp-validation-for="PhoneNumber" class="field__error"></span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label asp-for="Email" class="field__label"></label>
+                            <input asp-for="Email" class="field__input" type="email" autocomplete="email" />
+                            <span asp-validation-for="Email" class="field__error"></span>
+                        </div>
+
+                        <div class="field">
+                            <label asp-for="Address" class="field__label"></label>
+                            <textarea asp-for="Address" class="field__input field__textarea" rows="3"></textarea>
+                            <span asp-validation-for="Address" class="field__error"></span>
+                        </div>
+                    </div>
+
+                    <!-- Vehicle & License Details -->
+                    <div class="rider-section">
+                        <h2 class="rider-section__title">
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.5 3A1.5 1.5 0 005 4.5v.75a.75.75 0 01-.75.75H3a1 1 0 00-1 1v7a1 1 0 001 1h14a1 1 0 001-1V7a1 1 0 00-1-1h-1.25a.75.75 0 01-.75-.75V4.5A1.5 1.5 0 0013.5 3h-7zM10 13a2 2 0 100-4 2 2 0 000 4z" /></svg>
+                            Vehicle &amp; License Details
+                        </h2>
+
+                        <div class="field">
+                            <label asp-for="DriversLicense" class="field__label"></label>
+                            @if (!string.IsNullOrEmpty(Model.ExistingLicenseUrl))
+                            {
+                                <div style="margin-bottom: 1rem;">
+                                    <img src="@Model.ExistingLicenseUrl" alt="Current license" style="max-width: 200px; border-radius: 0.5rem;" />
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">Current license photo (upload new to replace)</p>
+                                </div>
+                            }
+                            <label class="file-upload" id="licenseUploadLabel">
+                                <input asp-for="DriversLicense"
+                                       type="file"
+                                       class="file-upload__input"
+                                       accept="image/jpeg,image/png,image/webp"
+                                       onchange="previewLicense(this)" />
+                                <span class="file-upload__body" id="licenseUploadBody">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909-1.47-1.47a.75.75 0 00-1.06 0L2.5 11.06zm9.5-6.56a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="file-upload__text">
+                                        <strong>Click to upload new license</strong> (optional)<br>
+                                        <small>JPG, PNG or WEBP &mdash; max 5 MB</small>
+                                    </span>
+                                </span>
+                                <img id="licensePreview" class="file-upload__preview" src="" alt="New license preview" style="display:none;" />
+                            </label>
+                            <span asp-validation-for="DriversLicense" class="field__error"></span>
+                        </div>
+
+                        <div class="field-row">
+                            <div class="field">
+                                <label asp-for="VehicleType" class="field__label"></label>
+                                <div class="field__select-wrapper">
+                                    <select asp-for="VehicleType" class="field__input field__select">
+                                        <option value="" disabled>Select type...</option>
+                                        <option value="Motorcycle">Motorcycle</option>
+                                        <option value="E-Bike">E-Bike</option>
+                                        <option value="E-Scooter">E-Scooter</option>
+                                        <option value="Bicycle">Bicycle</option>
+                                        <option value="Car">Car</option>
+                                        <option value="Van">Van</option>
+                                    </select>
+                                    <svg class="field__select-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clip-rule="evenodd" /></svg>
+                                </div>
+                                <span asp-validation-for="VehicleType" class="field__error"></span>
+                            </div>
+
+                            <div class="field">
+                                <label asp-for="VehicleColor" class="field__label"></label>
+                                <input asp-for="VehicleColor" class="field__input" type="text" />
+                                <span asp-validation-for="VehicleColor" class="field__error"></span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label asp-for="LicensePlate" class="field__label"></label>
+                            <input asp-for="LicensePlate" class="field__input" type="text" style="text-transform:uppercase;" />
+                            <span asp-validation-for="LicensePlate" class="field__error"></span>
+                        </div>
+                    </div>
+
+                    <!-- Account Security (Optional Password Change) -->
+                    <div class="rider-section">
+                        <h2 class="rider-section__title">
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>
+                            Change Password (Optional)
+                        </h2>
+
+                        <div class="field">
+                            <label asp-for="NewPassword" class="field__label"></label>
+                            <div class="field__input-wrapper">
+                                <input asp-for="NewPassword" id="passwordInput" class="field__input" type="password" autocomplete="new-password" placeholder="Leave blank to keep current" />
+                                <button type="button" class="toggle-password" aria-label="Toggle password visibility" onclick="togglePassword('passwordInput')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                </button>
+                            </div>
+                            <span asp-validation-for="NewPassword" class="field__error"></span>
+                        </div>
+
+                        <div class="field">
+                            <label asp-for="ConfirmNewPassword" class="field__label"></label>
+                            <div class="field__input-wrapper">
+                                <input asp-for="ConfirmNewPassword" id="confirmPasswordInput" class="field__input" type="password" autocomplete="new-password" />
+                                <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility" onclick="togglePassword('confirmPasswordInput')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                </button>
+                            </div>
+                            <span asp-validation-for="ConfirmNewPassword" class="field__error"></span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="rider-form-footer">
+                    <button type="submit" class="btn btn--primary">
+                        Resubmit Application
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <a asp-action="RiderApproval" asp-controller="Auth" class="btn btn--secondary" style="background:#f3f4f6;color:#374151;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;padding:0.625rem 1.25rem;border-radius:0.5rem;">
+                        Cancel
+                    </a>
+                </div>
+
+            </form>
+
+            <div class="rider-page-footer">
+                <a asp-action="RiderApproval" asp-controller="Auth">Back to application status</a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+    <script>
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function previewLicense(input) {
+            const preview = document.getElementById('licensePreview');
+            const body = document.getElementById('licenseUploadBody');
+            if (input.files && input.files[0]) {
+                if (input.files[0].size > 5 * 1024 * 1024) {
+                    alert('File exceeds 5 MB. Please choose a smaller image.');
+                    input.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    body.style.display = 'none';
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                preview.style.display = 'none';
+                body.style.display = 'flex';
+            }
+        }
+
+        document.querySelector('[name="LicensePlate"]')
+            ?.addEventListener('blur', function() { this.value = this.value.toUpperCase(); });
+    </script>
+</body>
+</html>

@@ -92,6 +92,28 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(r => r.ActiveDeliveryId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.Property(r => r.RejectionReason)
+                  .IsRequired(false)
+                  .HasMaxLength(500);
+
+            entity.Property(r => r.UpdatedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+            entity.Property(r => r.RejectionReason)
+                  .IsRequired(false)
+                  .HasMaxLength(500);
+
+            entity.Property(r => r.RejectedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(r => r.ResubmittedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(r => r.UpdatedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
         });
 
         // ── SellerProfiles ────────────────────────────────────────────────────
@@ -363,5 +385,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(w => w.Reference).IsRequired(false).HasMaxLength(200);
             entity.HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.NoAction);
         });
+
+
     }
 }

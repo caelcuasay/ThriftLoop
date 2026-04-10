@@ -203,4 +203,65 @@ public class RiderController : BaseController
         var deliveries = await _deliveryRepository.GetDeliveriesByRiderIdAsync(riderId);
         return View(deliveries);
     }
+
+    // Controllers/RiderController.cs - Add actions
+
+    /// <summary>
+    /// Shows the rider's rejection reason and allows them to edit their application.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> EditApplication()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var riderId))
+            return RedirectToAction("Login", "Auth");
+
+        var rider = await _riderAuthService.GetRejectedApplicationAsync(riderId);
+        if (rider == null)
+        {
+            // If not rejected, redirect to appropriate page
+            if (rider?.IsApproved == true)
+                return RedirectToAction(nameof(Index));
+            return RedirectToAction("RiderApproval", "Auth");
+        }
+
+        var model = new ThriftLoop.DTOs.Auth.RiderEditDTO
+        {
+            Id = rider.Id,
+            FullName = rider.FullName ?? "",
+            Email = rider.Email,
+            PhoneNumber = rider.PhoneNumber ?? "",
+            Address = rider.Address ?? "",
+            VehicleType = rider.VehicleType ?? "",
+            VehicleColor = rider.VehicleColor ?? "",
+            LicensePlate = rider.LicensePlate ?? "",
+            ExistingLicenseUrl = rider.DriversLicense
+        };
+
+        ViewBag.RejectionReason = rider.RejectionReason;
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditApplication(ThriftLoop.DTOs.Auth.RiderEditDTO model)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewBag.RejectionReason = "Please fix the errors below and resubmit.";
+            return View(model);
+        }
+
+        var success = await _riderAuthService.UpdateApplicationAsync(model);
+
+        if (!success)
+        {
+            TempData["ErrorMessage"] = "Failed to update your application. Please try again.";
+            return View(model);
+        }
+
+        TempData["SuccessMessage"] = "Your application has been resubmitted for review.";
+        return RedirectToAction("RiderApproval", "Auth");
+    }
 }

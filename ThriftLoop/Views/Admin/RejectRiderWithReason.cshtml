@@ -1,0 +1,209 @@
+﻿<!-- Views/Admin/RejectRiderWithReason.cshtml -->
+@model ThriftLoop.DTOs.Admin.RejectRiderDto
+@{
+    ViewData["Title"] = "Reject Rider Application";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var riderName = ViewBag.RiderName as string ?? "Applicant";
+    var riderEmail = ViewBag.RiderEmail as string ?? "";
+}
+
+<div class="admin-approvals">
+    <div class="admin-header">
+        <div>
+            <div class="admin-header__back">
+                <a asp-action="RiderApplicationDetail" asp-route-id="@Model.RiderId" class="back-link">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
+                    </svg>
+                    Back to Application Details
+                </a>
+            </div>
+            <h1>Reject Rider Application</h1>
+            <p>Provide a reason for rejecting @riderName's application.</p>
+        </div>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="alert alert--error">@errMsg</div>
+    }
+
+    <div class="rejection-form-container" style="max-width: 600px; margin: 0 auto;">
+        <div class="detail-card">
+            <div class="detail-card__header">
+                <h2>Application Summary</h2>
+            </div>
+            <div class="detail-card__body">
+                <div class="detail-row">
+                    <div class="detail-label">Applicant</div>
+                    <div class="detail-value">@riderName</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Email</div>
+                    <div class="detail-value">@riderEmail</div>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" asp-action="RejectRiderWithReason">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="RiderId" />
+
+            <div class="detail-card" style="margin-top: 1.5rem;">
+                <div class="detail-card__header">
+                    <h2>Rejection Reason</h2>
+                </div>
+                <div class="detail-card__body">
+                    <div class="field">
+                        <label asp-for="Reason" class="field__label" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                            Please explain why this application is being rejected
+                        </label>
+                        <textarea asp-for="Reason" 
+                                  class="field__input" 
+                                  rows="5" 
+                                  placeholder="e.g., Driver's license photo is blurry and unreadable.&#10;Vehicle registration information incomplete.&#10;Address verification failed."
+                                  style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-family: inherit;"></textarea>
+                        <span asp-validation-for="Reason" class="field__error" style="color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem; display: block;"></span>
+                        <p class="field__hint" style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                            This reason will be shown to the rider so they know what to fix.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons" style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <a asp-action="RiderApplicationDetail" asp-route-id="@Model.RiderId" class="btn btn--secondary">Cancel</a>
+                <button type="submit" class="btn btn--reject" onclick="return confirm('Are you sure you want to reject this rider application? The applicant will be notified and can resubmit with corrections.')">
+                    Confirm Rejection
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .admin-header__back {
+        margin-bottom: 1rem;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6b7280;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+    
+    .back-link:hover {
+        color: #374151;
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .alert--error {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    
+    .detail-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+    
+    .detail-card__header {
+        padding: 1rem 1.5rem;
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .detail-card__header h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin: 0;
+        color: #111827;
+    }
+    
+    .detail-card__body {
+        padding: 1.5rem;
+    }
+    
+    .detail-row {
+        display: flex;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        width: 100px;
+        flex-shrink: 0;
+        font-weight: 500;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+    
+    .detail-value {
+        flex: 1;
+        color: #111827;
+        font-size: 0.875rem;
+    }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        transition: all 0.2s;
+    }
+    
+    .btn--reject {
+        background-color: #dc2626;
+        color: white;
+    }
+    
+    .btn--reject:hover {
+        background-color: #b91c1c;
+    }
+    
+    .btn--secondary {
+        background-color: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+    
+    .btn--secondary:hover {
+        background-color: #e5e7eb;
+    }
+    
+    .field__input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        font-family: inherit;
+        font-size: 0.875rem;
+    }
+    
+    .field__input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        ring: 2px solid #3b82f6;
+    }
+</style>

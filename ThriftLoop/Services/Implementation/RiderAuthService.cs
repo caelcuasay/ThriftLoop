@@ -1,8 +1,6 @@
 ﻿using BCrypt.Net;
-using ThriftLoop.Constants;  // ← ADD THIS
 using ThriftLoop.Data;
 using ThriftLoop.DTOs.Auth;
-using ThriftLoop.Enums;       // ← ADD THIS for TransactionType
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Interface;
@@ -15,6 +13,7 @@ public class RiderAuthService : IRiderAuthService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<RiderAuthService> _logger;
     private readonly IWebHostEnvironment _env;
+
     public RiderAuthService(
         IRiderRepository riderRepo,
         ApplicationDbContext context,
@@ -36,7 +35,7 @@ public class RiderAuthService : IRiderAuthService
 
         // ── Save license image ──────────────────────────────────────
         var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "rider-licenses");
-        Directory.CreateDirectory(uploadsDir); // no-op if already exists
+        Directory.CreateDirectory(uploadsDir);
 
         var ext = Path.GetExtension(dto.DriversLicense.FileName).ToLowerInvariant();
         var fileName = $"{Guid.NewGuid()}{ext}";
@@ -46,7 +45,6 @@ public class RiderAuthService : IRiderAuthService
             await dto.DriversLicense.CopyToAsync(stream);
 
         var licenseRelativePath = $"/uploads/rider-licenses/{fileName}";
-        // ───────────────────────────────────────────────────────────
 
         var rider = new Rider
         {
@@ -56,47 +54,101 @@ public class RiderAuthService : IRiderAuthService
             PhoneNumber = dto.PhoneNumber.Trim(),
             IsApproved = false,
             CreatedAt = DateTime.UtcNow,
-            DriversLicense = licenseRelativePath,   // stores the file path
+            DriversLicense = licenseRelativePath,
             VehicleType = dto.VehicleType.Trim(),
             VehicleColor = dto.VehicleColor.Trim(),
             LicensePlate = dto.LicensePlate.Trim().ToUpperInvariant(),
             Address = dto.Address.Trim(),
         };
-                    
 
         await _riderRepo.CreateAsync(rider);
 
-        // Auto-provision wallet with demo balance (using constant)
-        var wallet = new Wallet
-        {
-            RiderId = rider.Id,
-            Balance = WalletConstants.InitialBalance,   // ← FIXED: use constant
-            PendingBalance = 0m,
-            UpdatedAt = DateTime.UtcNow
-        };
-        _context.Wallets.Add(wallet);
-
-        // Audit the seed as a TopUp so the history is clean
-        _context.Transactions.Add(new Transaction
-        {
-            OrderId = null,
-            FromUserId = rider.Id,   // For riders, FromUserId = rider.Id (self)
-            ToUserId = rider.Id,     // ToUserId = rider.Id (self)
-            Amount = WalletConstants.InitialBalance,
-            Type = TransactionType.TopUp,
-            Status = TransactionStatus.Completed,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow
-        });
+        // REMOVED: Wallet creation - wallet will be created when admin approves the rider
+        // REMOVED: Transaction creation for wallet seeding
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation(
-            "New rider registered: {RiderId} with ₱{SeedBalance} demo balance.",
-            rider.Id, WalletConstants.InitialBalance);
+        _logger.LogInformation("New rider registration submitted: {RiderId} (pending approval)", rider.Id);
+
         return rider;
     }
 
+    public async Task<Rider?> GetRejectedApplicationAsync(int id)
+    {
+        var rider = await _riderRepo.GetByIdAsync(id);
+        if (rider != null && !rider.IsApproved && !string.IsNullOrEmpty(rider.RejectionReason))
+        {
+            return rider;
+        }
+        return null;
+    }
+
+    // Services/Implementation/RiderAuthService.cs
+
+    public async Task<bool> UpdateApplicationAsync(RiderEditDTO dto)
+    {
+        try
+        {
+            var rider = await _riderRepo.GetByIdAsync(dto.Id);
+            if (rider == null || rider.IsApproved)
+                return false;
+
+            // Update basic info
+            rider.FullName = dto.FullName.Trim();
+            rider.Email = dto.Email.Trim().ToLowerInvariant();
+            rider.PhoneNumber = dto.PhoneNumber.Trim();
+            rider.Address = dto.Address.Trim();
+            rider.VehicleType = dto.VehicleType.Trim();
+            rider.VehicleColor = dto.VehicleColor.Trim();
+            rider.LicensePlate = dto.LicensePlate.Trim().ToUpperInvariant();
+
+            // Update password if provided
+            if (!string.IsNullOrWhiteSpace(dto.NewPassword))
+            {
+                rider.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            }
+
+            // Update license photo if provided
+            if (dto.DriversLicense != null)
+            {
+                // Delete old file if exists
+                if (!string.IsNullOrEmpty(rider.DriversLicense))
+                {
+                    var oldPath = Path.Combine(_env.WebRootPath, rider.DriversLicense.TrimStart('/'));
+                    if (File.Exists(oldPath))
+                        File.Delete(oldPath);
+                }
+
+                var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "rider-licenses");
+                Directory.CreateDirectory(uploadsDir);
+
+                var ext = Path.GetExtension(dto.DriversLicense.FileName).ToLowerInvariant();
+                var fileName = $"{Guid.NewGuid()}{ext}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                    await dto.DriversLicense.CopyToAsync(stream);
+
+                rider.DriversLicense = $"/uploads/rider-licenses/{fileName}";
+            }
+
+            // Mark as resubmitted
+            rider.ResubmittedAt = DateTime.UtcNow;  // Set resubmission timestamp
+            rider.UpdatedAt = DateTime.UtcNow;
+            // Keep RejectionReason and RejectedAt for history
+
+            await _riderRepo.UpdateAsync(rider);
+
+            _logger.LogInformation("Rider {RiderId} resubmitted their application after rejection.", rider.Id);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating rider application for ID: {Id}", dto.Id);
+            return false;
+        }
+    }
     public async Task<Rider?> ValidateCredentialsAsync(LoginDTO dto)
     {
         var rider = await _riderRepo.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant());

@@ -1,7 +1,15 @@
-﻿@{
+﻿<!-- Views/Auth/RiderApproval.cshtml -->
+@{
     ViewData["Title"] = "Rider Application Status";
     Layout = null;
     var isApproved = (bool)(ViewBag.IsApproved ?? false);
+    var rejectionReason = ViewBag.RejectionReason as string;
+    // Read timestamps provided by controller
+    DateTime? rejectedAt = ViewBag.RejectedAt as DateTime?;
+    DateTime? resubmittedAt = ViewBag.ResubmittedAt as DateTime?;
+
+    // Use controller-provided CanEdit when available; otherwise fall back to legacy logic
+    var canEdit = (bool)(ViewBag.CanEdit ?? (!isApproved && !string.IsNullOrEmpty(rejectionReason) && (resubmittedAt == null || (rejectedAt != null && resubmittedAt <= rejectedAt))));
 }
 
 <!DOCTYPE html>
@@ -15,6 +23,60 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/AuthRider.css" asp-append-version="true" />
+    <style>
+        .rejection-card {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .rejection-card__title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #991b1b;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .rejection-card__reason {
+            font-size: 1rem;
+            color: #7f1d1d;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: #fee2e2;
+            border-radius: 0.5rem;
+        }
+        .btn--edit {
+            background: #6b7280;
+            color: white;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        .btn--edit:hover {
+            background: #4b5563;
+        }
+        .status-icon--rejected svg {
+            color: #dc2626;
+        }
+        .alert--info {
+            background-color: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+    </style>
 </head>
 <body>
     <div class="rider-page">
@@ -40,6 +102,7 @@
 
                 @if (isApproved)
                 {
+                    <!-- APPROVED PAGE -->
                     <div class="status-icon status-icon--approved" aria-hidden="true">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".2" />
@@ -62,8 +125,54 @@
                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
                     </a>
                 }
+                else if (canEdit)
+                {
+                    <!-- REJECTED PAGE - Needs Revision (only shows when rejection reason exists) -->
+                    <div class="status-icon status-icon--rejected" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".2" />
+                            <path d="M18 18L30 30M30 18L18 30" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                        </svg>
+                    </div>
+
+                    <h1 class="rider-status-card__title">Application Needs Revision</h1>
+                    <p class="rider-status-card__subtitle">
+                        Your application was not approved. Please review the feedback below and resubmit.
+                    </p>
+
+                    <div class="rejection-card">
+                        <div class="rejection-card__title">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            Reason for rejection
+                        </div>
+                        <div class="rejection-card__reason">
+                            @rejectionReason
+                        </div>
+                        <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">
+                            Please correct the issues mentioned above and resubmit your application.
+                        </p>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; justify-content: center;">
+                        <a asp-controller="Rider" asp-action="EditApplication" class="btn btn--edit">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                            </svg>
+                            Edit & Resubmit Application
+                        </a>
+                        <form asp-action="Logout" asp-controller="Auth" method="post" style="margin:0;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn--secondary" style="background:#f3f4f6;color:#374151;">
+                                Sign Out
+                            </button>
+                        </form>
+                    </div>
+                }
                 else
                 {
+                    <!-- PENDING PAGE - Under Review (shows after initial submission AND after resubmission) -->
                     <div class="status-icon status-icon--pending" aria-hidden="true">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="2" opacity=".2" />
@@ -80,10 +189,21 @@
                         Thank you for applying. We'll notify you by email once your application has been reviewed.
                     </p>
 
+                    @if (!string.IsNullOrEmpty(rejectionReason))
+                    {
+                        <!-- This shows a success message after resubmission -->
+                        <div class="alert alert--info" role="status">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Your application has been resubmitted successfully and is back under review.</span>
+                        </div>
+                    }
+
                     <div class="next-steps">
                         <p class="next-steps__label">What happens next</p>
                         <ol class="steps-list" aria-label="Application review steps">
-                            <li class="step step--done">
+                            <li class="step @(string.IsNullOrEmpty(rejectionReason) ? "step--done" : "step--done")">
                                 <div class="step__icon" aria-hidden="true">
                                     <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 01.208 1.04l-5 7.5a.75.75 0 01-1.154.114l-3-3a.75.75 0 011.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 011.04-.207z" clip-rule="evenodd" /></svg>
                                 </div>

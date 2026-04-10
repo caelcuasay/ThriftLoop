@@ -61,6 +61,13 @@ public interface IAdminRepository
     // ════════════════════════════════════════════════════════════════════════════
 
     Task<IReadOnlyList<Rider>> GetRiderApplicationsAsync(string? statusFilter);
+
+    /// <summary>
+    /// Returns a single rider application with full details for admin review.
+    /// Returns null when not found.
+    /// </summary>
+    Task<Rider?> GetRiderApplicationByIdAsync(int riderId);
+
     Task<bool> ApproveRiderAsync(int riderId);
     Task<bool> RejectRiderAsync(int riderId);
 
@@ -86,6 +93,12 @@ public interface IAdminRepository
     // ════════════════════════════════════════════════════════════════════════════
 
     Task<SystemInfo> GetSystemInfoAsync();
+
+    // Repositories/Interface/IAdminRepository.cs - Add method
+    // Add this to the interface:
+
+    // RIDER APPROVALS section - add:
+    Task<bool> RejectRiderWithReasonAsync(int riderId, string reason);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

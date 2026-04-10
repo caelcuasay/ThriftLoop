@@ -1,5 +1,6 @@
 ﻿// Repositories/Implementation/AdminRepository.cs
 using Microsoft.EntityFrameworkCore;
+using ThriftLoop.Constants;
 using ThriftLoop.Data;
 using ThriftLoop.Enums;
 using ThriftLoop.Models;
@@ -169,10 +170,6 @@ public class AdminRepository : IAdminRepository
             .ToListAsync();
     }
 
-    /// <summary>
-    /// Fetches a single application with full User data included so the admin
-    /// detail page can display the submitted StoreAddress, GovIdUrl, etc.
-    /// </summary>
     public async Task<SellerProfile?> GetSellerApplicationByIdAsync(int applicationId)
         => await _context.SellerProfiles
             .AsNoTracking()
@@ -234,8 +231,12 @@ public class AdminRepository : IAdminRepository
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    //  RIDER APPROVALS
+    //  RIDER APPROVALS - FIXED VERSION
     // ════════════════════════════════════════════════════════════════════════════
+
+    // Repositories/Implementation/AdminRepository.cs - Update GetRiderApplicationsAsync
+
+    // Repositories/Implementation/AdminRepository.cs
 
     public async Task<IReadOnlyList<Rider>> GetRiderApplicationsAsync(string? statusFilter)
     {
@@ -243,39 +244,130 @@ public class AdminRepository : IAdminRepository
 
         if (!string.IsNullOrWhiteSpace(statusFilter))
         {
-            bool approved = statusFilter.Equals("approved", StringComparison.OrdinalIgnoreCase);
-            query = query.Where(r => r.IsApproved == approved);
+            switch (statusFilter.ToLower())
+            {
+                case "approved":
+                    query = query.Where(r => r.IsApproved == true);
+                    break;
+                case "pending":
+                    // Never rejected (no rejection reason) and not approved
+                    query = query.Where(r => r.IsApproved == false &&
+                                             string.IsNullOrEmpty(r.RejectionReason));
+                    break;
+                case "rejected":
+                    // Has rejection reason, has NOT been resubmitted (ResubmittedAt is null)
+                    query = query.Where(r => r.IsApproved == false &&
+                                             !string.IsNullOrEmpty(r.RejectionReason) &&
+                                             r.ResubmittedAt == null);
+                    break;
+                case "resubmitted":
+                    // Has rejection reason AND has been resubmitted
+                    query = query.Where(r => r.IsApproved == false &&
+                                             !string.IsNullOrEmpty(r.RejectionReason) &&
+                                             r.ResubmittedAt != null);
+                    break;
+                default:
+                    // If status doesn't match, return all
+                    break;
+            }
         }
 
         return await query
-            .OrderByDescending(r => r.CreatedAt)
+            .OrderByDescending(r => r.ResubmittedAt ?? r.RejectedAt ?? r.CreatedAt)
             .ToListAsync();
     }
 
+    public async Task<Rider?> GetRiderApplicationByIdAsync(int riderId)
+        => await _context.Riders
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == riderId);
+
     public async Task<bool> ApproveRiderAsync(int riderId)
     {
-        var rider = await _context.Riders.FindAsync(riderId);
-        if (rider is null) return false;
+        try
+        {
+            var rider = await _context.Riders.FindAsync(riderId);
+            if (rider is null)
+            {
+                _logger.LogWarning("Rider {RiderId} not found.", riderId);
+                return false;
+            }
 
-        rider.IsApproved = true;
-        await _context.SaveChangesAsync();
+            // Check if already approved
+            if (rider.IsApproved)
+            {
+                _logger.LogWarning("Rider {RiderId} is already approved.", riderId);
+                return true;
+            }
 
-        _logger.LogInformation("Rider {RiderId} approved.", riderId);
-        return true;
+            // Approve the rider
+            rider.IsApproved = true;
+
+            // Create wallet for the approved rider if it doesn't exist
+            var existingWallet = await _context.Wallets
+                .FirstOrDefaultAsync(w => w.RiderId == riderId);
+
+            if (existingWallet == null)
+            {
+                var wallet = new Wallet
+                {
+                    RiderId = riderId,
+                    Balance = 0m,
+                    PendingBalance = 0m,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Wallets.Add(wallet);
+                _logger.LogInformation("Created wallet for approved rider {RiderId}.", riderId);
+            }
+            else
+            {
+                _logger.LogInformation("Wallet already exists for rider {RiderId}.", riderId);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Rider {RiderId} approved successfully.", riderId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to approve rider {RiderId}.", riderId);
+            return false;
+        }
     }
 
     public async Task<bool> RejectRiderAsync(int riderId)
     {
-        var rider = await _context.Riders.FindAsync(riderId);
-        if (rider is null) return false;
+        try
+        {
+            var rider = await _context.Riders.FindAsync(riderId);
+            if (rider is null)
+            {
+                _logger.LogWarning("Rider {RiderId} not found.", riderId);
+                return false;
+            }
 
-        rider.IsApproved = false;
-        await _context.SaveChangesAsync();
+            // Only update if not already approved
+            if (!rider.IsApproved)
+            {
+                rider.IsApproved = false;
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Rider {RiderId} rejected.", riderId);
+            }
+            else
+            {
+                _logger.LogWarning("Cannot reject rider {RiderId} - already approved.", riderId);
+                return false;
+            }
 
-        _logger.LogInformation("Rider {RiderId} rejected.", riderId);
-        return true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reject rider {RiderId}.", riderId);
+            return false;
+        }
     }
-
     // ════════════════════════════════════════════════════════════════════════════
     //  WITHDRAWAL MANAGEMENT
     // ════════════════════════════════════════════════════════════════════════════
@@ -380,5 +472,44 @@ public class AdminRepository : IAdminRepository
             TotalEscrowHeld = await _context.Wallets.SumAsync(w => w.PendingBalance),
             TotalPlatformBalance = await _context.Wallets.SumAsync(w => w.Balance)
         };
+    }
+
+    // Repositories/Implementation/AdminRepository.cs - Add new method
+    // Add this method to the class:
+
+    public async Task<bool> RejectRiderWithReasonAsync(int riderId, string reason)
+    {
+        try
+        {
+            var rider = await _context.Riders.FindAsync(riderId);
+            if (rider is null)
+            {
+                _logger.LogWarning("Rider {RiderId} not found.", riderId);
+                return false;
+            }
+
+            // Only reject if not already approved
+            if (!rider.IsApproved)
+            {
+                rider.IsApproved = false;
+                rider.RejectionReason = reason;
+                rider.RejectedAt = DateTime.UtcNow;  // Set rejection timestamp
+                rider.ResubmittedAt = null;  // Clear any previous resubmission timestamp
+                rider.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Rider {RiderId} rejected with reason: {Reason}", riderId, reason);
+                return true;
+            }
+            else
+            {
+                _logger.LogWarning("Cannot reject rider {RiderId} - already approved.", riderId);
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reject rider {RiderId} with reason.", riderId);
+            return false;
+        }
     }
 }

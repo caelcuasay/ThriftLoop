@@ -103,15 +103,15 @@ public class AuthController : Controller
     //  RIDER APPROVAL STATUS
     // ─────────────────────────────────────────
 
+    // Controllers/AuthController.cs - Update RiderApproval action
+
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> RiderApproval()
     {
-        var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (!int.TryParse(riderIdClaim, out var riderId))
-        {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var riderId))
             return RedirectToAction("Login");
-        }
 
         var rider = await _riderAuthService.GetByIdAsync(riderId);
         if (rider == null)
@@ -120,13 +120,18 @@ public class AuthController : Controller
             return RedirectToAction("Login");
         }
 
-        // If rider is already approved, redirect to rider dashboard
-        if (rider.IsApproved)
-        {
-            return RedirectToAction("Index", "Rider");
-        }
-
         ViewBag.IsApproved = rider.IsApproved;
+        ViewBag.RejectionReason = rider.RejectionReason;
+        ViewBag.RejectedAt = rider.RejectedAt;
+        ViewBag.ResubmittedAt = rider.ResubmittedAt;
+
+        // Allow editing only when the application was rejected and has NOT been resubmitted
+        var canEdit = !rider.IsApproved
+                      && !string.IsNullOrEmpty(rider.RejectionReason)
+                      && (rider.ResubmittedAt == null || (rider.RejectedAt != null && rider.ResubmittedAt <= rider.RejectedAt));
+
+        ViewBag.CanEdit = canEdit;
+
         return View();
     }
 
@@ -435,4 +440,5 @@ public class AuthController : Controller
 
         return RedirectToAction("Index", "Home");
     }
+
 }
