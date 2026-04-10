@@ -35,6 +35,14 @@ public class ItemRepository : IItemRepository
     public async Task<Item?> GetByIdWithVariantsAsync(int id)
         => await _context.Items
                          .AsNoTracking()
+                         .Include(i => i.User)  // Add User for seller info
+                         .Include(i => i.Variants)
+                             .ThenInclude(v => v.Skus)
+                         .FirstOrDefaultAsync(i => i.Id == id);
+
+    public async Task<Item?> GetByIdWithVariantsTrackedAsync(int id)
+        => await _context.Items
+                         .Include(i => i.User)
                          .Include(i => i.Variants)
                              .ThenInclude(v => v.Skus)
                          .FirstOrDefaultAsync(i => i.Id == id);

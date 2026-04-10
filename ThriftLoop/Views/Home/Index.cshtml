@@ -185,7 +185,15 @@
                                 </div>
                             }
 
-                            <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+                            @* Link to appropriate details page *@
+                            @if (isShopItem)
+                            {
+                                <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Items" asp-action="Details" asp-route-id="@item.Id" class="fy-card__link" aria-label="View details for @item.Title"></a>
+                            }
                         </article>
                     }
                 </div>

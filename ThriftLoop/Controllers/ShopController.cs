@@ -124,11 +124,11 @@ public class ShopController : Controller
                 shop.Bio = string.IsNullOrWhiteSpace(value) ? null : value;
                 break;
 
-                case "StoreAddress":
-                    if (value?.Length > 1000)
-                        return Json(new { ok = false, error = "Address is too long." });
-                    shop.StoreAddress = string.IsNullOrWhiteSpace(value) ? null : value;
-                    break;
+            case "StoreAddress":
+                if (value?.Length > 1000)
+                    return Json(new { ok = false, error = "Address is too long." });
+                shop.StoreAddress = string.IsNullOrWhiteSpace(value) ? null : value;
+                break;
 
             default:
                 return Json(new { ok = false, error = "Unknown field." });
@@ -431,7 +431,7 @@ public class ShopController : Controller
     [Authorize(Roles = "Seller")]
     public async Task<IActionResult> Edit(int id)
     {
-        var (item, err) = await GetOwnedShopItemAsync(id);
+        var (item, err) = await GetOwnedShopItemTrackedAsync(id);
         if (err is not null) return err;
 
         var shop = await _shopRepo.GetByIdAsync(item!.ShopId!.Value);
@@ -609,7 +609,7 @@ public class ShopController : Controller
     [Authorize(Roles = "Seller")]
     public async Task<IActionResult> Delete(int id)
     {
-        var (item, err) = await GetOwnedShopItemAsync(id);
+        var (item, err) = await GetOwnedShopItemTrackedAsync(id);
         if (err is not null) return err;
         return View(item);
     }
@@ -620,7 +620,7 @@ public class ShopController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var (item, err) = await GetOwnedShopItemAsync(id);
+        var (item, err) = await GetOwnedShopItemTrackedAsync(id);
         if (err is not null) return err;
 
         bool hasOrders = await _context.Orders.AnyAsync(o => o.ItemId == id);
@@ -653,8 +653,9 @@ public class ShopController : Controller
     }
 
     /// <summary>
-    /// Loads the item with variants+SKUs and verifies it is a shop item owned
+    /// Loads the item with variants+SKUs (no-tracking) and verifies it is a shop item owned
     /// by the current user. Returns Forbid/NotFound result on failure.
+    /// Used by Details view (public).
     /// </summary>
     private async Task<(Item? item, IActionResult? result)> GetOwnedShopItemAsync(int id)
     {
@@ -662,6 +663,23 @@ public class ShopController : Controller
         if (userId is null) return (null, Unauthorized());
 
         var item = await _itemRepo.GetByIdWithVariantsAsync(id);
+        if (item is null || item.ShopId is null) return (null, NotFound());
+        if (item.UserId != userId.Value) return (null, Forbid());
+
+        return (item, null);
+    }
+
+    /// <summary>
+    /// Loads the item with variants+SKUs (tracked) and verifies it is a shop item owned
+    /// by the current user. Returns Forbid/NotFound result on failure.
+    /// Used by Edit and Delete actions (requires tracking for updates).
+    /// </summary>
+    private async Task<(Item? item, IActionResult? result)> GetOwnedShopItemTrackedAsync(int id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return (null, Unauthorized());
+
+        var item = await _itemRepo.GetByIdWithVariantsTrackedAsync(id);
         if (item is null || item.ShopId is null) return (null, NotFound());
         if (item.UserId != userId.Value) return (null, Forbid());
 

@@ -9,10 +9,15 @@ public interface IItemRepository
     Task<Item?> GetByIdWithUserAsync(int id);
 
     /// <summary>
-    /// Returns the item with Variants and their Skus eagerly loaded.
+    /// Returns the item with Variants, Skus, and User eagerly loaded.
     /// Used by Shop Details, Edit, and Delete pages.
     /// </summary>
     Task<Item?> GetByIdWithVariantsAsync(int id);
+
+    /// <summary>
+    /// Returns the item with Variants, Skus, and User eagerly loaded for editing (tracked).
+    /// </summary>
+    Task<Item?> GetByIdWithVariantsTrackedAsync(int id);
 
     Task<IReadOnlyList<Item>> GetAllAsync();
     Task<IReadOnlyList<Item>> GetItemsByUserIdAsync(int userId);
