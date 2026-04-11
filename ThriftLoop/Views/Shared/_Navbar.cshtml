@@ -1,6 +1,8 @@
 @using System.Security.Claims
 @using ThriftLoop.Repositories.Interface
 @inject IShopRepository ShopRepo
+@inject ICartRepository CartRepo
+@inject IItemLikeRepository LikeRepo
 
 @{
     var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
@@ -8,20 +10,32 @@
                         ?? string.Empty;
     var displayName = userEmail.Contains('@') ? userEmail.Split('@')[0] : userEmail;
     var currentPath = Context.Request.Path.Value ?? string.Empty;
-    
+
     // Check if current user is a Rider
     var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
-    
+
     // Resolve live shop name for the navbar pill (only for Sellers)
     var shopLabel = "My Shop";
-    if (!isRider && User.IsInRole("Seller"))
+
+    // Get cart count and likes count for authenticated users
+    int cartCount = 0;
+    int likesCount = 0;
+
+    var rawId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (int.TryParse(rawId, out var navUserId))
     {
-        var rawId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (int.TryParse(rawId, out var navUserId))
+        if (!isRider && User.IsInRole("Seller"))
         {
             var shop = await ShopRepo.GetByUserIdAsync(navUserId);
             if (!string.IsNullOrWhiteSpace(shop?.ShopName))
                 shopLabel = shop.ShopName;
+        }
+
+        if (User.Identity?.IsAuthenticated == true && !isRider)
+        {
+            cartCount = await CartRepo.GetCountByUserIdAsync(navUserId);
+            var likes = await LikeRepo.GetByUserIdAsync(navUserId);
+            likesCount = likes.Count;
         }
     }
 }
@@ -83,6 +97,31 @@
                             <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5zm-2.5 2H4a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h8a.5.5 0 00.5-.5V5a.5.5 0 00-.5-.5h-1.5v.75a.75.75 0 01-1.5 0V4.5h-2v.75a.75.75 0 01-1.5 0V4.5z" clip-rule="evenodd" />
                         </svg>
                         @shopLabel
+                    </a>
+                }
+
+                @* Cart icon — for all authenticated non-rider users *@
+                @if (!isRider)
+                {
+                    <a asp-controller="Cart" asp-action="Index" class="tl-nav__icon-btn @(currentPath.StartsWith("/Cart", StringComparison.OrdinalIgnoreCase) ? "tl-nav__icon-btn--active" : "")" title="Shopping Cart">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" aria-hidden="true">
+                            <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
+                        </svg>
+                        @if (cartCount > 0)
+                        {
+                            <span class="tl-nav__badge cart-badge">@cartCount</span>
+                        }
+                    </a>
+
+                    @* Likes icon *@
+                    <a asp-controller="Likes" asp-action="Index" class="tl-nav__icon-btn @(currentPath.StartsWith("/Likes", StringComparison.OrdinalIgnoreCase) ? "tl-nav__icon-btn--active" : "")" title="Liked Items">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" aria-hidden="true">
+                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                        </svg>
+                        @if (likesCount > 0)
+                        {
+                            <span class="tl-nav__badge likes-badge">@likesCount</span>
+                        }
                     </a>
                 }
 
@@ -200,6 +239,52 @@
         border-color: var(--color-primary, #2d5a27);
         color: var(--color-primary, #2d5a27);
         background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+    }
+
+    /* Icon buttons for Cart and Likes */
+    .tl-nav__icon-btn {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        color: var(--color-text, #1a1814);
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .tl-nav__icon-btn:hover {
+        background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+        color: var(--color-primary, #2d5a27);
+    }
+
+    .tl-nav__icon-btn--active {
+        background: color-mix(in srgb, var(--color-primary, #2d5a27) 12%, transparent);
+        color: var(--color-primary, #2d5a27);
+    }
+
+    /* Badge for cart/likes counts */
+    .tl-nav__badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background: var(--color-primary, #2d5a27);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .likes-badge {
+        background: #dc3545;
     }
 
 </style>

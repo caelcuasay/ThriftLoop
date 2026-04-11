@@ -23,4 +23,16 @@ public class SellersViewModel
     /// Key: Item Id, Value: formatted price string (e.g., "₱500 - ₱1,200" or just "₱500")
     /// </summary>
     public Dictionary<int, string> ShopItemPriceDisplay { get; init; } = new();
+
+    /// <summary>
+    /// Set of item IDs that the current user has liked.
+    /// Empty for anonymous users.
+    /// </summary>
+    public HashSet<int> LikedItemIds { get; init; } = new();
+
+    /// <summary>
+    /// Like counts per item.
+    /// Key: Item Id, Value: number of likes.
+    /// </summary>
+    public Dictionary<int, int> LikeCounts { get; init; } = new();
 }

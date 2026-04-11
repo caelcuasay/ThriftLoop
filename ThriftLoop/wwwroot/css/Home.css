@@ -28,9 +28,9 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 24px 32px 48px;
+    padding: 24px 16px 48px;
     padding-left: calc(280px + 48px);
 }
 
@@ -164,7 +164,7 @@ h2 {
 /* Item grid */
 .fy-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 20px;
 }
 
@@ -454,4 +454,70 @@ h2 {
     color: #ffffff !important;
     display: inline-flex;
     margin-top: 20px; /* Give it some breathing room */
+}
+
+/* Like button styles */
+.fy-card__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.fy-like-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
+    z-index: 2;
+}
+
+.fy-like-btn:hover {
+    transform: scale(1.1);
+}
+
+.fy-like-btn:active {
+    transform: scale(0.95);
+}
+
+.fy-like-btn__icon {
+    width: 20px;
+    height: 20px;
+    color: var(--c-muted-light);
+    transition: all 0.2s ease;
+}
+
+.fy-like-btn:hover .fy-like-btn__icon {
+    color: #dc3545;
+}
+
+.fy-like-btn--liked .fy-like-btn__icon {
+    color: #dc3545;
+    fill: #dc3545;
+}
+
+.fy-like-btn--liked {
+    animation: heartPop 0.3s ease;
+}
+
+@keyframes heartPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.fy-like-btn__count {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--c-muted);
+    min-width: 14px;
+    line-height: 1;
+}
+
+.fy-like-btn--liked .fy-like-btn__count {
+    color: #dc3545;
 }

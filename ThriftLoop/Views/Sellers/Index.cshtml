@@ -165,7 +165,22 @@
                                     <span class="fy-card__date">@item.CreatedAt.ToString("MMM d")</span>
                                 </div>
 
-                                <h2 class="fy-card__title">@item.Title</h2>
+                                <div class="fy-card__title-row">
+                                    <h2 class="fy-card__title">@item.Title</h2>
+                                    @{
+                                        var isLiked = Model.LikedItemIds.Contains(item.Id);
+                                        var likeCount = Model.LikeCounts.GetValueOrDefault(item.Id, 0);
+                                    }
+                                    <button type="button" class="fy-like-btn @(isLiked ? "fy-like-btn--liked" : "")" data-item-id="@item.Id" data-like-count="@likeCount" aria-label="Like item">
+                                        <svg class="fy-like-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                                        </svg>
+                                        @if (likeCount > 0)
+                                        {
+                                            <span class="fy-like-btn__count">@likeCount</span>
+                                        }
+                                    </button>
+                                </div>
 
                                 <p class="fy-card__price">
                                     @if (Model.ShopItemPriceDisplay.ContainsKey(item.Id))
@@ -302,6 +317,49 @@
                         }
                     });
                 }
+
+                // Like button click handler
+                document.querySelectorAll('.fy-like-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        var btn = this;
+                        var itemId = btn.dataset.itemId;
+                        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+                        fetch('/Likes/Toggle', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify({ itemId: parseInt(itemId) })
+                        })
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            if (data.success) {
+                                btn.classList.toggle('fy-like-btn--liked', data.isLiked);
+                                var countEl = btn.querySelector('.fy-like-btn__count');
+                                if (data.likeCount > 0) {
+                                    if (countEl) {
+                                        countEl.textContent = data.likeCount;
+                                    } else {
+                                        var newCount = document.createElement('span');
+                                        newCount.className = 'fy-like-btn__count';
+                                        newCount.textContent = data.likeCount;
+                                        btn.appendChild(newCount);
+                                    }
+                                } else if (countEl) {
+                                    countEl.remove();
+                                }
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('Like failed:', err);
+                        });
+                    });
+                });
             }());
     </script>
 </body>

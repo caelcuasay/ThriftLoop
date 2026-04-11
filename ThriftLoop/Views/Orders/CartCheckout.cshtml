@@ -1,0 +1,204 @@
+@model ThriftLoop.ViewModels.CartCheckoutViewModel
+@{
+    ViewData["Title"] = "Confirm Cart Checkout";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/Orders.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+</head>
+<body>
+    @await Html.PartialAsync("_Navbar")
+
+    <div class="co-shell">
+        <nav class="co-breadcrumb" aria-label="Breadcrumb">
+            <a asp-action="Index" asp-controller="Cart" class="co-breadcrumb__link">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Back to Cart
+            </a>
+        </nav>
+
+        <header class="co-header">
+            <h1 class="co-header__title">Confirm Your Purchase</h1>
+            <p class="co-header__subtitle">
+                Review your items and complete checkout.
+            </p>
+        </header>
+
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div class="co-alert co-alert--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                @errMsg
+            </div>
+        }
+
+        <div class="co-grid">
+            @* Left - Items summary *@
+            <div class="co-summary-col">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="co-item-card">
+                        <div class="co-item-card__img-wrap">
+                            @if (!string.IsNullOrEmpty(item.ItemImageUrl))
+                            {
+                                <img src="@item.ItemImageUrl" alt="@item.ItemTitle" class="co-item-card__img" />
+                            }
+                            else
+                            {
+                                <div class="co-item-card__img-placeholder">No Image</div>
+                            }
+                        </div>
+                        <div class="co-item-card__body">
+                            <h2 class="co-item-card__title">@item.ItemTitle</h2>
+                            <p class="co-item-card__meta">
+                                @if (!string.IsNullOrEmpty(item.ShopName))
+                                {
+                                    <span class="co-item-card__shop">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                            <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5z" clip-rule="evenodd" />
+                                        </svg>
+                                        @item.ShopName
+                                    </span>
+                                }
+                                <span>@item.VariantName</span>
+                                @if (!string.IsNullOrEmpty(item.Size))
+                                {
+                                    <span>• Size: @item.Size</span>
+                                }
+                            </p>
+                            <div class="co-item-card__qty-row">
+                                <span class="co-item-card__qty">×@item.Quantity</span>
+                                <span class="co-item-card__price">₱@item.LineTotal.ToString("N2")</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* Right - Order summary *@
+            <div class="co-summary-card">
+                <h3 class="co-summary-card__title">Order Summary</h3>
+
+                <div class="co-breakdown">
+                    <div class="co-breakdown__row">
+                        <span>Items Subtotal (@Model.Items.Count items)</span>
+                        <span>₱@Model.Subtotal.ToString("N2")</span>
+                    </div>
+                    <div class="co-breakdown__row">
+                        <span>Delivery Fee (@Model.ShopCount shop@(Model.ShopCount > 1 ? "s" : ""))</span>
+                        <span>₱@Model.TotalDeliveryFee.ToString("N2")</span>
+                    </div>
+                    <div class="co-breakdown__row co-breakdown__row--total">
+                        <span>Total</span>
+                        <span>₱@Model.GrandTotal.ToString("N2")</span>
+                    </div>
+                </div>
+
+                <div class="co-wallet-status @(Model.HasSufficientBalance ? "co-wallet-status--ok" : "co-wallet-status--low")">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                        <path d="M1 4a1 1 0 011-1h16a1 1 0 011 1v12a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm2 2v8h14V6H3z" />
+                        <path d="M4 10a1 1 0 011-1h6a1 1 0 110 2H5a1 1 0 01-1-1z" />
+                    </svg>
+                    <div>
+                        <p class="co-wallet-status__label">Your Balance</p>
+                        <p class="co-wallet-status__amount">₱@Model.BuyerBalance.ToString("N2")</p>
+                    </div>
+                </div>
+
+                @if (!Model.HasSufficientBalance)
+                {
+                    <div class="co-alert co-alert--warning">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Insufficient balance. Please <a asp-action="AddFunds" asp-controller="Wallet">add funds</a> or use Cash on Delivery.
+                    </div>
+                }
+
+                <form asp-action="CartCheckoutConfirm" asp-controller="Orders" method="post" class="co-form">
+                    @Html.AntiForgeryToken()
+
+                    @foreach (var item in Model.Items)
+                    {
+                        <input type="hidden" name="cartItemIds" value="@item.CartItemId" />
+                    }
+
+                    <div class="co-payment-methods">
+                        <label class="co-payment-option">
+                            <input type="radio" name="paymentMethod" value="wallet" @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                            <span class="co-payment-option__label">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                    <path d="M1 4a1 1 0 011-1h16a1 1 0 011 1v12a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm2 2v8h14V6H3z" />
+                                    <path d="M4 10a1 1 0 011-1h6a1 1 0 110 2H5a1 1 0 01-1-1z" />
+                                </svg>
+                                Pay with Wallet
+                            </span>
+                        </label>
+                        <label class="co-payment-option">
+                            <input type="radio" name="paymentMethod" value="cod" checked />
+                            <span class="co-payment-option__label">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                                    <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" />
+                                </svg>
+                                Cash on Delivery
+                            </span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="co-btn co-btn--primary co-btn--confirm">
+                        Confirm Order (@Model.Items.Count item@(Model.Items.Count > 1 ? "s" : ""))
+                    </button>
+                </form>
+
+                <p class="co-terms-note">
+                    By confirming, you agree to our Terms of Service. Orders cannot be cancelled once confirmed.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .co-item-card__shop {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--co-primary, #2d1b69);
+            font-weight: 500;
+        }
+
+        .co-item-card__qty-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--co-border, #e4e4ea);
+        }
+
+        .co-item-card__qty {
+            font-size: 0.875rem;
+            color: var(--co-muted, #6b7280);
+        }
+
+        .co-item-card__price {
+            font-weight: 600;
+            color: var(--co-text, #111827);
+        }
+    </style>
+</body>
+</html>

@@ -2694,3 +2694,35 @@ body {
         justify-self: flex-end;
     }
 }
+
+/* ── Cart feedback message ────────────────────────────────────────────── */
+.cart-feedback {
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: center;
+    margin-top: 12px;
+    animation: cartFeedbackSlideIn 0.2s ease;
+}
+
+.cart-feedback--success {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+}
+
+.cart-feedback--error {
+    background: var(--c-error-bg);
+    color: var(--c-error);
+}
+
+@keyframes cartFeedbackSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

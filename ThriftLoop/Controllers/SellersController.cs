@@ -16,15 +16,18 @@ public class SellersController : Controller
 {
     private readonly IItemRepository _itemRepo;
     private readonly IShopRepository _shopRepo;
+    private readonly IItemLikeRepository _likeRepo;
     private readonly ILogger<SellersController> _logger;
 
     public SellersController(
         IItemRepository itemRepo,
         IShopRepository shopRepo,
+        IItemLikeRepository likeRepo,
         ILogger<SellersController> logger)
     {
         _itemRepo = itemRepo;
         _shopRepo = shopRepo;
+        _likeRepo = likeRepo;
         _logger = logger;
     }
 
@@ -53,6 +56,21 @@ public class SellersController : Controller
             priceDisplayDict[item.Id] = await GetItemPriceDisplayAsync(item);
         }
 
+        // Fetch liked items and like counts
+        var likedItemIds = new HashSet<int>();
+        var likeCounts = new Dictionary<int, int>();
+
+        foreach (var item in items)
+        {
+            likeCounts[item.Id] = await _likeRepo.GetCountByItemIdAsync(item.Id);
+        }
+
+        if (currentUserId.HasValue)
+        {
+            var likes = await _likeRepo.GetByUserIdAsync(currentUserId.Value);
+            likedItemIds = new HashSet<int>(likes.Select(l => l.ItemId));
+        }
+
         _logger.LogInformation(
             "Sellers feed loaded — {ItemCount} items, {ShopCount} shops.",
             items.Count, shops.Count);
@@ -62,7 +80,9 @@ public class SellersController : Controller
             Items = items,
             Shops = shops,
             CurrentUserId = currentUserId,
-            ShopItemPriceDisplay = priceDisplayDict
+            ShopItemPriceDisplay = priceDisplayDict,
+            LikedItemIds = likedItemIds,
+            LikeCounts = likeCounts
         });
     }
 

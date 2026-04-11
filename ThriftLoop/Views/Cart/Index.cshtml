@@ -1,0 +1,722 @@
+@using ThriftLoop.ViewModels
+@model CartIndexViewModel
+@{
+    ViewData["Title"] = "Shopping Cart";
+
+    // Group items by shop
+    var groupedByShop = Model.Items
+        .GroupBy(i => new { i.ShopId, i.ShopName })
+        .Select(g => new
+        {
+            ShopId = g.Key.ShopId,
+            ShopName = g.Key.ShopName ?? "Unknown Shop",
+            Items = g.ToList()
+        })
+        .ToList();
+}
+
+<div class="cart-page">
+    <h1 class="cart-page__title">Shopping Cart</h1>
+
+    @if (Model.IsEmpty)
+    {
+        <div class="cart-page__empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
+                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
+            </svg>
+            <p>Your cart is empty</p>
+            <a asp-controller="Sellers" asp-action="Index" class="btn btn-primary">Browse Sellers</a>
+        </div>
+    }
+    else
+    {
+        <div class="cart-page__content">
+            <div class="cart-page__items">
+                @foreach (var shopGroup in groupedByShop)
+                {
+                    <div class="cart-shop-group" data-shop-id="@shopGroup.ShopId">
+                        <div class="cart-shop-header">
+                            <div class="cart-shop-header__left">
+                                <label class="cart-shop-checkbox">
+                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" />
+                                    <span class="checkmark"></span>
+                                </label>
+                                <span class="cart-shop-name">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                                        <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5z" clip-rule="evenodd" />
+                                    </svg>
+                                    @shopGroup.ShopName
+                                </span>
+                            </div>
+                            <a asp-controller="Shop" asp-action="Index" asp-route-id="@shopGroup.ShopId" class="cart-shop-visit">Visit Shop →</a>
+                        </div>
+
+                        <div class="cart-shop-items">
+                            @foreach (var item in shopGroup.Items)
+                            {
+                                <div class="cart-item @(item.IsValid ? "" : "cart-item--invalid")" data-cart-item-id="@item.CartItemId">
+                                    <label class="cart-item-checkbox">
+                                        <input type="checkbox" name="selectedItems" value="@item.CartItemId" class="item-checkbox" data-cart-item-id="@item.CartItemId" data-shop-id="@shopGroup.ShopId" @(item.IsValid ? "" : "disabled") />
+                                        <span class="checkmark"></span>
+                                    </label>
+
+                                    <div class="cart-item__image">
+                                        @if (!string.IsNullOrEmpty(item.ItemImageUrl))
+                                        {
+                                            <img src="@item.ItemImageUrl" alt="@item.ItemTitle" />
+                                        }
+                                        else
+                                        {
+                                            <div class="cart-item__placeholder">No Image</div>
+                                        }
+                                    </div>
+
+                                    <div class="cart-item__details">
+                                        <div class="cart-item__header">
+                                            <h3 class="cart-item__title">
+                                                <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.ItemId">@item.ItemTitle</a>
+                                            </h3>
+                                        </div>
+
+                                        <div class="cart-item__variant">
+                                            <span class="cart-item__variant-name">@item.VariantName</span>
+                                            @if (!string.IsNullOrEmpty(item.Size))
+                                            {
+                                                <span class="cart-item__size">Size: @item.Size</span>
+                                            }
+                                        </div>
+
+                                        <div class="cart-item__meta">
+                                            <span class="cart-item__condition">@item.Condition</span>
+                                            <span class="cart-item__category">@item.Category</span>
+                                        </div>
+
+                                        @if (!item.IsValid)
+                                        {
+                                            <div class="cart-item__error">
+                                                Only @item.AvailableStock available
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="cart-item__actions">
+                                        <div class="cart-item__quantity">
+                                            <button type="button" class="btn-quantity" data-action="decrease" @(item.Quantity <= 1 ? "disabled" : "")>-</button>
+                                            <input type="number" value="@item.Quantity" min="1" max="@item.AvailableStock" readonly />
+                                            <button type="button" class="btn-quantity" data-action="increase" @(item.Quantity >= item.AvailableStock ? "disabled" : "")>+</button>
+                                        </div>
+
+                                        <div class="cart-item__price">
+                                            <span class="cart-item__unit-price">₱@item.Price.ToString("N2") each</span>
+                                            <span class="cart-item__line-total">₱@item.LineTotal.ToString("N2")</span>
+                                        </div>
+
+                                        <button type="button" class="cart-item__remove" data-action="remove" title="Remove from cart">
+                                            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+                                                <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z" />
+                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1zM4.118 4L4 4.059V13a1 1 0 001 1h6a1 1 0 001-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="cart-page__summary">
+                <h2>Order Summary</h2>
+
+                <div class="summary-row">
+                    <span>Subtotal (@Model.TotalItems items)</span>
+                    <span id="cart-subtotal">₱@Model.Subtotal.ToString("N2")</span>
+                </div>
+
+                <div class="summary-row">
+                    <span>Delivery Fee (@Model.Items.Count × ₱@Model.DeliveryFeePerItem.ToString("N2"))</span>
+                    <span id="cart-delivery">₱@Model.TotalDeliveryFee.ToString("N2")</span>
+                </div>
+
+                <div class="summary-row summary-row--total">
+                    <span>Total</span>
+                    <span id="cart-total">₱@Model.GrandTotal.ToString("N2")</span>
+                </div>
+
+                @if (!Model.HasValidItems)
+                {
+                    <div class="alert alert-warning">
+                        Some items have insufficient stock. Please adjust quantities or remove them.
+                    </div>
+                }
+
+                <button type="button" id="checkoutBtn" class="btn btn-primary btn-checkout" disabled>
+                    Proceed to Checkout (<span id="selectedCount">0</span> items)
+                </button>
+
+                <form asp-controller="Cart" asp-action="Clear" method="post" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Clear Cart</button>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cartItems = document.querySelectorAll('.cart-item');
+
+            cartItems.forEach(item => {
+                const cartItemId = item.dataset.cartItemId;
+                const decreaseBtn = item.querySelector('[data-action="decrease"]');
+                const increaseBtn = item.querySelector('[data-action="increase"]');
+                const removeBtn = item.querySelector('[data-action="remove"]');
+                const quantityInput = item.querySelector('input[type="number"]');
+
+                function updateQuantity(newQuantity) {
+                    fetch('/Cart/UpdateQuantity', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                        },
+                        body: JSON.stringify({
+                            cartItemId: parseInt(cartItemId),
+                            quantity: newQuantity
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            quantityInput.value = data.quantity;
+                            item.querySelector('.cart-item__line-total').textContent = '₱' + data.lineTotal;
+                            document.getElementById('cart-subtotal').textContent = '₱' + data.subtotal;
+                            document.getElementById('cart-delivery').textContent = '₱' + data.totalDeliveryFee;
+                            document.getElementById('cart-total').textContent = '₱' + data.grandTotal;
+
+                            // Update button states
+                            decreaseBtn.disabled = data.quantity <= 1;
+                            increaseBtn.disabled = data.quantity >= parseInt(quantityInput.max);
+
+                            // Update cart count in navbar if exists
+                            updateNavbarCartCount(data.cartCount);
+                        }
+                    });
+                }
+
+                decreaseBtn?.addEventListener('click', () => {
+                    const currentQty = parseInt(quantityInput.value);
+                    if (currentQty > 1) {
+                        updateQuantity(currentQty - 1);
+                    }
+                });
+
+                increaseBtn?.addEventListener('click', () => {
+                    const currentQty = parseInt(quantityInput.value);
+                    const maxQty = parseInt(quantityInput.max);
+                    if (currentQty < maxQty) {
+                        updateQuantity(currentQty + 1);
+                    }
+                });
+
+                removeBtn?.addEventListener('click', () => {
+                    if (!confirm('Remove this item from your cart?')) return;
+
+                    fetch('/Cart/Remove', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                        },
+                        body: `cartItemId=${cartItemId}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            item.remove();
+                            document.getElementById('cart-subtotal').textContent = '₱' + data.subtotal;
+                            document.getElementById('cart-delivery').textContent = '₱' + data.totalDeliveryFee;
+                            document.getElementById('cart-total').textContent = '₱' + data.grandTotal;
+
+                            updateNavbarCartCount(data.cartCount);
+
+                            if (data.isEmpty) {
+                                location.reload();
+                            }
+                        }
+                    });
+                });
+            });
+
+            function updateNavbarCartCount(count) {
+                const cartBadge = document.querySelector('.cart-badge');
+                if (cartBadge) {
+                    cartBadge.textContent = count;
+                    cartBadge.style.display = count > 0 ? 'block' : 'none';
+                }
+            }
+
+            // ── Checkbox Selection Logic ─────────────────────────────────────
+            const shopSelectAll = document.querySelectorAll('.shop-select-all');
+            const itemCheckboxes = document.querySelectorAll('.item-checkbox:not(:disabled)');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            const selectedCountEl = document.getElementById('selectedCount');
+
+            function updateSelectedCount() {
+                const selected = document.querySelectorAll('.item-checkbox:checked');
+                const count = selected.length;
+                selectedCountEl.textContent = count;
+                checkoutBtn.disabled = count === 0;
+
+                // Update summary based on selection
+                let selectedSubtotal = 0;
+                let selectedDelivery = 0;
+                const uniqueShops = new Set();
+
+                selected.forEach(cb => {
+                    const itemEl = cb.closest('.cart-item');
+                    const lineTotal = parseFloat(itemEl.querySelector('.cart-item__line-total').textContent.replace('₱', '').replace(',', ''));
+                    const shopId = cb.dataset.shopId;
+                    selectedSubtotal += lineTotal;
+                    uniqueShops.add(shopId);
+                });
+
+                selectedDelivery = uniqueShops.size * @Model.DeliveryFeePerItem;
+                const selectedTotal = selectedSubtotal + selectedDelivery;
+
+                document.getElementById('cart-subtotal').textContent = '₱' + selectedSubtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                document.getElementById('cart-delivery').textContent = '₱' + selectedDelivery.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                document.getElementById('cart-total').textContent = '₱' + selectedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+            }
+
+            // Shop "select all" checkbox
+            shopSelectAll.forEach(shopCb => {
+                shopCb.addEventListener('change', () => {
+                    const shopId = shopCb.dataset.shopId;
+                    const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
+                    shopItems.forEach(itemCb => {
+                        itemCb.checked = shopCb.checked;
+                    });
+                    updateSelectedCount();
+                });
+            });
+
+            // Individual item checkbox
+            itemCheckboxes.forEach(itemCb => {
+                itemCb.addEventListener('change', () => {
+                    const shopId = itemCb.dataset.shopId;
+                    const shopCb = document.querySelector(`.shop-select-all[data-shop-id="${shopId}"]`);
+                    const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
+                    const allChecked = Array.from(shopItems).every(cb => cb.checked);
+                    shopCb.checked = allChecked;
+                    updateSelectedCount();
+                });
+            });
+
+            // Checkout button - submit selected items
+            checkoutBtn?.addEventListener('click', () => {
+                const selected = document.querySelectorAll('.item-checkbox:checked');
+                if (selected.length === 0) return;
+
+                // Build query string with selected item IDs
+                const params = new URLSearchParams();
+                selected.forEach(cb => {
+                    params.append('cartItemIds', cb.value);
+                });
+
+                window.location.href = '/Orders/CartCheckout?' + params.toString();
+            });
+        });
+    </script>
+}
+
+@section Styles {
+    <style>
+        .cart-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .cart-page__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--color-text, #1a1814);
+        }
+
+        .cart-page__empty {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .cart-page__empty svg {
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .cart-page__empty p {
+            font-size: 1.125rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .cart-page__content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+
+        @@media (max-width: 991px) {
+            .cart-page__content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .cart-page__items {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .cart-shop-group {
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 12px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .cart-shop-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.875rem 1rem;
+            background: #f8f7f5;
+            border-bottom: 1px solid var(--color-border, #e2ddd6);
+        }
+
+        .cart-shop-header__left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .cart-shop-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+        }
+
+        .cart-shop-visit {
+            font-size: 0.8125rem;
+            color: var(--color-primary, #2d5a27);
+            text-decoration: none;
+        }
+
+        .cart-shop-visit:hover {
+            text-decoration: underline;
+        }
+
+        .cart-shop-items {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--color-border, #e2ddd6);
+            background: #fff;
+            align-items: center;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item--invalid {
+            background: #fff5f5;
+            opacity: 0.7;
+        }
+
+        .cart-item--invalid .cart-item__details {
+            opacity: 0.6;
+        }
+
+        /* Custom Checkbox Styles */
+        .cart-shop-checkbox,
+        .cart-item-checkbox {
+            position: relative;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .cart-shop-checkbox input,
+        .cart-item-checkbox input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            width: 0;
+            height: 0;
+        }
+
+        .checkmark {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border, #e2ddd6);
+            border-radius: 4px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .cart-shop-checkbox:hover .checkmark,
+        .cart-item-checkbox:hover .checkmark {
+            border-color: var(--color-primary, #2d5a27);
+        }
+
+        .cart-shop-checkbox input:checked ~ .checkmark,
+        .cart-item-checkbox input:checked ~ .checkmark {
+            background: var(--color-primary, #2d5a27);
+            border-color: var(--color-primary, #2d5a27);
+        }
+
+        .checkmark::after {
+            content: '';
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg) scale(0);
+            transition: transform 0.15s ease;
+            margin-bottom: 2px;
+        }
+
+        .cart-shop-checkbox input:checked ~ .checkmark::after,
+        .cart-item-checkbox input:checked ~ .checkmark::after {
+            transform: rotate(45deg) scale(1);
+        }
+
+        .cart-shop-checkbox input:disabled ~ .checkmark,
+        .cart-item-checkbox input:disabled ~ .checkmark {
+            background: #f0f0f0;
+            border-color: #d0d0d0;
+            cursor: not-allowed;
+        }
+
+        .cart-item__image {
+            width: 100px;
+            height: 100px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f5f3f0;
+        }
+
+        .cart-item__image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cart-item__placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-muted, #6b6560);
+            font-size: 0.75rem;
+        }
+
+        .cart-item__details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .cart-item__header {
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item__title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.25rem;
+        }
+
+        .cart-item__title a {
+            color: var(--color-text, #1a1814);
+            text-decoration: none;
+        }
+
+        .cart-item__title a:hover {
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .cart-item__shop {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .cart-item__variant {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item__variant-name {
+            font-weight: 500;
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .cart-item__size {
+            color: var(--color-muted, #6b6560);
+        }
+
+        .cart-item__meta {
+            display: flex;
+            gap: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .cart-item__error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .cart-item__actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.75rem;
+            min-width: 140px;
+        }
+
+        .cart-item__quantity {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .btn-quantity {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #fff;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-quantity:hover:not(:disabled) {
+            background: #f5f3f0;
+        }
+
+        .btn-quantity:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .cart-item__quantity input {
+            width: 40px;
+            height: 32px;
+            border: none;
+            text-align: center;
+            font-weight: 500;
+            -moz-appearance: textfield;
+        }
+
+        .cart-item__quantity input::-webkit-outer-spin-button,
+        .cart-item__quantity input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .cart-item__price {
+            text-align: right;
+        }
+
+        .cart-item__unit-price {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .cart-item__line-total {
+            display: block;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+        }
+
+        .cart-item__remove {
+            padding: 0.5rem;
+            border: none;
+            background: transparent;
+            color: var(--color-muted, #6b6560);
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .cart-item__remove:hover {
+            background: #fff5f5;
+            color: #dc3545;
+        }
+
+        .cart-page__summary {
+            padding: 1.5rem;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 12px;
+            background: #fff;
+            height: fit-content;
+            position: sticky;
+            top: 1rem;
+        }
+
+        .cart-page__summary h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .summary-row--total {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+            border-top: 1px solid var(--color-border, #e2ddd6);
+            padding-top: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .btn-checkout {
+            width: 100%;
+            padding: 0.875rem;
+            margin-top: 1rem;
+        }
+    </style>
+}

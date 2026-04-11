@@ -388,7 +388,6 @@ public class OrdersController : BaseController
 
         // Create delivery record
         await _deliveryRepository.CreateForOrderAsync(order.Id);
-
         sku.Quantity -= quantity;
         if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
         await _context.SaveChangesAsync();
@@ -399,11 +398,191 @@ public class OrdersController : BaseController
             order.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
 
         TempData["SuccessMessage"] =
-            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery " +
-            $"(₱{itemPrice:N2} for the item + ₱{deliveryFee:N2} delivery fee). " +
+            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
             "A delivery job has been created and is waiting for a rider to accept.";
 
         return RedirectToAction(nameof(MyPurchases));
+    }
+
+    // ── CART CHECKOUT (GET) ──────────────────────────────────────────────
+
+    [HttpGet]
+    public async Task<IActionResult> CartCheckout([FromQuery] int[] cartItemIds)
+    {
+        var buyerId = ResolveUserId();
+        if (buyerId is null) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("checkout items from your cart");
+
+        if (cartItemIds == null || cartItemIds.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Please select at least one item to checkout.";
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var cartItems = await _context.CartItems
+            .Include(ci => ci.Item).ThenInclude(i => i!.Shop)
+            .Include(ci => ci.ItemVariantSku).ThenInclude(s => s!.Variant)
+            .Where(ci => cartItemIds.Contains(ci.Id) && ci.UserId == buyerId.Value)
+            .ToListAsync();
+
+        if (cartItems.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Selected items not found in your cart.";
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var outOfStock = cartItems.Where(ci => ci.ItemVariantSku!.Quantity < ci.Quantity).ToList();
+        if (outOfStock.Count > 0)
+        {
+            TempData["ErrorMessage"] = $"Some items are out of stock.";
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
+        var viewModel = BuildCartCheckoutViewModel(cartItems, buyerId.Value, wallet.Balance);
+
+        return View("CartCheckout", viewModel);
+    }
+
+    // ── CART CHECKOUT (POST) ────────────────────────────────────────────────
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CartCheckoutConfirm([FromForm] int[] cartItemIds, [FromForm] string paymentMethod)
+    {
+        var buyerId = ResolveUserId();
+        if (buyerId is null) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId.Value))
+            return RedirectToCompleteProfile("checkout items from your cart");
+
+        if (cartItemIds == null || cartItemIds.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Please select at least one item to checkout.";
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var cartItems = await _context.CartItems
+            .Include(ci => ci.Item).ThenInclude(i => i!.Shop)
+            .Include(ci => ci.ItemVariantSku).ThenInclude(s => s!.Variant)
+            .Where(ci => cartItemIds.Contains(ci.Id) && ci.UserId == buyerId.Value)
+            .ToListAsync();
+
+        if (cartItems.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Selected items not found in your cart.";
+            return RedirectToAction("Index", "Cart");
+        }
+
+        var isWalletPayment = paymentMethod == "wallet";
+        var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
+        var createdOrders = new List<int>();
+
+        var groupedBySeller = cartItems.GroupBy(ci => ci.Item!.UserId).ToList();
+        var totalOrderCost = cartItems.Sum(ci => ci.ItemVariantSku!.Price * ci.Quantity)
+                       + (groupedBySeller.Count * ItemConstants.DeliveryFee);
+
+        if (isWalletPayment && wallet.Balance < totalOrderCost)
+        {
+            TempData["ErrorMessage"] =
+                $"Insufficient wallet balance. You need ₱{totalOrderCost:N2} but your balance is ₱{wallet.Balance:N2}.";
+            return RedirectToAction(nameof(CartCheckout), new { cartItemIds });
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            foreach (var ci in cartItems)
+            {
+                var item = ci.Item!;
+                var sku = ci.ItemVariantSku!;
+                var quantity = ci.Quantity;
+
+                if (sku.Quantity < quantity)
+                    throw new InvalidOperationException($"Item '{item.Title}' is now out of stock.");
+
+                var itemPrice = sku.Price * quantity;
+                var deliveryFee = ItemConstants.DeliveryFee;
+                var finalPrice = itemPrice + deliveryFee;
+
+                Order order;
+
+                if (isWalletPayment)
+                {
+                    var tempOrder = new Order
+                    {
+                        ItemId = item.Id,
+                        ItemVariantSkuId = sku.Id,
+                        BuyerId = buyerId.Value,
+                        SellerId = item.UserId,
+                        FinalPrice = finalPrice,
+                        DeliveryFee = deliveryFee,
+                        Quantity = quantity,
+                        OrderDate = DateTime.UtcNow,
+                        Status = OrderStatus.Pending,
+                        PaymentMethod = PaymentMethod.Wallet,
+                        CashCollectedByRider = false
+                    };
+                    await _orderRepository.AddAsync(tempOrder);
+                    await _context.SaveChangesAsync();
+
+                    bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, finalPrice);
+                    if (!held)
+                    {
+                        await _orderRepository.DeleteAsync(tempOrder.Id);
+                        throw new InvalidOperationException("Wallet deduction failed for: " + item.Title);
+                    }
+                    order = tempOrder;
+                }
+                else
+                {
+                    order = new Order
+                    {
+                        ItemId = item.Id,
+                        ItemVariantSkuId = sku.Id,
+                        BuyerId = buyerId.Value,
+                        SellerId = item.UserId,
+                        FinalPrice = finalPrice,
+                        DeliveryFee = deliveryFee,
+                        Quantity = quantity,
+                        OrderDate = DateTime.UtcNow,
+                        Status = OrderStatus.Pending,
+                        PaymentMethod = PaymentMethod.Cash,
+                        CashCollectedByRider = false
+                    };
+                    await _orderRepository.AddAsync(order);
+                    await _context.SaveChangesAsync();
+                }
+
+                createdOrders.Add(order.Id);
+                await _deliveryRepository.CreateForOrderAsync(order.Id);
+                sku.Quantity -= quantity;
+                if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
+                _context.CartItems.Remove(ci);
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.LogInformation(
+                "Cart Checkout — Buyer {BuyerId} created {OrderCount} orders from {ItemCount} items. Total: ₱{Total}",
+                buyerId.Value, createdOrders.Count, cartItems.Count, totalOrderCost);
+
+            TempData["SuccessMessage"] =
+                $"Order{(createdOrders.Count > 1 ? "s" : "")} confirmed for {cartItems.Count} items " +
+                $"from {groupedBySeller.Count} shop{(groupedBySeller.Count > 1 ? "s" : "")} at ₱{totalOrderCost:N2}.";
+
+            return RedirectToAction(nameof(MyPurchases));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Cart checkout failed for Buyer {BuyerId}", buyerId.Value);
+            TempData["ErrorMessage"] = ex.Message;
+            return RedirectToAction("Index", "Cart");
+        }
     }
 
     // ── MARK DELIVERED (Buyer confirms receipt) ────────────────────────────
@@ -584,6 +763,42 @@ public class OrdersController : BaseController
             BuyerBalance = buyerBalance,
             WasStolen = false,
             IsStealable = false
+        };
+    }
+
+    /// <summary>Builds a multi-item CheckoutViewModel for cart checkout.</summary>
+    private static CartCheckoutViewModel BuildCartCheckoutViewModel(
+        IReadOnlyList<CartItem> cartItems, int buyerId, decimal buyerBalance)
+    {
+        var checkoutItems = cartItems.Select(ci => new CartCheckoutItemViewModel
+        {
+            CartItemId = ci.Id,
+            ItemId = ci.ItemId,
+            ItemTitle = ci.Item?.Title ?? "Unknown",
+            ItemImageUrl = ci.Item?.ImageUrl,
+            ShopId = ci.Item?.ShopId,
+            ShopName = ci.Item?.Shop?.ShopName,
+            VariantName = ci.ItemVariantSku?.Variant?.Name ?? "",
+            Size = ci.ItemVariantSku?.Size,
+            Price = ci.ItemVariantSku?.Price ?? 0,
+            Quantity = ci.Quantity,
+            LineTotal = (ci.ItemVariantSku?.Price ?? 0) * ci.Quantity,
+            AvailableStock = ci.ItemVariantSku?.Quantity ?? 0
+        }).ToList();
+
+        var groupedByShop = checkoutItems.GroupBy(i => i.ShopId).ToList();
+        var subtotal = checkoutItems.Sum(i => i.LineTotal);
+        var totalDeliveryFee = groupedByShop.Count * ItemConstants.DeliveryFee;
+
+        return new CartCheckoutViewModel
+        {
+            Items = checkoutItems,
+            BuyerBalance = buyerBalance,
+            Subtotal = subtotal,
+            DeliveryFeePerShop = ItemConstants.DeliveryFee,
+            ShopCount = groupedByShop.Count,
+            TotalDeliveryFee = totalDeliveryFee,
+            GrandTotal = subtotal + totalDeliveryFee
         };
     }
 }

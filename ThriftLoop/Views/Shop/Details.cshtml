@@ -275,6 +275,17 @@
                             </svg>
                             Buy Now
                         </button>
+                        <button type="button"
+                                class="tl-btn tl-btn--ghost detail-actions__btn"
+                                id="addToCartBtn"
+                                disabled
+                                style="width:100%; padding:13px 20px; font-size:.9rem; margin-top:8px;">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                <path d="M.75 1a.75.75 0 000 1.5h1.256c.374.001.714.226.88.576l4.677 9.709a.75.75 0 001.346 0l3.15-6.532H9.25a.75.75 0 000-1.5h3a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0V4.81l-3.286 6.822a2.25 2.25 0 01-4.028 0L1.318 3.346A2.25 2.25 0 01.006 2.249V1.75A.75.75 0 01.75 1zM5.5 13a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM12 13a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                            </svg>
+                            Add to Cart
+                        </button>
+                        <div id="cartFeedback" class="cart-feedback" hidden></div>
                     </div>
                 }
 
@@ -330,6 +341,7 @@
                     if (variantReqEl) variantReqEl.hidden = true;
                     hideQtyPicker();
                     if (buyNowBtn) buyNowBtn.disabled = true;
+                    if (addToCartBtn) addToCartBtn.disabled = true;
 
                     const variant = variants.find(v => v.variantId === selectedVariantId);
                     if (!variant) return;
@@ -379,6 +391,7 @@
 
                     showQtyPicker(maxQty, unitPrice);
                     if (buyNowBtn) buyNowBtn.disabled = false;
+                    if (addToCartBtn) addToCartBtn.disabled = false;
                 });
 
                 // ── Quantity picker ────────────────────────────────────────────────
@@ -440,6 +453,49 @@
                     const qty = parseInt(qtyInput?.value) || 1;
                     window.location.href = '/Orders/ShopCheckout?skuId=' + selectedSkuId + '&quantity=' + qty;
                 });
+
+                // ── Add to Cart ─────────────────────────────────────────────────────
+                const addToCartBtn = document.getElementById('addToCartBtn');
+                const cartFeedback = document.getElementById('cartFeedback');
+
+                addToCartBtn?.addEventListener('click', async () => {
+                    let valid = true;
+                    if (!selectedVariantId) { if (variantReqEl) variantReqEl.hidden = false; valid = false; }
+                    if (!selectedSkuId)     { if (skuReqEl)     skuReqEl.hidden     = false; valid = false; }
+                    if (!valid) return;
+
+                    const qty = parseInt(qtyInput?.value) || 1;
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+                    try {
+                        const response = await fetch('/Cart/Add', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify({ itemId: @Model.ItemId, skuId: selectedSkuId, quantity: qty })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            showCartFeedback('Added to cart!', 'success');
+                        } else {
+                            showCartFeedback(result.error || 'Failed to add to cart', 'error');
+                        }
+                    } catch (err) {
+                        showCartFeedback('Network error. Please try again.', 'error');
+                    }
+                });
+
+                function showCartFeedback(message, type) {
+                    if (!cartFeedback) return;
+                    cartFeedback.textContent = message;
+                    cartFeedback.className = 'cart-feedback cart-feedback--' + type;
+                    cartFeedback.hidden = false;
+                    setTimeout(() => { cartFeedback.hidden = true; }, 3000);
+                }
 
                 // ── Image gallery ──────────────────────────────────────────────────
                 const mainImg = document.getElementById('mainGalleryImg');

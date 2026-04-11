@@ -1,0 +1,341 @@
+@using ThriftLoop.ViewModels
+@using ThriftLoop.Enums
+@model LikedItemsViewModel
+@{
+    ViewData["Title"] = "Liked Items";
+}
+
+<div class="likes-page">
+    <h1 class="likes-page__title">Liked Items</h1>
+
+    <div class="likes-page__filters">
+        <a asp-action="Index" class="filter-btn @(Model.CurrentFilter == null ? "filter-btn--active" : "")">All</a>
+        <a asp-action="Index" asp-route-filter="p2p" class="filter-btn @(Model.CurrentFilter == "p2p" ? "filter-btn--active" : "")">P2P Items</a>
+        <a asp-action="Index" asp-route-filter="shop" class="filter-btn @(Model.CurrentFilter == "shop" ? "filter-btn--active" : "")">Shop Items</a>
+        <a asp-action="Index" asp-route-filter="available" class="filter-btn @(Model.CurrentFilter == "available" ? "filter-btn--active" : "")">Available</a>
+    </div>
+
+    @if (Model.IsEmpty)
+    {
+        <div class="likes-page__empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+            </svg>
+            <p>You haven't liked any items yet</p>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Browse Items</a>
+        </div>
+    }
+    else
+    {
+        <div class="likes-page__grid">
+            @foreach (var item in Model.Items)
+            {
+                <div class="liked-item @(item.IsAvailable ? "" : "liked-item--unavailable")" data-item-id="@item.ItemId">
+                    <div class="liked-item__image">
+                        @if (!string.IsNullOrEmpty(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" alt="@item.Title" />
+                        }
+                        else
+                        {
+                            <div class="liked-item__placeholder">No Image</div>
+                        }
+
+                        @if (!item.IsAvailable)
+                        {
+                            <div class="liked-item__overlay">
+                                <span class="badge bg-secondary">@item.Status</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="liked-item__content">
+                        <div class="liked-item__header">
+                            <span class="liked-item__type @(item.IsP2P ? "liked-item__type--p2p" : "liked-item__type--shop")">
+                                @(item.IsP2P ? "P2P" : "Shop")
+                            </span>
+                            <span class="liked-item__likes">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                    <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z" clip-rule="evenodd" />
+                                </svg>
+                                @item.LikeCount
+                            </span>
+                        </div>
+
+                        <h3 class="liked-item__title">
+                            @if (item.IsP2P)
+                            {
+                                <a asp-controller="Items" asp-action="Details" asp-route-id="@item.ItemId">@item.Title</a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.ItemId">@item.Title</a>
+                            }
+                        </h3>
+
+                        <div class="liked-item__seller">
+                            @if (item.ShopId.HasValue)
+                            {
+                                <span class="liked-item__shop-name">@item.ShopName</span>
+                            }
+                            else
+                            {
+                                <span>@item.SellerName</span>
+                            }
+                        </div>
+
+                        <div class="liked-item__meta">
+                            <span class="liked-item__price">₱@item.Price.ToString("N2")</span>
+                            <span class="liked-item__condition">@item.Condition</span>
+                        </div>
+
+                        <div class="liked-item__actions">
+                            @if (item.IsAvailable)
+                            {
+                                @if (item.IsP2P)
+                                {
+                                    <a asp-controller="Orders" asp-action="Checkout" asp-route-itemId="@item.ItemId" class="btn btn-primary btn-sm">Buy Now</a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.ItemId" class="btn btn-primary btn-sm">View Item</a>
+                                }
+                            }
+
+                            <form asp-action="Remove" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.ItemId" />
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Unlike</button>
+                            </form>
+                        </div>
+
+                        <div class="liked-item__date">
+                            Liked on @item.LikedAt.ToString("MMM d, yyyy")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Styles {
+    <style>
+        .likes-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .likes-page__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--color-text, #1a1814);
+        }
+
+        .likes-page__filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--color-text, #1a1814);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--color-primary, #2d5a27);
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .filter-btn--active {
+            background: var(--color-primary, #2d5a27);
+            border-color: var(--color-primary, #2d5a27);
+            color: #fff;
+        }
+
+        .filter-btn--active:hover {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 90%, black);
+            color: #fff;
+        }
+
+        .likes-page__empty {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .likes-page__empty svg {
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .likes-page__empty p {
+            font-size: 1.125rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .likes-page__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .liked-item {
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            transition: box-shadow 0.15s;
+        }
+
+        .liked-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .liked-item--unavailable {
+            opacity: 0.7;
+        }
+
+        .liked-item__image {
+            position: relative;
+            aspect-ratio: 1;
+            overflow: hidden;
+            background: #f5f3f0;
+        }
+
+        .liked-item__image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .liked-item__placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .liked-item__overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.4);
+        }
+
+        .liked-item__content {
+            padding: 1rem;
+        }
+
+        .liked-item__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .liked-item__type {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .liked-item__type--p2p {
+            background: #e8f4e8;
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .liked-item__type--shop {
+            background: #e8f0ff;
+            color: #2d5a8a;
+        }
+
+        .liked-item__likes {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .liked-item__title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem;
+            line-height: 1.3;
+        }
+
+        .liked-item__title a {
+            color: var(--color-text, #1a1814);
+            text-decoration: none;
+        }
+
+        .liked-item__title a:hover {
+            color: var(--color-primary, #2d5a27);
+        }
+
+        .liked-item__seller {
+            font-size: 0.875rem;
+            color: var(--color-muted, #6b6560);
+            margin-bottom: 0.5rem;
+        }
+
+        .liked-item__shop-name {
+            color: var(--color-primary, #2d5a27);
+            font-weight: 500;
+        }
+
+        .liked-item__meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .liked-item__price {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+        }
+
+        .liked-item__condition {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: #f5f3f0;
+            border-radius: 4px;
+            color: var(--color-muted, #6b6560);
+        }
+
+        .liked-item__actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .liked-item__actions .btn {
+            flex: 1;
+        }
+
+        .liked-item__date {
+            font-size: 0.75rem;
+            color: var(--color-muted, #6b6560);
+        }
+    </style>
+}

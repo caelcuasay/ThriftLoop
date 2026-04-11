@@ -23,6 +23,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<ItemLike> ItemLikes => Set<ItemLike>();
 
     // ── JSON options (shared, thread-safe) ────────────────────────────────────
     private static readonly JsonSerializerOptions _jsonOpts =
@@ -398,6 +400,64 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.NoAction);
         });
 
+        // ── CartItems ─────────────────────────────────────────────────────────
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.ToTable("CartItems");
+            entity.HasKey(ci => ci.Id);
+            entity.Property(ci => ci.Id).ValueGeneratedOnAdd();
+            entity.Property(ci => ci.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(ci => ci.AddedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // Each user can only have one cart entry per SKU
+            entity.HasIndex(ci => new { ci.UserId, ci.ItemVariantSkuId })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_CartItems_User_Sku");
+
+            entity.HasOne(ci => ci.User)
+                  .WithMany()
+                  .HasForeignKey(ci => ci.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(ci => ci.Item)
+                  .WithMany()
+                  .HasForeignKey(ci => ci.ItemId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ci => ci.ItemVariantSku)
+                  .WithMany()
+                  .HasForeignKey(ci => ci.ItemVariantSkuId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── ItemLikes ──────────────────────────────────────────────────────────
+        modelBuilder.Entity<ItemLike>(entity =>
+        {
+            entity.ToTable("ItemLikes");
+            entity.HasKey(il => il.Id);
+            entity.Property(il => il.LikedAt)
+                  .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // Each user can only like an item once
+            entity.HasIndex(il => new { il.UserId, il.ItemId })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_ItemLikes_User_Item");
+
+            // Index for filtering most liked items
+            entity.HasIndex(il => il.ItemId)
+                  .HasDatabaseName("IX_ItemLikes_ItemId");
+
+            entity.HasOne(il => il.User)
+                  .WithMany()
+                  .HasForeignKey(il => il.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(il => il.Item)
+                  .WithMany()
+                  .HasForeignKey(il => il.ItemId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
 
     }
 }

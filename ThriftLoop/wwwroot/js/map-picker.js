@@ -255,6 +255,15 @@
         // determine view-only vs editable mode early so pre-population uses correct behaviour
         allowEdit = true;
         if (typeof mode === 'string' && mode === 'view') allowEdit = false;
+
+        // Reset modal UI to editable defaults (undo any inline styles set by showPinpointPreview)
+        const confirmBtn = $('map-picker-confirm-btn');
+        if (confirmBtn) confirmBtn.style.display = '';
+        const searchWrapper = $('map-picker-search-wrapper');
+        if (searchWrapper) searchWrapper.style.display = '';
+        const footer = $('map-picker-footer');
+        if (footer) footer.style.justifyContent = '';
+
         if (!allowEdit && marker && marker.dragging) {
             try { marker.dragging.disable(); } catch (e) { /* ignore */ }
         }
@@ -382,6 +391,14 @@
         setSpinner(false);
         // clear optional callback so it doesn't leak between opens
         userCallback = null;
+
+        // Reset modal UI to editable defaults so next open isn't stuck in view-only state
+        const confirmBtn = $('map-picker-confirm-btn');
+        if (confirmBtn) confirmBtn.style.display = '';
+        const searchWrapper = $('map-picker-search-wrapper');
+        if (searchWrapper) searchWrapper.style.display = '';
+        const footer = $('map-picker-footer');
+        if (footer) footer.style.justifyContent = '';
     };
 
     /* ── Keyboard support ───────────────────────────────────────── */

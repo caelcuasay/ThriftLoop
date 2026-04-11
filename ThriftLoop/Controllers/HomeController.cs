@@ -10,11 +10,13 @@ namespace ThriftLoop.Controllers;
 public class HomeController : BaseController
 {
     private readonly IItemRepository _itemRepository;
+    private readonly IItemLikeRepository _likeRepository;
     private readonly ILogger<HomeController> _logger;
 
-    public HomeController(IItemRepository itemRepository, ILogger<HomeController> logger)
+    public HomeController(IItemRepository itemRepository, IItemLikeRepository likeRepository, ILogger<HomeController> logger)
     {
         _itemRepository = itemRepository;
+        _likeRepository = likeRepository;
         _logger = logger;
     }
 
@@ -44,11 +46,30 @@ public class HomeController : BaseController
             priceDisplayDict[item.Id] = await GetItemPriceDisplayAsync(item);
         }
 
+        var userId = ResolveUserId();
+
+        // Fetch liked items and like counts
+        var likedItemIds = new HashSet<int>();
+        var likeCounts = new Dictionary<int, int>();
+
+        foreach (var item in items)
+        {
+            likeCounts[item.Id] = await _likeRepository.GetCountByItemIdAsync(item.Id);
+        }
+
+        if (userId.HasValue)
+        {
+            var likes = await _likeRepository.GetByUserIdAsync(userId.Value);
+            likedItemIds = new HashSet<int>(likes.Select(l => l.ItemId));
+        }
+
         var viewModel = new HomeIndexViewModel
         {
             Items = items,
-            CurrentUserId = ResolveUserId(),
-            ShopItemPriceDisplay = priceDisplayDict
+            CurrentUserId = userId,
+            ShopItemPriceDisplay = priceDisplayDict,
+            LikedItemIds = likedItemIds,
+            LikeCounts = likeCounts
         };
 
         return View(viewModel);
