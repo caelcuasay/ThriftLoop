@@ -56,4 +56,8 @@ public class RiderRegisterDTO
     [Display(Name = "Home Address")]
     [StringLength(250, MinimumLength = 10)]
     public string Address { get; set; } = string.Empty;
+
+    // Optional coordinates saved when the user picks a point on the map
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 }

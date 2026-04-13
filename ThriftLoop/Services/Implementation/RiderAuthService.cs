@@ -59,12 +59,11 @@ public class RiderAuthService : IRiderAuthService
             VehicleColor = dto.VehicleColor.Trim(),
             LicensePlate = dto.LicensePlate.Trim().ToUpperInvariant(),
             Address = dto.Address.Trim(),
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude
         };
 
         await _riderRepo.CreateAsync(rider);
-
-        // REMOVED: Wallet creation - wallet will be created when admin approves the rider
-        // REMOVED: Transaction creation for wallet seeding
 
         await _context.SaveChangesAsync();
 
@@ -82,8 +81,6 @@ public class RiderAuthService : IRiderAuthService
         }
         return null;
     }
-
-    // Services/Implementation/RiderAuthService.cs
 
     public async Task<bool> UpdateApplicationAsync(RiderEditDTO dto)
     {
@@ -133,9 +130,8 @@ public class RiderAuthService : IRiderAuthService
             }
 
             // Mark as resubmitted
-            rider.ResubmittedAt = DateTime.UtcNow;  // Set resubmission timestamp
+            rider.ResubmittedAt = DateTime.UtcNow;
             rider.UpdatedAt = DateTime.UtcNow;
-            // Keep RejectionReason and RejectedAt for history
 
             await _riderRepo.UpdateAsync(rider);
 
@@ -149,6 +145,7 @@ public class RiderAuthService : IRiderAuthService
             return false;
         }
     }
+
     public async Task<Rider?> ValidateCredentialsAsync(LoginDTO dto)
     {
         var rider = await _riderRepo.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant());

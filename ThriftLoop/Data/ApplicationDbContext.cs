@@ -99,10 +99,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(r => r.ActiveDeliveryId).IsRequired(false);
             entity.Property(r => r.ActiveDeliveryStartedAt).IsRequired(false);
 
+            // Coordinates precision — prevent SQL truncation warnings
+            entity.Property(r => r.Latitude)
+                  .IsRequired(false)
+                  .HasPrecision(9, 6);
+
+            entity.Property(r => r.Longitude)
+                  .IsRequired(false)
+                  .HasPrecision(9, 6);
+
             entity.HasOne(r => r.ActiveDelivery)
                   .WithMany()
                   .HasForeignKey(r => r.ActiveDeliveryId)
                   .OnDelete(DeleteBehavior.Restrict);
+
             entity.Property(r => r.RejectionReason)
                   .IsRequired(false)
                   .HasMaxLength(500);

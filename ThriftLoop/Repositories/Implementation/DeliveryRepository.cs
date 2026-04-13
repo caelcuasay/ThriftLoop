@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// Repositories/Implementation/DeliveryRepository.cs
+using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
 using ThriftLoop.Models;
 using ThriftLoop.Enums;
@@ -37,8 +38,14 @@ public class DeliveryRepository : IDeliveryRepository
             .AsNoTracking()
             .Include(d => d.Order)
                 .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.Shop)           // For shop items - get shop location
             .Include(d => d.Order)
-                .ThenInclude(o => o.Buyer)
+                .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.User)           // For P2P items - get user location
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Buyer)              // Buyer location
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Seller)             // Seller user (P2P seller)
             .Where(d => d.Status == DeliveryStatus.Available)
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync();
@@ -50,6 +57,10 @@ public class DeliveryRepository : IDeliveryRepository
         return await _context.Deliveries
             .Include(d => d.Order)
                 .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.Shop)
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.User)
             .Include(d => d.Order)
                 .ThenInclude(o => o.Buyer)
             .Include(d => d.Order)
@@ -64,8 +75,14 @@ public class DeliveryRepository : IDeliveryRepository
         return await _context.Deliveries
             .Include(d => d.Order)
                 .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.Shop)           // For shop items - get shop location
             .Include(d => d.Order)
-                .ThenInclude(o => o.Buyer)
+                .ThenInclude(o => o.Item)
+                    .ThenInclude(i => i.User)           // For P2P items - get user location
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Buyer)              // Buyer location
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Seller)             // Seller user (P2P seller)
             .FirstOrDefaultAsync(d => d.RiderId == riderId
                 && d.Status != DeliveryStatus.Completed
                 && d.Status != DeliveryStatus.Cancelled);
@@ -87,6 +104,9 @@ public class DeliveryRepository : IDeliveryRepository
     public async Task<Delivery?> GetByOrderIdAsync(int orderId)
     {
         return await _context.Deliveries
+            .Include(d => d.Order)
+                .ThenInclude(o => o.Seller)
+            .Include(d => d.Rider)
             .FirstOrDefaultAsync(d => d.OrderId == orderId);
     }
 
@@ -100,7 +120,6 @@ public class DeliveryRepository : IDeliveryRepository
     /// <inheritdoc />
     public async Task<bool> AcceptDeliveryAsync(int deliveryId, int riderId)
     {
-        // Use the execution strategy to handle retries automatically
         var strategy = _context.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync(async () =>
@@ -119,16 +138,13 @@ public class DeliveryRepository : IDeliveryRepository
                 if (rider == null)
                     return false;
 
-                // Check if rider already has an active delivery
                 if (rider.ActiveDeliveryId.HasValue)
                     return false;
 
-                // Update delivery
                 delivery.RiderId = riderId;
                 delivery.Status = DeliveryStatus.Accepted;
                 delivery.AcceptedAt = DateTime.UtcNow;
 
-                // Update rider with active delivery
                 rider.ActiveDeliveryId = deliveryId;
                 rider.ActiveDeliveryStartedAt = DateTime.UtcNow;
 
@@ -187,7 +203,6 @@ public class DeliveryRepository : IDeliveryRepository
     /// <inheritdoc />
     public async Task<bool> ConfirmByBuyerAsync(int deliveryId, int buyerId)
     {
-        // Use the execution strategy to handle retries automatically
         var strategy = _context.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync(async () =>
@@ -206,16 +221,13 @@ public class DeliveryRepository : IDeliveryRepository
                 if (delivery.Order?.BuyerId != buyerId)
                     return false;
 
-                // Update delivery
                 delivery.Status = DeliveryStatus.Completed;
                 delivery.ConfirmedByBuyerAt = DateTime.UtcNow;
 
-                // Update order status
                 if (delivery.Order != null)
                 {
                     delivery.Order.Status = OrderStatus.Completed;
 
-                    // For COD orders, mark cash as collected if not already
                     if (delivery.Order.PaymentMethod == PaymentMethod.Cash && !delivery.Order.CashCollectedByRider)
                     {
                         delivery.Order.CashCollectedByRider = true;
@@ -224,7 +236,6 @@ public class DeliveryRepository : IDeliveryRepository
                     _context.Orders.Update(delivery.Order);
                 }
 
-                // Clear rider's active delivery
                 if (delivery.RiderId.HasValue)
                 {
                     var rider = await _context.Riders.FindAsync(delivery.RiderId.Value);

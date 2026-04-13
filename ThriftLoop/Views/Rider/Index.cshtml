@@ -1,7 +1,11 @@
 ﻿@model IReadOnlyList<ThriftLoop.Models.Delivery>
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
 @{
     ViewData["Title"] = "Rider Dashboard";
     var riderName = ViewBag.RiderName as string ?? "Rider";
+    var riderLat = ViewBag.RiderLatitude as decimal?;
+    var riderLng = ViewBag.RiderLongitude as decimal?;
     Layout = null;
 }
 
@@ -16,99 +20,209 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <style>
+        .rider-dashboard { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .rider-header { background: linear-gradient(135deg, #2d1b69, #1a0f4a); color: white; padding: 24px; border-radius: 16px; margin-bottom: 24px; }
+        .rider-header h1 { font-size: 1.8rem; margin-bottom: 8px; }
+        .rider-header p { opacity: 0.9; }
+        .rider-jobs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; }
+        
+        .job-card { 
+            background: white; 
+            border: 1px solid #e2ddd6; 
+            border-radius: 16px; 
+            overflow: hidden; 
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .job-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        .job-header { padding: 16px; display: flex; gap: 12px; align-items: center; }
+        .job-image { width: 56px; height: 56px; border-radius: 10px; background: #f5f3f0; flex-shrink: 0; overflow: hidden; }
+        .job-image img { width: 100%; height: 100%; object-fit: cover; }
+        .job-info { flex: 1; }
+        .job-info h3 { font-size: 1rem; margin-bottom: 4px; }
+        .job-meta { display: flex; gap: 12px; font-size: 0.75rem; color: #6b6560; }
+        
+        .distance-section { padding: 0 16px 16px; display: flex; gap: 16px; }
+        .distance-item { flex: 1; }
+        .distance-label { font-size: 0.7rem; text-transform: uppercase; color: #6b6560; margin-bottom: 4px; }
+        .distance-value { font-size: 1.1rem; font-weight: 600; }
+        .distance-value small { font-size: 0.7rem; font-weight: 400; color: #6b6560; }
+        .distance-value.near { color: #0e6245; }
+        .distance-value.medium { color: #b45309; }
+        .distance-value.far { color: #6b6560; }
+        
+        .earnings-footer { padding: 12px 16px; background: #faf8f5; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2ddd6; }
+        .earnings { font-weight: 600; color: #0e6245; }
+        .payment-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
+        .payment-badge.wallet { background: #e9e5f5; color: #2d1b69; }
+        .payment-badge.cod { background: #fef3c7; color: #b45309; }
+        
+        .alert { padding: 14px; border-radius: 8px; margin-bottom: 20px; }
+        .alert-success { background: #e8f3ef; color: #0e6245; }
+        .alert-error { background: #fee9e9; color: #b91c1c; }
+        .empty-state { text-align: center; padding: 60px; background: white; border-radius: 16px; }
+    </style>
 </head>
 <body>
     <partial name="_Navbar" />
 
-    <main class="container" style="max-width: 1280px; margin: 2rem auto; padding: 0 1rem;">
-        
-        @if (TempData["SuccessMessage"] is string successMsg)
-        {
-            <div style="background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
-                @successMsg
-            </div>
-        }
-        
-        @if (TempData["ErrorMessage"] is string errMsg)
-        {
-            <div style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
-                @errMsg
-            </div>
-        }
-
-        <div style="margin-bottom: 2rem;">
-            <h1 style="font-size: 1.875rem; font-weight: 700;">Welcome, @riderName!</h1>
-            <p style="color: #6b7280; margin-top: 0.5rem;">Available deliveries are shown below. Accept one to start earning.</p>
+    <div class="rider-dashboard">
+        <div class="rider-header">
+            <h1>Welcome back, @riderName!</h1>
+            <p>Available deliveries near you</p>
         </div>
 
-        @if (!Model.Any())
+        @if (TempData["SuccessMessage"] is string successMsg)
         {
-            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem;">
-                <p style="font-size: 1.125rem; color: #6b7280;">No deliveries available at the moment.</p>
-                <p style="color: #9ca3af; margin-top: 0.5rem;">Check back later for new jobs.</p>
+            <div class="alert alert-success">✅ @successMsg</div>
+        }
+        @if (TempData["ErrorMessage"] is string errMsg)
+        {
+            <div class="alert alert-error">❌ @errMsg</div>
+        }
+
+        @{
+            var availableDeliveries = Model?.Where(d => d.Status == DeliveryStatus.Available).ToList() ?? new List<Delivery>();
+        }
+
+        @if (!availableDeliveries.Any())
+        {
+            <div class="empty-state">
+                <h3>No deliveries available</h3>
+                <p>Check back later for new delivery requests.</p>
+                <a asp-action="History" style="display: inline-block; margin-top: 20px; color: #2d1b69;">View History →</a>
             </div>
         }
         else
         {
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                @foreach (var delivery in Model)
+            <div class="rider-jobs-grid">
+                @foreach (var delivery in availableDeliveries)
                 {
                     var order = delivery.Order;
                     var item = order?.Item;
-                    var itemPrice = (order?.FinalPrice ?? 0m) - (order?.DeliveryFee ?? 0m);
+                    var buyer = order?.Buyer;
+                    
+                    // Determine seller info
+                    string sellerName;
+                    decimal? sellerLat = null;
+                    decimal? sellerLng = null;
+                    
+                    if (item?.ShopId != null && item?.Shop != null)
+                    {
+                        sellerName = item.Shop.ShopName;
+                        sellerLat = item.Shop.Latitude;
+                        sellerLng = item.Shop.Longitude;
+                    }
+                    else if (order?.Seller != null)
+                    {
+                        sellerName = order.Seller.Email?.Split('@')[0] ?? "Seller";
+                        sellerLat = order.Seller.Latitude;
+                        sellerLng = order.Seller.Longitude;
+                    }
+                    else
+                    {
+                        sellerName = "Unknown Seller";
+                    }
+                    
+                    var buyerLat = buyer?.Latitude;
+                    var buyerLng = buyer?.Longitude;
+                    var deliveryFee = order?.DeliveryFee ?? 50m;
+                    
+                    // Calculate distances
+                    string deliveryDistanceText = "--";
+                    string deliveryDistanceClass = "medium";
+                    string riderDistanceText = "--";
+                    string riderDistanceClass = "medium";
+                    
+                    if (sellerLat.HasValue && sellerLng.HasValue && buyerLat.HasValue && buyerLng.HasValue)
+                    {
+                        var deliveryDist = CalculateDistance((double)sellerLat.Value, (double)sellerLng.Value, (double)buyerLat.Value, (double)buyerLng.Value);
+                        deliveryDistanceText = FormatDistance(deliveryDist);
+                        deliveryDistanceClass = GetDistanceClass(deliveryDist);
+                    }
+                    
+                    if (riderLat.HasValue && riderLng.HasValue && sellerLat.HasValue && sellerLng.HasValue)
+                    {
+                        var riderDist = CalculateDistance((double)riderLat.Value, (double)riderLng.Value, (double)sellerLat.Value, (double)sellerLng.Value);
+                        riderDistanceText = FormatDistance(riderDist);
+                        riderDistanceClass = GetDistanceClass(riderDist);
+                    }
 
-                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">
-                                    @(item?.Title ?? "Item #" + order?.ItemId)
-                                </h3>
-                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                                    Category: @(item?.Category ?? "N/A")
-                                </p>
-                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                                    Buyer: @(order?.Buyer?.Email?.Split('@')[0] ?? "N/A")
-                                </p>
-                                <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                                    Seller: @(order?.Seller?.Email?.Split('@')[0] ?? "N/A")
-                                </p>
-                                <p style="color: #6b7280; margin-bottom: 0.25rem;">
-                                    Payment: @(order?.PaymentMethod.ToString() ?? "N/A")
-                                </p>
-
-                                <div style="margin-top: 0.75rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; display: inline-block; min-width: 200px;">
-                                    <div style="display: flex; justify-content: space-between; gap: 2rem; color: #6b7280; font-size: 0.875rem;">
-                                        <span>Item price</span>
-                                        <span>₱@itemPrice.ToString("N2")</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; gap: 2rem; color: #059669; font-size: 0.875rem; font-weight: 600; margin-top: 0.25rem;">
-                                        <span>Your delivery fee</span>
-                                        <span>₱@((order?.DeliveryFee ?? 0m).ToString("N2"))</span>
-                                    </div>
-                                    <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem; display: flex; justify-content: space-between; gap: 2rem; font-weight: 600; font-size: 0.9375rem;">
-                                        <span>Order total</span>
-                                        <span>₱@((order?.FinalPrice ?? 0m).ToString("N2"))</span>
-                                    </div>
-                                </div>
-
-                                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 0.75rem;">
-                                    Order placed: @(order?.OrderDate.ToString("MMM d, yyyy") ?? "Unknown")
-                                </p>
+                    <a href="@Url.Action("DeliveryDetails", "Rider", new { id = delivery.Id })" class="job-card">
+                        <div class="job-header">
+                            <div class="job-image">
+                                @if (!string.IsNullOrEmpty(item?.ImageUrl))
+                                {
+                                    <img src="@item.ImageUrl" alt="@item.Title" />
+                                }
+                                else
+                                {
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #a39e98;">📦</div>
+                                }
                             </div>
-                            <div>
-                                <form asp-action="AcceptJob" asp-controller="Rider" method="post">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="deliveryId" value="@delivery.Id" />
-                                    <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
-                                        Accept Job
-                                    </button>
-                                </form>
+                            <div class="job-info">
+                                <h3>@(item?.Title ?? $"Item #{order?.ItemId}")</h3>
+                                <div class="job-meta">
+                                    <span>@(item?.Category ?? "General")</span>
+                                    <span>•</span>
+                                    <span>@sellerName</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        <div class="distance-section">
+                            <div class="distance-item">
+                                <div class="distance-label">📏 Delivery Route</div>
+                                <div class="distance-value @deliveryDistanceClass">@deliveryDistanceText</div>
+                            </div>
+                            <div class="distance-item">
+                                <div class="distance-label">📍 From You</div>
+                                <div class="distance-value @riderDistanceClass">@riderDistanceText</div>
+                            </div>
+                        </div>
+
+                        <div class="earnings-footer">
+                            <span class="payment-badge @(order?.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
+                                @(order?.PaymentMethod == PaymentMethod.Wallet ? "Wallet" : "COD")
+                            </span>
+                            <span class="earnings">Earn ₱@deliveryFee.ToString("N2")</span>
+                        </div>
+                    </a>
                 }
             </div>
         }
-    </main>
+    </div>
+
+    @functions {
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371;
+            var dLat = (lat2 - lat1) * Math.PI / 180.0;
+            var dLon = (lon2 - lon1) * Math.PI / 180.0;
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+        
+        private string FormatDistance(double km)
+        {
+            if (km < 1) return $"{(km * 1000):F0} m";
+            return $"{km:F1} km";
+        }
+        
+        private string GetDistanceClass(double km)
+        {
+            if (km < 3) return "near";
+            if (km < 10) return "medium";
+            return "far";
+        }
+    }
 </body>
 </html>

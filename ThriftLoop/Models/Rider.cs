@@ -20,6 +20,10 @@ namespace ThriftLoop.Models
         public string? LicensePlate { get; set; }
         public string? Address { get; set; }
 
+        // Optional geolocation coordinates for the address
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+
         // Rejection tracking
         public string? RejectionReason { get; set; }
         public DateTime? RejectedAt { get; set; }

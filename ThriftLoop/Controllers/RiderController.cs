@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿// Controllers/RiderController.cs
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using ThriftLoop.Enums;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Interface;
 
@@ -42,28 +44,53 @@ public class RiderController : BaseController
             return RedirectToAction("Login", "Auth");
         }
 
-        // Check if rider is approved - if not, redirect to approval page
         if (!rider.IsApproved)
         {
             _logger.LogInformation("Unapproved rider {RiderId} attempted to access dashboard, redirecting to approval page.", riderId);
             return RedirectToAction("RiderApproval", "Auth");
         }
 
-        // Check if rider has an active delivery
         var activeDelivery = await _deliveryRepository.GetActiveDeliveryByRiderIdAsync(riderId);
 
         if (activeDelivery != null)
         {
-            // Rider is already on a delivery - show active delivery view
             var delivery = await _deliveryRepository.GetByIdWithDetailsAsync(activeDelivery.Id);
             ViewBag.RiderName = rider.FullName;
             return View("ActiveDelivery", delivery);
         }
 
-        // Show available job listings
         var availableDeliveries = await _deliveryRepository.GetAvailableDeliveriesAsync();
         ViewBag.RiderName = rider.FullName;
+        ViewBag.RiderLatitude = rider.Latitude;
+        ViewBag.RiderLongitude = rider.Longitude;
+
         return View(availableDeliveries);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DeliveryDetails(int id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var riderId))
+            return RedirectToAction("Login", "Auth");
+
+        var rider = await _riderAuthService.GetByIdAsync(riderId);
+        if (rider == null || !rider.IsApproved)
+            return RedirectToAction("Login", "Auth");
+
+        var delivery = await _deliveryRepository.GetByIdWithDetailsAsync(id);
+
+        if (delivery == null || delivery.Status != DeliveryStatus.Available)
+        {
+            TempData["ErrorMessage"] = "This delivery is no longer available.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        ViewBag.RiderName = rider.FullName;
+        ViewBag.RiderLatitude = rider.Latitude;
+        ViewBag.RiderLongitude = rider.Longitude;
+
+        return View(delivery);
     }
 
     [HttpPost]
@@ -94,9 +121,6 @@ public class RiderController : BaseController
         return RedirectToAction(nameof(Index));
     }
 
-    /// <summary>
-    /// Shows the rider's current active delivery, if any.
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> ActiveDelivery()
     {
@@ -119,12 +143,14 @@ public class RiderController : BaseController
         }
 
         var delivery = await _deliveryRepository.GetByIdWithDetailsAsync(activeDelivery.Id);
+
+        ViewBag.RiderName = rider.FullName;
+        ViewBag.RiderLatitude = rider.Latitude;
+        ViewBag.RiderLongitude = rider.Longitude;
+
         return View(delivery);
     }
 
-    /// <summary>
-    /// Marks the active delivery as picked up (rider has collected item from seller).
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkPickedUp(int deliveryId)
@@ -133,29 +159,18 @@ public class RiderController : BaseController
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
-        var rider = await _riderAuthService.GetByIdAsync(riderId);
-        if (rider == null || !rider.IsApproved)
-        {
-            return RedirectToAction("Login", "Auth");
-        }
-
         var success = await _deliveryRepository.MarkPickedUpAsync(deliveryId, riderId);
 
         if (!success)
         {
-            TempData["ErrorMessage"] = "Unable to mark as picked up. Please ensure you have an active delivery.";
+            TempData["ErrorMessage"] = "Unable to mark as picked up.";
             return RedirectToAction(nameof(ActiveDelivery));
         }
 
-        _logger.LogInformation("Rider {RiderId} marked delivery {DeliveryId} as picked up.", riderId, deliveryId);
         TempData["SuccessMessage"] = "Item marked as picked up. Please deliver it to the buyer.";
-
         return RedirectToAction(nameof(ActiveDelivery));
     }
 
-    /// <summary>
-    /// Marks the active delivery as delivered (rider has handed item to buyer).
-    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkDelivered(int deliveryId)
@@ -164,29 +179,18 @@ public class RiderController : BaseController
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
-        var rider = await _riderAuthService.GetByIdAsync(riderId);
-        if (rider == null || !rider.IsApproved)
-        {
-            return RedirectToAction("Login", "Auth");
-        }
-
         var success = await _deliveryRepository.MarkDeliveredAsync(deliveryId, riderId);
 
         if (!success)
         {
-            TempData["ErrorMessage"] = "Unable to mark as delivered. Please ensure the item was picked up first.";
+            TempData["ErrorMessage"] = "Unable to mark as delivered.";
             return RedirectToAction(nameof(ActiveDelivery));
         }
 
-        _logger.LogInformation("Rider {RiderId} marked delivery {DeliveryId} as delivered.", riderId, deliveryId);
         TempData["SuccessMessage"] = "Item marked as delivered. Waiting for buyer confirmation.";
-
         return RedirectToAction(nameof(ActiveDelivery));
     }
 
-    /// <summary>
-    /// Shows all deliveries completed by this rider.
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> History()
     {
@@ -194,21 +198,10 @@ public class RiderController : BaseController
         if (!int.TryParse(riderIdClaim, out var riderId))
             return RedirectToAction("Login", "Auth");
 
-        var rider = await _riderAuthService.GetByIdAsync(riderId);
-        if (rider == null || !rider.IsApproved)
-        {
-            return RedirectToAction("Login", "Auth");
-        }
-
         var deliveries = await _deliveryRepository.GetDeliveriesByRiderIdAsync(riderId);
         return View(deliveries);
     }
 
-    // Controllers/RiderController.cs - Add actions
-
-    /// <summary>
-    /// Shows the rider's rejection reason and allows them to edit their application.
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> EditApplication()
     {
@@ -219,7 +212,6 @@ public class RiderController : BaseController
         var rider = await _riderAuthService.GetRejectedApplicationAsync(riderId);
         if (rider == null)
         {
-            // If not rejected, redirect to appropriate page
             if (rider?.IsApproved == true)
                 return RedirectToAction(nameof(Index));
             return RedirectToAction("RiderApproval", "Auth");
@@ -239,7 +231,6 @@ public class RiderController : BaseController
         };
 
         ViewBag.RejectionReason = rider.RejectionReason;
-
         return View(model);
     }
 

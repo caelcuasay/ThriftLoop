@@ -21,6 +21,9 @@
     let geocodeCtrl = null;   // AbortController for in-flight fetch
     let mapInitialized = false;
     let allowEdit = true; // when false, map is view-only (no placing/draggable)
+    let cityDetectionInProgress = false;
+    let cachedCity = null; // Cache the detected city for faster subsequent opens
+    let cityDetectionTimeout = null;
 
     /* ── DOM helpers ────────────────────────────────────────────── */
     const $ = id => document.getElementById(id);
@@ -138,7 +141,10 @@
         fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
             {
-                headers: { 'Accept-Language': 'en' },
+                headers: {
+                    'Accept-Language': 'en',
+                    'User-Agent': 'ThriftLoop/1.0'
+                },
                 signal: geocodeCtrl.signal
             }
         )
@@ -169,10 +175,19 @@
 
         setSpinner(true);
 
+        // Update search bar to show searching state
+        const searchBox = $('map-picker-search');
+        if (searchBox) {
+            searchBox.classList.add('searching');
+        }
+
         fetch(
             `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
             {
-                headers: { 'Accept-Language': 'en' },
+                headers: {
+                    'Accept-Language': 'en',
+                    'User-Agent': 'ThriftLoop/1.0'
+                },
                 signal: geocodeCtrl.signal
             }
         )
@@ -198,7 +213,156 @@
                 if (err.name !== 'AbortError')
                     console.warn('[map-picker] Forward geocode failed:', err);
             })
-            .finally(() => setSpinner(false));
+            .finally(() => {
+                setSpinner(false);
+                if (searchBox) {
+                    searchBox.classList.remove('searching');
+                }
+            });
+    }
+
+    /* ── City Detection ─────────────────────────────────────────── */
+
+    /**
+     * Detect user's city using browser geolocation and reverse geocoding
+     * Uses caching for faster subsequent detections
+     */
+    function detectUserCity() {
+        return new Promise((resolve, reject) => {
+            // Return cached city if available (detected in last 5 minutes)
+            if (cachedCity) {
+                console.log('[map-picker] Using cached city:', cachedCity);
+                resolve(cachedCity);
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                console.log('[map-picker] Geolocation not supported');
+                reject(new Error('Geolocation not supported'));
+                return;
+            }
+
+            // Set a timeout to avoid hanging
+            const timeoutId = setTimeout(() => {
+                reject(new Error('Geolocation timeout'));
+            }, 3000);
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    clearTimeout(timeoutId);
+                    const { latitude, longitude } = position.coords;
+
+                    try {
+                        // Reverse geocode to get city name
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+                            {
+                                headers: {
+                                    'Accept-Language': 'en',
+                                    'User-Agent': 'ThriftLoop/1.0'
+                                }
+                            }
+                        );
+
+                        if (!response.ok) throw new Error('Failed to fetch city');
+
+                        const data = await response.json();
+
+                        // Extract city from address components
+                        const city = data.address?.city ||
+                            data.address?.town ||
+                            data.address?.village ||
+                            data.address?.suburb ||
+                            data.address?.municipality ||
+                            data.address?.county ||
+                            '';
+
+                        let detectedCity = '';
+                        if (city) {
+                            console.log('[map-picker] Detected city:', city);
+                            detectedCity = city;
+                        } else {
+                            // Fallback: use display_name and extract city portion
+                            const displayParts = data.display_name?.split(',') || [];
+                            detectedCity = displayParts[1]?.trim() || displayParts[0]?.trim() || '';
+                            console.log('[map-picker] Detected city (fallback):', detectedCity);
+                        }
+
+                        // Cache the city for 5 minutes
+                        cachedCity = detectedCity;
+                        setTimeout(() => {
+                            cachedCity = null;
+                        }, 300000); // Clear cache after 5 minutes
+
+                        resolve(detectedCity);
+                    } catch (error) {
+                        console.warn('[map-picker] City detection failed:', error);
+                        reject(error);
+                    }
+                },
+                (error) => {
+                    clearTimeout(timeoutId);
+                    console.log('[map-picker] Geolocation error:', error.message);
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 3000, // Reduced timeout for faster failure
+                    maximumAge: 300000 // Cache for 5 minutes
+                }
+            );
+        });
+    }
+
+    /**
+     * Show a prominent loading indicator for city detection
+     */
+    function showCityDetectionIndicator(searchBox) {
+        // Create or get loading overlay
+        let loadingOverlay = $('map-city-loading');
+        if (!loadingOverlay) {
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'map-city-loading';
+            loadingOverlay.className = 'map-city-loading-overlay';
+            loadingOverlay.innerHTML = `
+                <div class="map-city-loading-content">
+                    <div class="map-city-loading-spinner">
+                        <div class="map-spinner-ring"></div>
+                    </div>
+                    <div class="map-city-loading-text">
+                        <div class="map-city-loading-title">Detecting your location</div>
+                        <div class="map-city-loading-subtitle">Please wait while we find your city...</div>
+                    </div>
+                </div>
+            `;
+
+            const searchWrapper = $('map-picker-search-wrapper');
+            if (searchWrapper) {
+                searchWrapper.style.position = 'relative';
+                searchWrapper.appendChild(loadingOverlay);
+            }
+        }
+
+        loadingOverlay.style.display = 'flex';
+
+        if (searchBox) {
+            searchBox.classList.add('detecting-city');
+            searchBox.placeholder = '📍 Detecting your city...';
+        }
+    }
+
+    /**
+     * Hide the city detection loading indicator
+     */
+    function hideCityDetectionIndicator(searchBox) {
+        const loadingOverlay = $('map-city-loading');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
+
+        if (searchBox) {
+            searchBox.classList.remove('detecting-city');
+        }
     }
 
     /* ── Pre-populate helper ────────────────────────────────────── */
@@ -245,6 +409,12 @@
      */
     // signature: openMapPicker(inputId, [callbackOrAlt], [mode])
     window.openMapPicker = function (inputId, secondArg, mode) {
+        // Clear any pending timeout
+        if (cityDetectionTimeout) {
+            clearTimeout(cityDetectionTimeout);
+            cityDetectionTimeout = null;
+        }
+
         // Support optional second arg: a callback function to receive (latLng, addressString)
         targetId = inputId;
         userCallback = null;
@@ -270,13 +440,20 @@
 
         const overlay = $('map-picker-modal');
         if (!overlay) {
-            console.error('[map-picker] Modal element #map-picker-modal not found.');
+            console.error('[map-picker] Map modal element #map-picker-modal not found.');
             return;
         }
 
         // Reset search box
         const searchBox = $('map-picker-search');
-        if (searchBox) searchBox.value = '';
+        if (searchBox) {
+            searchBox.value = '';
+            searchBox.placeholder = 'Search for an address or place…';
+            searchBox.classList.remove('auto-detecting', 'detecting-city');
+        }
+
+        // Hide any existing loading indicator
+        hideCityDetectionIndicator(searchBox);
 
         overlay.classList.add('is-open');
 
@@ -284,8 +461,61 @@
         // before initializing the map to ensure the container has dimensions
         setTimeout(() => {
             initMap();
-            // Pre-populate; tryPrePopulate will use hidden lat/lng inputs if present
-            tryPrePopulate(inputId);
+
+            // Check if there's existing data to pre-populate
+            const hasExistingData = (() => {
+                const latEl = $(inputId + '-latitude');
+                const lngEl = $(inputId + '-longitude');
+                const existing = ($(inputId)?.value ?? '').trim();
+                return (latEl && lngEl && latEl.value && lngEl.value) || existing;
+            })();
+
+            // Pre-populate if there's existing data
+            if (hasExistingData) {
+                tryPrePopulate(inputId);
+            }
+
+            // Auto-detect city and populate search bar (only if no existing data and editable)
+            if (searchBox && !hasExistingData && allowEdit) {
+                // Show prominent loading indicator
+                showCityDetectionIndicator(searchBox);
+                cityDetectionInProgress = true;
+
+                detectUserCity()
+                    .then(city => {
+                        if (city && searchBox) {
+                            hideCityDetectionIndicator(searchBox);
+                            searchBox.value = city;
+                            searchBox.placeholder = `📍 ${city} (auto-detected)`;
+                            searchBox.classList.add('auto-detected');
+                            cityDetectionInProgress = false;
+
+                            // AUTO-SUBMIT: Automatically search for the city
+                            console.log('[map-picker] Auto-searching for detected city:', city);
+
+                            // Wait a bit for map to be fully ready, then search
+                            const performAutoSearch = () => {
+                                if (map) {
+                                    geocodeQuery(city);
+                                } else {
+                                    setTimeout(performAutoSearch, 50);
+                                }
+                            };
+
+                            performAutoSearch();
+                        }
+                    })
+                    .catch(() => {
+                        // Silent fail - just leave search box empty
+                        hideCityDetectionIndicator(searchBox);
+                        if (searchBox) {
+                            searchBox.placeholder = 'Search for an address or place…';
+                        }
+                        cityDetectionInProgress = false;
+                        console.log('[map-picker] Could not detect city automatically');
+                    });
+            }
+
             // If view-only and coords exist, ensure UI reflects view-only immediately
             if (!allowEdit) {
                 const latEl = $(inputId + '-latitude');
@@ -300,6 +530,7 @@
                     }
                 }
             }
+
             // After a short delay ensure map repaint and marker centering
             setTimeout(() => {
                 try {
@@ -379,6 +610,12 @@
      * Close the modal without saving anything.
      */
     window.closeMapPicker = function () {
+        // Clear any pending timeout
+        if (cityDetectionTimeout) {
+            clearTimeout(cityDetectionTimeout);
+            cityDetectionTimeout = null;
+        }
+
         const overlay = $('map-picker-modal');
         if (overlay) overlay.classList.remove('is-open');
 
@@ -391,6 +628,7 @@
         setSpinner(false);
         // clear optional callback so it doesn't leak between opens
         userCallback = null;
+        cityDetectionInProgress = false;
 
         // Reset modal UI to editable defaults so next open isn't stuck in view-only state
         const confirmBtn = $('map-picker-confirm-btn');
@@ -399,6 +637,16 @@
         if (searchWrapper) searchWrapper.style.display = '';
         const footer = $('map-picker-footer');
         if (footer) footer.style.justifyContent = '';
+
+        // Reset search box styling
+        const searchBox = $('map-picker-search');
+        if (searchBox) {
+            searchBox.classList.remove('auto-detecting', 'detecting-city', 'auto-detected', 'searching');
+            searchBox.placeholder = 'Search for an address or place…';
+        }
+
+        // Hide loading indicator
+        hideCityDetectionIndicator(searchBox);
     };
 
     /* ── Keyboard support ───────────────────────────────────────── */

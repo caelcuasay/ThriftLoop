@@ -2,6 +2,13 @@
 @{
     ViewData["Title"] = "Rider Application";
     Layout = null;
+    
+    @* Address field validation state *@
+    var addrError = ViewData.ModelState.ContainsKey("Address")
+                    && ViewData.ModelState["Address"]!.Errors.Count > 0;
+    var addrErrorMsg = addrError
+                       ? ViewData.ModelState["Address"]!.Errors[0].ErrorMessage
+                       : string.Empty;
 }
 
 <!DOCTYPE html>
@@ -15,6 +22,9 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Auth.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/AuthRider.css" asp-append-version="true" />
+    @* Map picker styles *@
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
 </head>
 <body>
     <div class="rider-page">
@@ -111,15 +121,20 @@
                             <span asp-validation-for="Email" class="field__error"></span>
                         </div>
 
+                        @* ── Address with map picker (replaces the old textarea) ── *@
                         <div class="field">
-                            <label asp-for="Address" class="field__label"></label>
-                            <textarea asp-for="Address"
-                                      class="field__input field__textarea"
-                                      autocomplete="street-address"
-                                      placeholder="House/Unit No., Street, Barangay, City, Province"
-                                      rows="3"
-                                      spellcheck="false"></textarea>
-                            <span asp-validation-for="Address" class="field__error"></span>
+                            @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+                                new ViewDataDictionary(ViewData)
+                                {
+                                    { "FieldId",      "Address" },
+                                    { "FieldName",    "Address" },
+                                    { "Label",        "Home Address" },
+                                    { "CurrentValue", Model?.Address ?? string.Empty },
+                                    { "Placeholder",  "House/Unit No., Street, Barangay, City, Province" },
+                                    { "HintText",     "Your home address for delivery coordination" },
+                                    { "HasError",     addrError },
+                                    { "ErrorMessage", addrErrorMsg }
+                                })
                         </div>
                     </div>
 
@@ -264,9 +279,14 @@
 
     </div>
 
+    @* Map picker modal *@
+    @await Html.PartialAsync("_AddressMapModal")
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="~/js/map-picker.js" asp-append-version="true"></script>
     <script>
         function togglePassword(inputId) {
         const input = document.getElementById(inputId);
