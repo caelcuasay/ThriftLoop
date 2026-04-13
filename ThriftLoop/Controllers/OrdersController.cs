@@ -478,111 +478,129 @@ public class OrdersController : BaseController
 
         var isWalletPayment = paymentMethod == "wallet";
         var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
-        var createdOrders = new List<int>();
+        var createdOrderIds = new List<int>();
 
+        // Group items by seller (each seller gets one order with all their items)
         var groupedBySeller = cartItems.GroupBy(ci => ci.Item!.UserId).ToList();
-        var totalOrderCost = cartItems.Sum(ci => ci.ItemVariantSku!.Price * ci.Quantity)
-                       + (groupedBySeller.Count * ItemConstants.DeliveryFee);
 
-        if (isWalletPayment && wallet.Balance < totalOrderCost)
+        // Calculate total cost
+        decimal subtotal = cartItems.Sum(ci => ci.ItemVariantSku!.Price * ci.Quantity);
+        decimal totalDeliveryFee = groupedBySeller.Count * ItemConstants.DeliveryFee;
+        decimal grandTotal = subtotal + totalDeliveryFee;
+
+        if (isWalletPayment && wallet.Balance < grandTotal)
         {
             TempData["ErrorMessage"] =
-                $"Insufficient wallet balance. You need ₱{totalOrderCost:N2} but your balance is ₱{wallet.Balance:N2}.";
+                $"Insufficient wallet balance. You need ₱{grandTotal:N2} but your balance is ₱{wallet.Balance:N2}.";
             return RedirectToAction(nameof(CartCheckout), new { cartItemIds });
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        // Use the execution strategy for retry support
+        var strategy = _context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
         {
-            foreach (var ci in cartItems)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                var item = ci.Item!;
-                var sku = ci.ItemVariantSku!;
-                var quantity = ci.Quantity;
-
-                if (sku.Quantity < quantity)
-                    throw new InvalidOperationException($"Item '{item.Title}' is now out of stock.");
-
-                var itemPrice = sku.Price * quantity;
-                var deliveryFee = ItemConstants.DeliveryFee;
-                var finalPrice = itemPrice + deliveryFee;
-
-                Order order;
-
-                if (isWalletPayment)
+                // Create one order per seller
+                foreach (var sellerGroup in groupedBySeller)
                 {
-                    var tempOrder = new Order
+                    var sellerId = sellerGroup.Key;
+                    var sellerItems = sellerGroup.ToList();
+
+                    // Calculate totals for this seller's order
+                    decimal sellerSubtotal = sellerItems.Sum(ci => ci.ItemVariantSku!.Price * ci.Quantity);
+                    decimal sellerFinalPrice = sellerSubtotal + ItemConstants.DeliveryFee;
+
+                    // Create the order for this seller
+                    var order = new Order
                     {
-                        ItemId = item.Id,
-                        ItemVariantSkuId = sku.Id,
                         BuyerId = buyerId.Value,
-                        SellerId = item.UserId,
-                        FinalPrice = finalPrice,
-                        DeliveryFee = deliveryFee,
-                        Quantity = quantity,
+                        SellerId = sellerId,
+                        FinalPrice = sellerFinalPrice,
+                        DeliveryFee = ItemConstants.DeliveryFee,
+                        Quantity = sellerItems.Sum(ci => ci.Quantity),
                         OrderDate = DateTime.UtcNow,
                         Status = OrderStatus.Pending,
-                        PaymentMethod = PaymentMethod.Wallet,
+                        PaymentMethod = isWalletPayment ? PaymentMethod.Wallet : PaymentMethod.Cash,
                         CashCollectedByRider = false
                     };
-                    await _orderRepository.AddAsync(tempOrder);
-                    await _context.SaveChangesAsync();
 
-                    bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, finalPrice);
-                    if (!held)
-                    {
-                        await _orderRepository.DeleteAsync(tempOrder.Id);
-                        throw new InvalidOperationException("Wallet deduction failed for: " + item.Title);
-                    }
-                    order = tempOrder;
-                }
-                else
-                {
-                    order = new Order
-                    {
-                        ItemId = item.Id,
-                        ItemVariantSkuId = sku.Id,
-                        BuyerId = buyerId.Value,
-                        SellerId = item.UserId,
-                        FinalPrice = finalPrice,
-                        DeliveryFee = deliveryFee,
-                        Quantity = quantity,
-                        OrderDate = DateTime.UtcNow,
-                        Status = OrderStatus.Pending,
-                        PaymentMethod = PaymentMethod.Cash,
-                        CashCollectedByRider = false
-                    };
+                    // Set ItemId to the first item's ID (for backward compatibility)
+                    order.ItemId = sellerItems.First().ItemId;
+
                     await _orderRepository.AddAsync(order);
                     await _context.SaveChangesAsync();
+
+                    // Create OrderItem records for each cart item in this order
+                    foreach (var ci in sellerItems)
+                    {
+                        var sku = ci.ItemVariantSku!;
+                        var item = ci.Item!;
+                        var qty = ci.Quantity;
+
+                        // Validate stock
+                        if (sku.Quantity < qty)
+                            throw new InvalidOperationException($"Item '{item.Title}' is now out of stock.");
+
+                        // Create OrderItem linking the SKU to the order
+                        var orderItem = new OrderItem
+                        {
+                            OrderId = order.Id,
+                            ItemVariantSkuId = sku.Id,
+                            Quantity = qty,
+                            UnitPrice = sku.Price
+                        };
+                        _context.OrderItems.Add(orderItem);
+
+                        // Decrement stock
+                        sku.Quantity -= qty;
+                        if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
+
+                        // Remove from cart
+                        _context.CartItems.Remove(ci);
+                    }
+
+                    await _context.SaveChangesAsync();
+
+                    // Handle wallet payment escrow
+                    if (isWalletPayment)
+                    {
+                        bool held = await _walletService.HoldEscrowAsync(order.Id, buyerId.Value, sellerFinalPrice);
+                        if (!held)
+                        {
+                            throw new InvalidOperationException($"Wallet deduction failed for order from seller {sellerId}.");
+                        }
+                    }
+
+                    // Create delivery record for this order
+                    await _deliveryRepository.CreateForOrderAsync(order.Id);
+
+                    createdOrderIds.Add(order.Id);
                 }
 
-                createdOrders.Add(order.Id);
-                await _deliveryRepository.CreateForOrderAsync(order.Id);
-                sku.Quantity -= quantity;
-                if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
-                _context.CartItems.Remove(ci);
+                await transaction.CommitAsync();
+
+                _logger.LogInformation(
+                    "Cart Checkout — Buyer {BuyerId} created {OrderCount} orders from {ItemCount} items across {SellerCount} sellers. Total: ₱{Total}",
+                    buyerId.Value, createdOrderIds.Count, cartItems.Count, groupedBySeller.Count, grandTotal);
+
+                TempData["SuccessMessage"] =
+                    $"Order{(createdOrderIds.Count > 1 ? "s" : "")} confirmed for {cartItems.Count} item{(cartItems.Count > 1 ? "s" : "")} " +
+                    $"from {groupedBySeller.Count} seller{(groupedBySeller.Count > 1 ? "s" : "")}. Total: ₱{grandTotal:N2}. " +
+                    "A delivery job has been created for each order.";
+
+                return RedirectToAction(nameof(MyPurchases));
             }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation(
-                "Cart Checkout — Buyer {BuyerId} created {OrderCount} orders from {ItemCount} items. Total: ₱{Total}",
-                buyerId.Value, createdOrders.Count, cartItems.Count, totalOrderCost);
-
-            TempData["SuccessMessage"] =
-                $"Order{(createdOrders.Count > 1 ? "s" : "")} confirmed for {cartItems.Count} items " +
-                $"from {groupedBySeller.Count} shop{(groupedBySeller.Count > 1 ? "s" : "")} at ₱{totalOrderCost:N2}.";
-
-            return RedirectToAction(nameof(MyPurchases));
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            _logger.LogError(ex, "Cart checkout failed for Buyer {BuyerId}", buyerId.Value);
-            TempData["ErrorMessage"] = ex.Message;
-            return RedirectToAction("Index", "Cart");
-        }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Cart checkout failed for Buyer {BuyerId}", buyerId.Value);
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction("Index", "Cart");
+            }
+        });
     }
 
     // ── MARK DELIVERED (Buyer confirms receipt) ────────────────────────────

@@ -21,6 +21,9 @@ public class CartItemViewModel
     public int? ShopId { get; set; }
     public string? ShopName { get; set; }
 
+    // Seller info (for delivery fee grouping)
+    public int SellerId { get; set; }
+
     // Variant and SKU details
     public string VariantName { get; set; } = string.Empty;
     public string? Size { get; set; }
@@ -43,11 +46,22 @@ public class CartIndexViewModel
 {
     public List<CartItemViewModel> Items { get; set; } = new();
 
-    // Computed totals
-    public int TotalItems => Items.Sum(i => i.Quantity);
-    public decimal Subtotal => Items.Sum(i => i.LineTotal);
-    public decimal DeliveryFeePerItem { get; set; } = 50m; // From ItemConstants.DeliveryFee
-    public decimal TotalDeliveryFee => DeliveryFeePerItem * Items.Count;
+    // Computed totals - based on selected items only
+    public int TotalItems => Items.Where(i => i.IsValid).Sum(i => i.Quantity);
+    public decimal Subtotal => Items.Where(i => i.IsValid).Sum(i => i.LineTotal);
+    public decimal DeliveryFeePerShop { get; set; } = 50m; // From ItemConstants.DeliveryFee
+
+    /// <summary>
+    /// Returns the number of unique shops among valid items.
+    /// Used for calculating total delivery fee.
+    /// </summary>
+    public int UniqueShopCount => Items
+        .Where(i => i.IsValid)
+        .Select(i => i.ShopId)
+        .Distinct()
+        .Count();
+
+    public decimal TotalDeliveryFee => DeliveryFeePerShop * UniqueShopCount;
     public decimal GrandTotal => Subtotal + TotalDeliveryFee;
 
     // Validation
@@ -72,4 +86,21 @@ public class UpdateCartQuantityDto
 {
     public int CartItemId { get; set; }
     public int Quantity { get; set; }
+}
+
+/// <summary>
+/// Response DTO for cart operations (update quantity, remove, etc.)
+/// </summary>
+public class CartOperationResponse
+{
+    public bool Success { get; set; }
+    public string? Error { get; set; }
+    public int Quantity { get; set; }
+    public string LineTotal { get; set; } = string.Empty;
+    public string Subtotal { get; set; } = string.Empty;
+    public string TotalDeliveryFee { get; set; } = string.Empty;
+    public string GrandTotal { get; set; } = string.Empty;
+    public int CartCount { get; set; }
+    public bool IsEmpty { get; set; }
+    public int UniqueShopCount { get; set; }
 }

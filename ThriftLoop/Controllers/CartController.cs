@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Constants;
 using ThriftLoop.Data;
 using ThriftLoop.Enums;
@@ -100,34 +101,45 @@ public class CartController : BaseController
     {
         var userId = ResolveUserId();
         if (userId is null)
-            return Json(new { success = false, error = "Not authenticated." });
+            return Json(new CartOperationResponse { Success = false, Error = "Not authenticated." });
 
         // Verify ownership
         var cartItem = await _cartRepository.GetByIdAsync(dto.CartItemId);
         if (cartItem is null || cartItem.UserId != userId.Value)
-            return Json(new { success = false, error = "Cart item not found." });
+            return Json(new CartOperationResponse { Success = false, Error = "Cart item not found." });
 
         // Validate stock availability
-        var sku = await _context.ItemVariantSkus.FindAsync(cartItem.ItemVariantSkuId);
+        var sku = await _context.ItemVariantSkus
+            .Include(s => s.Variant)
+                .ThenInclude(v => v.Item)
+            .FirstOrDefaultAsync(s => s.Id == cartItem.ItemVariantSkuId);
+
         if (sku is null)
-            return Json(new { success = false, error = "Item variant not found." });
+            return Json(new CartOperationResponse { Success = false, Error = "Item variant not found." });
 
         var quantity = Math.Max(1, Math.Min(dto.Quantity, sku.Quantity));
 
         await _cartRepository.UpdateQuantityAsync(dto.CartItemId, quantity);
 
+        // Reload cart items to get accurate totals
         var cartItems = await _cartRepository.GetByUserIdAsync(userId.Value);
         var viewModel = BuildCartViewModel(cartItems);
 
-        return Json(new
+        // Calculate the line total for this specific item
+        var updatedItem = viewModel.Items.FirstOrDefault(i => i.CartItemId == dto.CartItemId);
+        var lineTotal = updatedItem?.LineTotal ?? (sku.Price * quantity);
+
+        return Json(new CartOperationResponse
         {
-            success = true,
-            quantity,
-            lineTotal = (sku.Price * quantity).ToString("N2"),
-            subtotal = viewModel.Subtotal.ToString("N2"),
-            totalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
-            grandTotal = viewModel.GrandTotal.ToString("N2"),
-            cartCount = viewModel.TotalItems
+            Success = true,
+            Quantity = quantity,
+            LineTotal = lineTotal.ToString("N2"),
+            Subtotal = viewModel.Subtotal.ToString("N2"),
+            TotalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
+            GrandTotal = viewModel.GrandTotal.ToString("N2"),
+            CartCount = viewModel.TotalItems,
+            IsEmpty = viewModel.IsEmpty,
+            UniqueShopCount = viewModel.UniqueShopCount
         });
     }
 
@@ -141,26 +153,27 @@ public class CartController : BaseController
     {
         var userId = ResolveUserId();
         if (userId is null)
-            return Json(new { success = false, error = "Not authenticated." });
+            return Json(new CartOperationResponse { Success = false, Error = "Not authenticated." });
 
         // Verify ownership
         var cartItem = await _cartRepository.GetByIdAsync(cartItemId);
         if (cartItem is null || cartItem.UserId != userId.Value)
-            return Json(new { success = false, error = "Cart item not found." });
+            return Json(new CartOperationResponse { Success = false, Error = "Cart item not found." });
 
         await _cartRepository.RemoveAsync(cartItemId);
 
         var cartItems = await _cartRepository.GetByUserIdAsync(userId.Value);
         var viewModel = BuildCartViewModel(cartItems);
 
-        return Json(new
+        return Json(new CartOperationResponse
         {
-            success = true,
-            subtotal = viewModel.Subtotal.ToString("N2"),
-            totalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
-            grandTotal = viewModel.GrandTotal.ToString("N2"),
-            cartCount = viewModel.TotalItems,
-            isEmpty = viewModel.IsEmpty
+            Success = true,
+            Subtotal = viewModel.Subtotal.ToString("N2"),
+            TotalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
+            GrandTotal = viewModel.GrandTotal.ToString("N2"),
+            CartCount = viewModel.TotalItems,
+            IsEmpty = viewModel.IsEmpty,
+            UniqueShopCount = viewModel.UniqueShopCount
         });
     }
 
@@ -216,6 +229,7 @@ public class CartController : BaseController
             Condition = ci.Item?.Condition ?? "",
             ShopId = ci.Item?.ShopId,
             ShopName = ci.Item?.Shop?.ShopName,
+            SellerId = ci.Item?.UserId ?? 0,
             VariantName = ci.ItemVariantSku?.Variant?.Name ?? "",
             Size = ci.ItemVariantSku?.Size,
             Price = ci.ItemVariantSku?.Price ?? 0,
@@ -227,7 +241,7 @@ public class CartController : BaseController
         return new CartIndexViewModel
         {
             Items = items,
-            DeliveryFeePerItem = ItemConstants.DeliveryFee
+            DeliveryFeePerShop = ItemConstants.DeliveryFee
         };
     }
 }

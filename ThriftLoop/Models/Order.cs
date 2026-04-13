@@ -113,4 +113,5 @@ public class Order
 
     /// <summary>The delivery associated with this order (one-to-one).</summary>
     public Delivery? Delivery { get; set; }
+    public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 }

@@ -25,7 +25,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<ItemLike> ItemLikes => Set<ItemLike>();
-
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     // ── JSON options (shared, thread-safe) ────────────────────────────────────
     private static readonly JsonSerializerOptions _jsonOpts =
         new(JsonSerializerDefaults.Web);
@@ -456,6 +456,25 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(il => il.Item)
                   .WithMany()
                   .HasForeignKey(il => il.ItemId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+        // ── OrderItems ─────────────────────────────────────────────────────────
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("OrderItems");
+            entity.HasKey(oi => oi.Id);
+            entity.Property(oi => oi.Id).ValueGeneratedOnAdd();
+            entity.Property(oi => oi.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(oi => oi.UnitPrice).IsRequired().HasColumnType("decimal(10,2)");
+
+            entity.HasOne(oi => oi.Order)
+                  .WithMany(o => o.OrderItems)
+                  .HasForeignKey(oi => oi.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(oi => oi.ItemVariantSku)
+                  .WithMany()
+                  .HasForeignKey(oi => oi.ItemVariantSkuId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 

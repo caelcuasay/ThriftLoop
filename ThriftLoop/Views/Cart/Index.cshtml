@@ -5,11 +5,12 @@
 
     // Group items by shop
     var groupedByShop = Model.Items
-        .GroupBy(i => new { i.ShopId, i.ShopName })
+        .GroupBy(i => new { i.ShopId, i.ShopName, i.SellerId })
         .Select(g => new
         {
             ShopId = g.Key.ShopId,
             ShopName = g.Key.ShopName ?? "Unknown Shop",
+            SellerId = g.Key.SellerId,
             Items = g.ToList()
         })
         .ToList();
@@ -34,11 +35,11 @@
             <div class="cart-page__items">
                 @foreach (var shopGroup in groupedByShop)
                 {
-                    <div class="cart-shop-group" data-shop-id="@shopGroup.ShopId">
+                    <div class="cart-shop-group" data-shop-id="@shopGroup.ShopId" data-seller-id="@shopGroup.SellerId">
                         <div class="cart-shop-header">
                             <div class="cart-shop-header__left">
                                 <label class="cart-shop-checkbox">
-                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" />
+                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" checked />
                                     <span class="checkmark"></span>
                                 </label>
                                 <span class="cart-shop-name">
@@ -54,9 +55,19 @@
                         <div class="cart-shop-items">
                             @foreach (var item in shopGroup.Items)
                             {
-                                <div class="cart-item @(item.IsValid ? "" : "cart-item--invalid")" data-cart-item-id="@item.CartItemId">
+                                <div class="cart-item @(item.IsValid ? "" : "cart-item--invalid")"
+                                     data-cart-item-id="@item.CartItemId"
+                                     data-shop-id="@item.ShopId"
+                                     data-seller-id="@item.SellerId">
                                     <label class="cart-item-checkbox">
-                                        <input type="checkbox" name="selectedItems" value="@item.CartItemId" class="item-checkbox" data-cart-item-id="@item.CartItemId" data-shop-id="@shopGroup.ShopId" @(item.IsValid ? "" : "disabled") />
+                                        <input type="checkbox" name="selectedItems" value="@item.CartItemId"
+                                               class="item-checkbox"
+                                               data-cart-item-id="@item.CartItemId"
+                                               data-shop-id="@item.ShopId"
+                                               data-seller-id="@item.SellerId"
+                                               data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                               data-quantity="@item.Quantity"
+                                        @(item.IsValid ? "checked" : "disabled") />
                                         <span class="checkmark"></span>
                                     </label>
 
@@ -108,7 +119,7 @@
 
                                         <div class="cart-item__price">
                                             <span class="cart-item__unit-price">₱@item.Price.ToString("N2") each</span>
-                                            <span class="cart-item__line-total">₱@item.LineTotal.ToString("N2")</span>
+                                            <span class="cart-item__line-total" data-line-total="@item.LineTotal.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">₱@item.LineTotal.ToString("N2")</span>
                                         </div>
 
                                         <button type="button" class="cart-item__remove" data-action="remove" title="Remove from cart">
@@ -129,18 +140,18 @@
                 <h2>Order Summary</h2>
 
                 <div class="summary-row">
-                    <span>Subtotal (@Model.TotalItems items)</span>
-                    <span id="cart-subtotal">₱@Model.Subtotal.ToString("N2")</span>
+                    <span>Subtotal (<span id="selectedItemCount">0</span> items)</span>
+                    <span id="cart-subtotal">₱0.00</span>
                 </div>
 
                 <div class="summary-row">
-                    <span>Delivery Fee (@Model.Items.Count × ₱@Model.DeliveryFeePerItem.ToString("N2"))</span>
-                    <span id="cart-delivery">₱@Model.TotalDeliveryFee.ToString("N2")</span>
+                    <span>Delivery Fee (<span id="selectedShopCount">0</span> shop<span id="shopPlural">s</span> × ₱@Model.DeliveryFeePerShop.ToString("N2"))</span>
+                    <span id="cart-delivery">₱0.00</span>
                 </div>
 
                 <div class="summary-row summary-row--total">
                     <span>Total</span>
-                    <span id="cart-total">₱@Model.GrandTotal.ToString("N2")</span>
+                    <span id="cart-total">₱0.00</span>
                 </div>
 
                 @if (!Model.HasValidItems)
@@ -166,89 +177,201 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const cartItems = document.querySelectorAll('.cart-item');
+            const DELIVERY_FEE_PER_SHOP = @Model.DeliveryFeePerShop;
+            
+            // Store all cart items data for calculations
+            const cartItemsData = new Map();
+            
+            // Initialize cart items data from server-rendered values
+            document.querySelectorAll('.cart-item').forEach(item => {
+                const cartItemId = parseInt(item.dataset.cartItemId);
+                const shopId = item.dataset.shopId;
+                const sellerId = item.dataset.sellerId;
+                const checkbox = item.querySelector('.item-checkbox');
+                const lineTotalEl = item.querySelector('.cart-item__line-total');
+                
+                cartItemsData.set(cartItemId, {
+                    cartItemId: cartItemId,
+                    shopId: shopId,
+                    sellerId: sellerId,
+                    price: parseFloat(checkbox?.dataset.price || '0'),
+                    quantity: parseInt(checkbox?.dataset.quantity || '1'),
+                    lineTotal: parseFloat(lineTotalEl?.dataset.lineTotal || '0'),
+                    isValid: !checkbox?.disabled,
+                    element: item,
+                    checkbox: checkbox
+                });
+            });
 
-            cartItems.forEach(item => {
-                const cartItemId = item.dataset.cartItemId;
-                const decreaseBtn = item.querySelector('[data-action="decrease"]');
-                const increaseBtn = item.querySelector('[data-action="increase"]');
-                const removeBtn = item.querySelector('[data-action="remove"]');
-                const quantityInput = item.querySelector('input[type="number"]');
+            // Function to recalculate and update the order summary based on checked items
+            function updateOrderSummary() {
+                let selectedSubtotal = 0;
+                let selectedItemCount = 0;
+                const selectedShops = new Set();
+                const selectedSellers = new Set();
+                let checkedCount = 0;
 
-                function updateQuantity(newQuantity) {
-                    fetch('/Cart/UpdateQuantity', {
+                cartItemsData.forEach((data, cartItemId) => {
+                    const checkbox = data.checkbox;
+                    if (checkbox && checkbox.checked && !checkbox.disabled) {
+                        selectedSubtotal += data.lineTotal;
+                        selectedItemCount += data.quantity;
+                        checkedCount++;
+                        if (data.shopId) {
+                            selectedShops.add(data.shopId);
+                        }
+                        if (data.sellerId) {
+                            selectedSellers.add(data.sellerId);
+                        }
+                    }
+                });
+
+                // Delivery fee is per SHOP (or per seller if shopId is null)
+                // For shop items, group by ShopId. For any P2P items (shouldn't be in cart), group by SellerId.
+                const uniqueDeliveryGroups = selectedShops.size > 0 ? selectedShops.size : selectedSellers.size;
+                const selectedDelivery = uniqueDeliveryGroups * DELIVERY_FEE_PER_SHOP;
+                const selectedTotal = selectedSubtotal + selectedDelivery;
+
+                // Update UI
+                document.getElementById('cart-subtotal').textContent = '₱' + selectedSubtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                document.getElementById('cart-delivery').textContent = '₱' + selectedDelivery.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                document.getElementById('cart-total').textContent = '₱' + selectedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                document.getElementById('selectedItemCount').textContent = selectedItemCount;
+                document.getElementById('selectedShopCount').textContent = uniqueDeliveryGroups;
+                document.getElementById('shopPlural').textContent = uniqueDeliveryGroups === 1 ? '' : 's';
+                document.getElementById('selectedCount').textContent = checkedCount;
+                
+                const checkoutBtn = document.getElementById('checkoutBtn');
+                checkoutBtn.disabled = checkedCount === 0;
+            }
+
+            // Function to update shop "select all" checkbox state
+            function updateShopSelectAll(shopId) {
+                const shopCb = document.querySelector(`.shop-select-all[data-shop-id="${shopId}"]`);
+                if (!shopCb) return;
+                
+                const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
+                const allChecked = Array.from(shopItems).every(cb => cb.checked);
+                shopCb.checked = allChecked;
+            }
+
+            // Quantity update function
+            async function updateQuantity(cartItemId, newQuantity) {
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                
+                try {
+                    const response = await fetch('/Cart/UpdateQuantity', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                            'RequestVerificationToken': token
                         },
                         body: JSON.stringify({
-                            cartItemId: parseInt(cartItemId),
+                            cartItemId: cartItemId,
                             quantity: newQuantity
                         })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            quantityInput.value = data.quantity;
-                            item.querySelector('.cart-item__line-total').textContent = '₱' + data.lineTotal;
-                            document.getElementById('cart-subtotal').textContent = '₱' + data.subtotal;
-                            document.getElementById('cart-delivery').textContent = '₱' + data.totalDeliveryFee;
-                            document.getElementById('cart-total').textContent = '₱' + data.grandTotal;
-
-                            // Update button states
-                            decreaseBtn.disabled = data.quantity <= 1;
-                            increaseBtn.disabled = data.quantity >= parseInt(quantityInput.max);
-
-                            // Update cart count in navbar if exists
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Update the stored data
+                        const itemData = cartItemsData.get(cartItemId);
+                        if (itemData) {
+                            itemData.quantity = data.quantity;
+                            itemData.lineTotal = parseFloat(data.lineTotal.replace(/,/g, ''));
+                            
+                            // Update UI elements
+                            const itemEl = itemData.element;
+                            const quantityInput = itemEl.querySelector('input[type="number"]');
+                            const lineTotalEl = itemEl.querySelector('.cart-item__line-total');
+                            const decreaseBtn = itemEl.querySelector('[data-action="decrease"]');
+                            const increaseBtn = itemEl.querySelector('[data-action="increase"]');
+                            const checkbox = itemEl.querySelector('.item-checkbox');
+                            
+                            if (quantityInput) quantityInput.value = data.quantity;
+                            if (lineTotalEl) {
+                                lineTotalEl.textContent = '₱' + data.lineTotal;
+                                lineTotalEl.dataset.lineTotal = data.lineTotal;
+                            }
+                            if (checkbox) {
+                                checkbox.dataset.quantity = data.quantity;
+                            }
+                            if (decreaseBtn) decreaseBtn.disabled = data.quantity <= 1;
+                            
+                            const maxQty = parseInt(quantityInput?.max || '1');
+                            if (increaseBtn) increaseBtn.disabled = data.quantity >= maxQty;
+                            
+                            // Update navbar cart count
                             updateNavbarCartCount(data.cartCount);
                         }
-                    });
+                        
+                        // Recalculate summary
+                        updateOrderSummary();
+                        
+                        // Update shop select all for this item's shop
+                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
+                        if (itemEl) {
+                            updateShopSelectAll(itemEl.dataset.shopId);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to update quantity:', error);
                 }
+            }
 
-                decreaseBtn?.addEventListener('click', () => {
-                    const currentQty = parseInt(quantityInput.value);
-                    if (currentQty > 1) {
-                        updateQuantity(currentQty - 1);
-                    }
-                });
-
-                increaseBtn?.addEventListener('click', () => {
-                    const currentQty = parseInt(quantityInput.value);
-                    const maxQty = parseInt(quantityInput.max);
-                    if (currentQty < maxQty) {
-                        updateQuantity(currentQty + 1);
-                    }
-                });
-
-                removeBtn?.addEventListener('click', () => {
-                    if (!confirm('Remove this item from your cart?')) return;
-
-                    fetch('/Cart/Remove', {
+            // Remove item function
+            async function removeItem(cartItemId) {
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                
+                try {
+                    const response = await fetch('/Cart/Remove', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
-                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                            'RequestVerificationToken': token
                         },
                         body: `cartItemId=${cartItemId}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            item.remove();
-                            document.getElementById('cart-subtotal').textContent = '₱' + data.subtotal;
-                            document.getElementById('cart-delivery').textContent = '₱' + data.totalDeliveryFee;
-                            document.getElementById('cart-total').textContent = '₱' + data.grandTotal;
-
-                            updateNavbarCartCount(data.cartCount);
-
-                            if (data.isEmpty) {
-                                location.reload();
-                            }
-                        }
                     });
-                });
-            });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Remove from data map
+                        cartItemsData.delete(cartItemId);
+                        
+                        // Remove element
+                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
+                        const shopGroup = itemEl?.closest('.cart-shop-group');
+                        const shopId = itemEl?.dataset.shopId;
+                        
+                        itemEl?.remove();
+                        
+                        // If shop group is empty, remove it
+                        if (shopGroup && shopGroup.querySelectorAll('.cart-item').length === 0) {
+                            shopGroup.remove();
+                        }
+                        
+                        // Update navbar cart count
+                        updateNavbarCartCount(data.cartCount);
+                        
+                        // Recalculate summary
+                        updateOrderSummary();
+                        
+                        // Update shop select all
+                        if (shopId) {
+                            updateShopSelectAll(shopId);
+                        }
+                        
+                        // If cart is empty, reload page
+                        if (data.isEmpty) {
+                            location.reload();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to remove item:', error);
+                }
+            }
 
             function updateNavbarCartCount(count) {
                 const cartBadge = document.querySelector('.cart-badge');
@@ -258,75 +381,92 @@
                 }
             }
 
-            // ── Checkbox Selection Logic ─────────────────────────────────────
-            const shopSelectAll = document.querySelectorAll('.shop-select-all');
-            const itemCheckboxes = document.querySelectorAll('.item-checkbox:not(:disabled)');
-            const checkoutBtn = document.getElementById('checkoutBtn');
-            const selectedCountEl = document.getElementById('selectedCount');
-
-            function updateSelectedCount() {
-                const selected = document.querySelectorAll('.item-checkbox:checked');
-                const count = selected.length;
-                selectedCountEl.textContent = count;
-                checkoutBtn.disabled = count === 0;
-
-                // Update summary based on selection
-                let selectedSubtotal = 0;
-                let selectedDelivery = 0;
-                const uniqueShops = new Set();
-
-                selected.forEach(cb => {
-                    const itemEl = cb.closest('.cart-item');
-                    const lineTotal = parseFloat(itemEl.querySelector('.cart-item__line-total').textContent.replace('₱', '').replace(',', ''));
-                    const shopId = cb.dataset.shopId;
-                    selectedSubtotal += lineTotal;
-                    uniqueShops.add(shopId);
-                });
-
-                selectedDelivery = uniqueShops.size * @Model.DeliveryFeePerItem;
-                const selectedTotal = selectedSubtotal + selectedDelivery;
-
-                document.getElementById('cart-subtotal').textContent = '₱' + selectedSubtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                document.getElementById('cart-delivery').textContent = '₱' + selectedDelivery.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                document.getElementById('cart-total').textContent = '₱' + selectedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-            }
+            // Event delegation for cart item actions
+            document.querySelector('.cart-page__items')?.addEventListener('click', async (e) => {
+                const target = e.target;
+                
+                // Quantity decrease
+                if (target.matches('[data-action="decrease"]') || target.closest('[data-action="decrease"]')) {
+                    const btn = target.closest('[data-action="decrease"]');
+                    const itemEl = btn.closest('.cart-item');
+                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
+                    const quantityInput = itemEl.querySelector('input[type="number"]');
+                    const currentQty = parseInt(quantityInput.value);
+                    
+                    if (currentQty > 1) {
+                        await updateQuantity(cartItemId, currentQty - 1);
+                    }
+                }
+                
+                // Quantity increase
+                if (target.matches('[data-action="increase"]') || target.closest('[data-action="increase"]')) {
+                    const btn = target.closest('[data-action="increase"]');
+                    const itemEl = btn.closest('.cart-item');
+                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
+                    const quantityInput = itemEl.querySelector('input[type="number"]');
+                    const currentQty = parseInt(quantityInput.value);
+                    const maxQty = parseInt(quantityInput.max);
+                    
+                    if (currentQty < maxQty) {
+                        await updateQuantity(cartItemId, currentQty + 1);
+                    }
+                }
+                
+                // Remove item
+                if (target.matches('[data-action="remove"]') || target.closest('[data-action="remove"]')) {
+                    const btn = target.closest('[data-action="remove"]');
+                    const itemEl = btn.closest('.cart-item');
+                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
+                    
+                    if (confirm('Remove this item from your cart?')) {
+                        await removeItem(cartItemId);
+                    }
+                }
+            });
 
             // Shop "select all" checkbox
-            shopSelectAll.forEach(shopCb => {
+            document.querySelectorAll('.shop-select-all').forEach(shopCb => {
                 shopCb.addEventListener('change', () => {
                     const shopId = shopCb.dataset.shopId;
                     const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
                     shopItems.forEach(itemCb => {
                         itemCb.checked = shopCb.checked;
                     });
-                    updateSelectedCount();
+                    updateOrderSummary();
                 });
             });
 
             // Individual item checkbox
-            itemCheckboxes.forEach(itemCb => {
+            document.querySelectorAll('.item-checkbox').forEach(itemCb => {
                 itemCb.addEventListener('change', () => {
                     const shopId = itemCb.dataset.shopId;
-                    const shopCb = document.querySelector(`.shop-select-all[data-shop-id="${shopId}"]`);
-                    const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
-                    const allChecked = Array.from(shopItems).every(cb => cb.checked);
-                    shopCb.checked = allChecked;
-                    updateSelectedCount();
+                    updateShopSelectAll(shopId);
+                    updateOrderSummary();
                 });
             });
 
-            // Checkout button - submit selected items
-            checkoutBtn?.addEventListener('click', () => {
+            // Checkout button
+            document.getElementById('checkoutBtn')?.addEventListener('click', () => {
                 const selected = document.querySelectorAll('.item-checkbox:checked');
                 if (selected.length === 0) return;
 
-                // Build query string with selected item IDs
                 const params = new URLSearchParams();
                 selected.forEach(cb => {
                     params.append('cartItemIds', cb.value);
                 });
 
                 window.location.href = '/Orders/CartCheckout?' + params.toString();
+            });
+
+            // Initial summary calculation
+            updateOrderSummary();
+            
+            // Initialize shop select all states
+            document.querySelectorAll('.cart-shop-group').forEach(group => {
+                const shopId = group.dataset.shopId;
+                if (shopId) {
+                    updateShopSelectAll(shopId);
+                }
             });
         });
     </script>
@@ -353,15 +493,15 @@
             color: var(--color-muted, #6b6560);
         }
 
-        .cart-page__empty svg {
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
+            .cart-page__empty svg {
+                margin-bottom: 1rem;
+                opacity: 0.5;
+            }
 
-        .cart-page__empty p {
-            font-size: 1.125rem;
-            margin-bottom: 1.5rem;
-        }
+            .cart-page__empty p {
+                font-size: 1.125rem;
+                margin-bottom: 1.5rem;
+            }
 
         .cart-page__content {
             display: grid;
@@ -417,9 +557,9 @@
             text-decoration: none;
         }
 
-        .cart-shop-visit:hover {
-            text-decoration: underline;
-        }
+            .cart-shop-visit:hover {
+                text-decoration: underline;
+            }
 
         .cart-shop-items {
             display: flex;
@@ -435,18 +575,18 @@
             align-items: center;
         }
 
-        .cart-item:last-child {
-            border-bottom: none;
-        }
+            .cart-item:last-child {
+                border-bottom: none;
+            }
 
         .cart-item--invalid {
             background: #fff5f5;
             opacity: 0.7;
         }
 
-        .cart-item--invalid .cart-item__details {
-            opacity: 0.6;
-        }
+            .cart-item--invalid .cart-item__details {
+                opacity: 0.6;
+            }
 
         /* Custom Checkbox Styles */
         .cart-shop-checkbox,
@@ -457,14 +597,14 @@
             align-items: center;
         }
 
-        .cart-shop-checkbox input,
-        .cart-item-checkbox input {
-            position: absolute;
-            opacity: 0;
-            cursor: pointer;
-            width: 0;
-            height: 0;
-        }
+            .cart-shop-checkbox input,
+            .cart-item-checkbox input {
+                position: absolute;
+                opacity: 0;
+                cursor: pointer;
+                width: 0;
+                height: 0;
+            }
 
         .checkmark {
             width: 20px;
@@ -522,11 +662,11 @@
             background: #f5f3f0;
         }
 
-        .cart-item__image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+            .cart-item__image img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
 
         .cart-item__placeholder {
             width: 100%;
@@ -553,22 +693,14 @@
             margin: 0 0 0.25rem;
         }
 
-        .cart-item__title a {
-            color: var(--color-text, #1a1814);
-            text-decoration: none;
-        }
+            .cart-item__title a {
+                color: var(--color-text, #1a1814);
+                text-decoration: none;
+            }
 
-        .cart-item__title a:hover {
-            color: var(--color-primary, #2d5a27);
-        }
-
-        .cart-item__shop {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.75rem;
-            color: var(--color-muted, #6b6560);
-        }
+                .cart-item__title a:hover {
+                    color: var(--color-primary, #2d5a27);
+                }
 
         .cart-item__variant {
             display: flex;
@@ -626,14 +758,14 @@
             justify-content: center;
         }
 
-        .btn-quantity:hover:not(:disabled) {
-            background: #f5f3f0;
-        }
+            .btn-quantity:hover:not(:disabled) {
+                background: #f5f3f0;
+            }
 
-        .btn-quantity:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
+            .btn-quantity:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
 
         .cart-item__quantity input {
             width: 40px;
@@ -644,11 +776,11 @@
             -moz-appearance: textfield;
         }
 
-        .cart-item__quantity input::-webkit-outer-spin-button,
-        .cart-item__quantity input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
+            .cart-item__quantity input::-webkit-outer-spin-button,
+            .cart-item__quantity input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
 
         .cart-item__price {
             text-align: right;
@@ -676,10 +808,10 @@
             border-radius: 6px;
         }
 
-        .cart-item__remove:hover {
-            background: #fff5f5;
-            color: #dc3545;
-        }
+            .cart-item__remove:hover {
+                background: #fff5f5;
+                color: #dc3545;
+            }
 
         .cart-page__summary {
             padding: 1.5rem;
@@ -691,11 +823,11 @@
             top: 1rem;
         }
 
-        .cart-page__summary h2 {
-            font-family: 'DM Serif Display', serif;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-        }
+            .cart-page__summary h2 {
+                font-family: 'DM Serif Display', serif;
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
 
         .summary-row {
             display: flex;
@@ -717,6 +849,16 @@
             width: 100%;
             padding: 0.875rem;
             margin-top: 1rem;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-size: 0.875rem;
         }
     </style>
 }
