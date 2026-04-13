@@ -51,26 +51,6 @@
     var itemPrice = (order?.FinalPrice ?? 0m) - (order?.DeliveryFee ?? 0m);
     var deliveryFee = order?.DeliveryFee ?? 50m;
     
-    // Calculate distances
-    double? deliveryDistance = null;
-    double? riderToSellerDistance = null;
-    double? riderToBuyerDistance = null;
-    
-    if (sellerLat.HasValue && sellerLng.HasValue && buyerLat.HasValue && buyerLng.HasValue)
-    {
-        deliveryDistance = CalculateDistance((double)sellerLat.Value, (double)sellerLng.Value, (double)buyerLat.Value, (double)buyerLng.Value);
-    }
-    
-    if (riderLat.HasValue && riderLng.HasValue && sellerLat.HasValue && sellerLng.HasValue)
-    {
-        riderToSellerDistance = CalculateDistance((double)riderLat.Value, (double)riderLng.Value, (double)sellerLat.Value, (double)sellerLng.Value);
-    }
-    
-    if (riderLat.HasValue && riderLng.HasValue && buyerLat.HasValue && buyerLng.HasValue)
-    {
-        riderToBuyerDistance = CalculateDistance((double)riderLat.Value, (double)riderLng.Value, (double)buyerLat.Value, (double)buyerLng.Value);
-    }
-    
     string GetStatusClass()
     {
         return Model?.Status switch
@@ -147,17 +127,30 @@
         .payment-badge.wallet { background: #e9e5f5; color: #2d1b69; }
         .payment-badge.cod { background: #fef3c7; color: #b45309; }
         
-        .map-section { padding: 0; height: 280px; background: #f5f3f0; }
+        .map-section { padding: 0; height: 300px; background: #f5f3f0; position: relative; }
         #deliveryMap { width: 100%; height: 100%; }
+        
+        .route-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 12px 20px; border-radius: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: none; align-items: center; gap: 12px; }
+        .route-loading.show { display: flex; }
+        .route-loading-spinner { width: 20px; height: 20px; border: 3px solid #e2ddd6; border-top-color: #2d1b69; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @@keyframes spin { to { transform: rotate(360deg); } }
+        
+        .route-error { position: absolute; bottom: 16px; left: 16px; right: 16px; background: #fee9e9; color: #b91c1c; padding: 12px 16px; border-radius: 8px; font-size: 0.875rem; z-index: 1000; display: none; }
+        .route-error.show { display: block; }
+        
+        .route-toggle { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        .route-toggle label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.75rem; color: #6b6560; }
+        .route-toggle input { accent-color: #2d1b69; }
         
         .distance-summary { padding: 20px 24px; display: flex; gap: 24px; border-bottom: 1px solid #e2ddd6; }
         .distance-block { flex: 1; }
-        .distance-block-label { font-size: 0.75rem; text-transform: uppercase; color: #6b6560; margin-bottom: 4px; }
+        .distance-block-label { font-size: 0.75rem; text-transform: uppercase; color: #6b6560; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
         .distance-block-value { font-size: 1.25rem; font-weight: 600; }
         .distance-block-value small { font-size: 0.75rem; font-weight: 400; color: #6b6560; margin-left: 4px; }
         .distance-block-value.near { color: #0e6245; }
         .distance-block-value.medium { color: #b45309; }
         .distance-block-value.far { color: #6b6560; }
+        .distance-note { font-size: 0.7rem; color: #a39e98; margin-top: 4px; }
         
         .locations-section { padding: 24px; }
         .location-card { display: flex; gap: 16px; margin-bottom: 20px; }
@@ -294,39 +287,42 @@
                         <span class="payment-badge @(order?.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
                             @(order?.PaymentMethod == PaymentMethod.Wallet ? "Wallet Payment" : "Cash on Delivery")
                         </span>
+                        <div class="route-toggle">
+                            <label>
+                                <input type="checkbox" id="showRoadRoute" checked> Show actual road route
+                            </label>
+                            <span style="font-size: 0.7rem; color: #a39e98;">(powered by OSRM)</span>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Map -->
                 <div class="map-section">
                     <div id="deliveryMap"></div>
+                    <div class="route-loading" id="routeLoading">
+                        <div class="route-loading-spinner"></div>
+                        <span>Calculating road route...</span>
+                    </div>
+                    <div class="route-error" id="routeError">
+                        ⚠️ Could not calculate road route. Showing straight-line distance instead.
+                    </div>
                 </div>
 
                 <!-- Distance Summary -->
                 <div class="distance-summary">
-                    @if (Model.Status == DeliveryStatus.Accepted)
-                    {
-                        <div class="distance-block">
-                            <div class="distance-block-label">📍 To Pickup (Seller)</div>
-                            <div class="distance-block-value @GetDistanceClass(riderToSellerDistance)">
-                                @(riderToSellerDistance.HasValue ? FormatDistance(riderToSellerDistance.Value) : "--")
-                            </div>
+                    <div class="distance-block" id="currentLegBlock">
+                        <div class="distance-block-label" id="currentLegLabel">
+                            <span>📍 Current Leg</span>
                         </div>
-                    }
-                    else if (Model.Status == DeliveryStatus.PickedUp)
-                    {
-                        <div class="distance-block">
-                            <div class="distance-block-label">📍 To Dropoff (Buyer)</div>
-                            <div class="distance-block-value @GetDistanceClass(riderToBuyerDistance)">
-                                @(riderToBuyerDistance.HasValue ? FormatDistance(riderToBuyerDistance.Value) : "--")
-                            </div>
-                        </div>
-                    }
+                        <div class="distance-block-value" id="currentLegDistance">--</div>
+                        <div class="distance-note" id="currentLegNote"></div>
+                    </div>
                     <div class="distance-block">
-                        <div class="distance-block-label">📏 Total Route Distance</div>
-                        <div class="distance-block-value @GetDistanceClass(deliveryDistance)">
-                            @(deliveryDistance.HasValue ? FormatDistance(deliveryDistance.Value) : "--")
+                        <div class="distance-block-label">
+                            <span>📏 Total Route</span>
                         </div>
+                        <div class="distance-block-value" id="totalRouteDistance">--</div>
+                        <div class="distance-note" id="totalRouteNote"></div>
                     </div>
                 </div>
 
@@ -418,37 +414,10 @@
         }
     </div>
 
-    @functions {
-        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
-        {
-            const double R = 6371;
-            var dLat = (lat2 - lat1) * Math.PI / 180.0;
-            var dLon = (lon2 - lon1) * Math.PI / 180.0;
-            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                    Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
-                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-            return R * c;
-        }
-        
-        private string FormatDistance(double km)
-        {
-            if (km < 1) return $"{(km * 1000):F0} meters";
-            return $"{km:F1} kilometers";
-        }
-        
-        private string GetDistanceClass(double? km)
-        {
-            if (!km.HasValue) return "";
-            if (km < 3) return "near";
-            if (km < 10) return "medium";
-            return "far";
-        }
-    }
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         (function() {
+            // Coordinates from server
             var sellerLat = @(sellerLat?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
             var sellerLng = @(sellerLng?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
             var buyerLat = @(buyerLat?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
@@ -457,57 +426,284 @@
             var riderLng = @(riderLng?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
             var status = '@Model?.Status';
             
-            var points = [];
-            if (sellerLat && sellerLng) points.push({ lat: sellerLat, lng: sellerLng, type: 'seller' });
-            if (buyerLat && buyerLng) points.push({ lat: buyerLat, lng: buyerLng, type: 'buyer' });
-            if (riderLat && riderLng) points.push({ lat: riderLat, lng: riderLng, type: 'rider' });
+            // DOM elements
+            var map = L.map('deliveryMap');
+            var routeLayer = null;
+            var currentLegLayer = null;
+            var straightLineLayer = null;
+            var showRoadRouteCheckbox = document.getElementById('showRoadRoute');
+            var routeLoading = document.getElementById('routeLoading');
+            var routeError = document.getElementById('routeError');
             
-            if (points.length === 0) return;
+            // Distance display elements
+            var currentLegLabel = document.getElementById('currentLegLabel');
+            var currentLegDistance = document.getElementById('currentLegDistance');
+            var currentLegNote = document.getElementById('currentLegNote');
+            var totalRouteDistance = document.getElementById('totalRouteDistance');
+            var totalRouteNote = document.getElementById('totalRouteNote');
             
-            var centerLat = points[0].lat;
-            var centerLng = points[0].lng;
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
             
-            var map = L.map('deliveryMap').setView([centerLat, centerLng], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            
+            // Store markers
+            var markers = [];
+            var bounds = L.latLngBounds();
             var sellerMarker = null, buyerMarker = null, riderMarker = null;
             
-            points.forEach(function(p) {
-                if (p.type === 'seller') {
-                    sellerMarker = L.marker([p.lat, p.lng]).addTo(map).bindPopup('📦 Pickup: Seller');
-                } else if (p.type === 'buyer') {
-                    buyerMarker = L.marker([p.lat, p.lng]).addTo(map).bindPopup('🏠 Dropoff: Buyer');
-                } else if (p.type === 'rider') {
-                    riderMarker = L.marker([p.lat, p.lng], {
-                        icon: L.divIcon({ className: 'rider-marker', html: '🚴', iconSize: [24, 24] })
-                    }).addTo(map).bindPopup('📍 Your Location');
+            // Add seller marker
+            if (sellerLat && sellerLng) {
+                sellerMarker = L.marker([sellerLat, sellerLng])
+                    .bindPopup('📦 Pickup: Seller')
+                    .addTo(map);
+                markers.push(sellerMarker);
+                bounds.extend([sellerLat, sellerLng]);
+            }
+            
+            // Add buyer marker
+            if (buyerLat && buyerLng) {
+                buyerMarker = L.marker([buyerLat, buyerLng])
+                    .bindPopup('🏠 Dropoff: Buyer')
+                    .addTo(map);
+                markers.push(buyerMarker);
+                bounds.extend([buyerLat, buyerLng]);
+            }
+            
+            // Add rider marker
+            if (riderLat && riderLng) {
+                riderMarker = L.marker([riderLat, riderLng], {
+                    icon: L.divIcon({ 
+                        className: 'rider-marker', 
+                        html: '<div style="background: #2d1b69; color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">🚴 You</div>', 
+                        iconSize: [60, 28] 
+                    })
+                }).bindPopup('📍 Your Location').addTo(map);
+                markers.push(riderMarker);
+                bounds.extend([riderLat, riderLng]);
+            }
+            
+            // Fit map to show all markers
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [40, 40] });
+            } else {
+                map.setView([14.5995, 120.9842], 12);
+            }
+            
+            // Helper: Calculate straight-line distance
+            function calculateStraightDistance(lat1, lon1, lat2, lon2) {
+                if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+                var R = 6371;
+                var dLat = (lat2 - lat1) * Math.PI / 180;
+                var dLon = (lon2 - lon1) * Math.PI / 180;
+                var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+                var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+            
+            // Helper: Format distance
+            function formatDistance(km) {
+                if (km === null || km === undefined) return '--';
+                if (km < 1) return (km * 1000).toFixed(0) + ' m';
+                return km.toFixed(1) + ' km';
+            }
+            
+            // Helper: Get distance class
+            function getDistanceClass(km) {
+                if (km === null || km === undefined) return '';
+                if (km < 3) return 'near';
+                if (km < 10) return 'medium';
+                return 'far';
+            }
+            
+            // Calculate straight-line distances
+            var straightSellerToBuyer = calculateStraightDistance(sellerLat, sellerLng, buyerLat, buyerLng);
+            var straightRiderToSeller = calculateStraightDistance(riderLat, riderLng, sellerLat, sellerLng);
+            var straightRiderToBuyer = calculateStraightDistance(riderLat, riderLng, buyerLat, buyerLng);
+            
+            // Function to update distance display
+            function updateDistanceDisplay(currentDist, currentIsRoad, totalDist, totalIsRoad) {
+                // Current leg
+                if (currentDist) {
+                    currentLegDistance.textContent = formatDistance(currentDist);
+                    currentLegDistance.className = 'distance-block-value ' + getDistanceClass(currentDist);
+                    currentLegNote.textContent = currentIsRoad ? '🚗 Driving distance' : '📏 Straight-line';
+                } else {
+                    currentLegDistance.textContent = '--';
+                    currentLegNote.textContent = '';
+                }
+                
+                // Total route
+                if (totalDist) {
+                    totalRouteDistance.textContent = formatDistance(totalDist);
+                    totalRouteDistance.className = 'distance-block-value ' + getDistanceClass(totalDist);
+                    totalRouteNote.textContent = totalIsRoad ? '🚗 Driving distance' : '📏 Straight-line';
+                } else {
+                    totalRouteDistance.textContent = '--';
+                    totalRouteNote.textContent = '';
+                }
+            }
+            
+            // Update labels based on status
+            if (status === 'Accepted' || status === '0') {
+                currentLegLabel.innerHTML = '<span>📍 To Pickup (Seller)</span>';
+                updateDistanceDisplay(straightRiderToSeller, false, straightSellerToBuyer, false);
+            } else if (status === 'PickedUp' || status === '2') {
+                currentLegLabel.innerHTML = '<span>📍 To Dropoff (Buyer)</span>';
+                updateDistanceDisplay(straightRiderToBuyer, false, straightSellerToBuyer, false);
+            } else {
+                updateDistanceDisplay(null, false, straightSellerToBuyer, false);
+            }
+            
+            // Draw straight line between seller and buyer (fallback)
+            if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                straightLineLayer = L.polyline([[sellerLat, sellerLng], [buyerLat, buyerLng]], {
+                    color: '#a39e98',
+                    weight: 2,
+                    dashArray: '5, 5',
+                    opacity: 0.6
+                }).addTo(map).bindPopup('Straight-line distance');
+            }
+            
+            // Function to fetch OSRM route
+            async function fetchOSRMRoute(startLat, startLng, endLat, endLng) {
+                if (!startLat || !startLng || !endLat || !endLng) return null;
+                
+                var url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
+                
+                try {
+                    var response = await fetch(url);
+                    if (!response.ok) throw new Error('OSRM request failed');
+                    
+                    var data = await response.json();
+                    if (!data.routes || data.routes.length === 0) throw new Error('No route found');
+                    
+                    return data.routes[0];
+                } catch (error) {
+                    console.warn('OSRM routing failed:', error);
+                    return null;
+                }
+            }
+            
+            // Function to draw route on map
+            function drawRoute(routeData, color, weight, dashArray, popupText) {
+                if (!routeData || !routeData.geometry) return null;
+                
+                var coordinates = routeData.geometry.coordinates.map(function(c) {
+                    return [c[1], c[0]];
+                });
+                
+                return L.polyline(coordinates, {
+                    color: color,
+                    weight: weight,
+                    opacity: 0.8,
+                    dashArray: dashArray
+                }).bindPopup(popupText + ': ' + formatDistance(routeData.distance / 1000));
+            }
+            
+            // Function to load and display road routes
+            async function loadRoadRoutes() {
+                routeLoading.classList.add('show');
+                routeError.classList.remove('show');
+                
+                var roadSellerToBuyer = null;
+                var roadCurrentLeg = null;
+                
+                // Fetch seller to buyer route (total route)
+                if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                    var route = await fetchOSRMRoute(sellerLat, sellerLng, buyerLat, buyerLng);
+                    if (route) {
+                        roadSellerToBuyer = {
+                            distance: route.distance / 1000,
+                            duration: route.duration,
+                            geometry: route.geometry
+                        };
+                    }
+                }
+                
+                // Fetch current leg route based on status
+                if (status === 'Accepted' || status === '0') {
+                    if (riderLat && riderLng && sellerLat && sellerLng) {
+                        var route = await fetchOSRMRoute(riderLat, riderLng, sellerLat, sellerLng);
+                        if (route) {
+                            roadCurrentLeg = {
+                                distance: route.distance / 1000,
+                                duration: route.duration,
+                                geometry: route.geometry
+                            };
+                        }
+                    }
+                } else if (status === 'PickedUp' || status === '2') {
+                    if (riderLat && riderLng && buyerLat && buyerLng) {
+                        var route = await fetchOSRMRoute(riderLat, riderLng, buyerLat, buyerLng);
+                        if (route) {
+                            roadCurrentLeg = {
+                                distance: route.distance / 1000,
+                                duration: route.duration,
+                                geometry: route.geometry
+                            };
+                        }
+                    }
+                }
+                
+                // Clear existing route layers
+                if (routeLayer) map.removeLayer(routeLayer);
+                if (currentLegLayer) map.removeLayer(currentLegLayer);
+                
+                // Draw new routes
+                if (roadSellerToBuyer) {
+                    routeLayer = drawRoute(roadSellerToBuyer, '#2d1b69', 4, null, '🚗 Delivery route');
+                    if (routeLayer) routeLayer.addTo(map);
+                }
+                
+                if (roadCurrentLeg) {
+                    currentLegLayer = drawRoute(roadCurrentLeg, '#b45309', 3, '8, 6', 
+                        status === 'Accepted' || status === '0' ? '📍 Route to pickup' : '📍 Route to dropoff');
+                    if (currentLegLayer) currentLegLayer.addTo(map);
+                }
+                
+                // Update distance display
+                var currentDist = roadCurrentLeg ? roadCurrentLeg.distance : 
+                    (status === 'Accepted' || status === '0' ? straightRiderToSeller : straightRiderToBuyer);
+                var totalDist = roadSellerToBuyer ? roadSellerToBuyer.distance : straightSellerToBuyer;
+                
+                updateDistanceDisplay(currentDist, !!roadCurrentLeg, totalDist, !!roadSellerToBuyer);
+                
+                // Show error if total route failed
+                if (!roadSellerToBuyer) {
+                    routeError.classList.add('show');
+                }
+                
+                routeLoading.classList.remove('show');
+            }
+            
+            // Toggle between road and straight-line routes
+            showRoadRouteCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    if (straightLineLayer) map.removeLayer(straightLineLayer);
+                    loadRoadRoutes();
+                } else {
+                    if (routeLayer) map.removeLayer(routeLayer);
+                    if (currentLegLayer) map.removeLayer(currentLegLayer);
+                    if (straightLineLayer) straightLineLayer.addTo(map);
+                    
+                    var currentDist = (status === 'Accepted' || status === '0') ? straightRiderToSeller : straightRiderToBuyer;
+                    updateDistanceDisplay(currentDist, false, straightSellerToBuyer, false);
+                    routeError.classList.remove('show');
                 }
             });
             
-            // Draw route lines
-            if (sellerMarker && buyerMarker) {
-                L.polyline([
-                    [sellerMarker.getLatLng().lat, sellerMarker.getLatLng().lng],
-                    [buyerMarker.getLatLng().lat, buyerMarker.getLatLng().lng]
-                ], { color: '#2d1b69', weight: 3, dashArray: '8, 6' }).addTo(map);
+            // Load road routes by default
+            if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                loadRoadRoutes();
+                if (straightLineLayer) map.removeLayer(straightLineLayer);
+            } else {
+                routeError.classList.add('show');
+                routeError.textContent = '⚠️ Location coordinates not available. Showing straight-line distance.';
             }
             
-            if (riderMarker && sellerMarker && (status === 'Accepted' || status === '0')) {
-                L.polyline([
-                    [riderMarker.getLatLng().lat, riderMarker.getLatLng().lng],
-                    [sellerMarker.getLatLng().lat, sellerMarker.getLatLng().lng]
-                ], { color: '#b45309', weight: 2, dashArray: '4, 4' }).addTo(map);
-            }
-            
-            if (riderMarker && buyerMarker && (status === 'PickedUp' || status === '2')) {
-                L.polyline([
-                    [riderMarker.getLatLng().lat, riderMarker.getLatLng().lng],
-                    [buyerMarker.getLatLng().lat, buyerMarker.getLatLng().lng]
-                ], { color: '#0e6245', weight: 2, dashArray: '4, 4' }).addTo(map);
-            }
-            
-            var bounds = L.latLngBounds(points.map(function(p) { return [p.lat, p.lng]; }));
-            map.fitBounds(bounds, { padding: [30, 30] });
         })();
     </script>
 </body>
