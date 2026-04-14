@@ -23,6 +23,103 @@
     <link rel="stylesheet" href="~/css/Home.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Filter.css" asp-append-version="true" />
+    <style>
+            /* Discount display styles */
+            .fy-card__price-section {
+                margin-top: 4px;
+            }
+
+            .fy-card__original-price {
+                font-size: 0.8rem;
+                color: var(--color-muted, #9ca3af);
+                text-decoration: line-through;
+                line-height: 1.3;
+            }
+
+            .fy-card__current-price-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .fy-card__current-price {
+                font-size: 1.125rem;
+                font-weight: 700;
+                color: #1a1814;
+                white-space: nowrap;
+            }
+
+            .fy-card__discount-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #fee2e2;
+                color: #b91c1c;
+                font-size: 0.7rem;
+                font-weight: 600;
+                padding: 3px 8px;
+                border-radius: 20px;
+                line-height: 1;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            .fy-card__discount-expiry {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                margin-top: 4px;
+                font-size: 0.7rem;
+                color: #b91c1c;
+                font-weight: 500;
+            }
+
+                .fy-card__discount-expiry svg {
+                    flex-shrink: 0;
+                }
+
+            /* Shop card specific - dynamic font scaling to fit on one line */
+            .fy-card--shop .fy-card__price-section {
+                overflow: hidden;
+            }
+
+            .fy-card--shop .fy-card__original-price {
+                white-space: nowrap;
+            }
+
+            .fy-card--shop .fy-card__current-price-row {
+                flex-wrap: nowrap;
+                align-items: baseline;
+            }
+
+            .fy-card--shop .fy-card__current-price {
+                white-space: nowrap;
+                flex-shrink: 1;
+                min-width: 0;
+                /* Dynamic font scaling - shrinks text to fit container */
+                font-size: clamp(0.8rem, 4vw, 1.125rem);
+            }
+
+                /* For price ranges that are long, scale down further */
+                .fy-card--shop .fy-card__current-price[data-long-price="true"] {
+                    font-size: clamp(0.7rem, 3.5vw, 1rem);
+                }
+
+            /* Sold items - muted discount display */
+            .fy-card--sold .fy-card__current-price {
+                color: var(--color-muted, #6b6560);
+            }
+
+            .fy-card--sold .fy-card__discount-badge {
+                background: #e5e7eb;
+                color: #6b7280;
+            }
+
+            .fy-card--sold .fy-card__discount-expiry {
+                color: #9ca3af;
+            }
+    </style>
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
@@ -79,7 +176,38 @@
                         var isReserved = item.Status == ItemStatus.Reserved;
                         var isSold = item.Status == ItemStatus.Sold;
                         var isShopItem = item.ShopId.HasValue;
+                        var hasDiscount = item.HasActiveDiscount;
                         var imagesJson = JsonSerializer.Serialize(item.ImageUrls);
+
+                        // Calculate expiry text
+                        string? expiryText = null;
+                        if (hasDiscount && item.DiscountExpiresAt.HasValue)
+                        {
+                            var timeLeft = item.DiscountExpiresAt.Value - DateTime.UtcNow;
+                            if (timeLeft.TotalDays >= 1)
+                            {
+                                var days = (int)timeLeft.TotalDays;
+                                expiryText = $"{days}d left";
+                            }
+                            else if (timeLeft.TotalHours >= 1)
+                            {
+                                var hours = (int)timeLeft.TotalHours;
+                                expiryText = $"{hours}h left";
+                            }
+                            else if (timeLeft.TotalMinutes > 0)
+                            {
+                                var mins = (int)timeLeft.TotalMinutes;
+                                expiryText = $"{mins}m left";
+                            }
+                        }
+
+                        // Get price display string (without "From" prefix since we'll add it separately)
+                        var priceDisplay = Model.ShopItemPriceDisplay.ContainsKey(item.Id)
+                            ? Model.ShopItemPriceDisplay[item.Id]
+                            : "₱" + item.Price.ToString("N2");
+                        
+                        // Check if price string is long (more than 15 chars)
+                        var isLongPrice = priceDisplay.Length > 15;
 
                         <article class="fy-card @(isSold ? "fy-card--sold" : "") @(isShopItem ? "fy-card--shop" : "")"
                                  data-category="@item.Category"
@@ -137,7 +265,6 @@
                                 {
                                     <span class="fy-card__shop-badge" aria-label="Shop listing">Shop</span>
                                 }
-
                             </div>
 
                             <div class="fy-card__body">
@@ -163,24 +290,74 @@
                                         </button>
                                     }
                                 </div>
-                                <p class="fy-card__price">
+
+                                @* ── PRICE DISPLAY SECTION ─────────────────────────────────────────── *@
+                                <div class="fy-card__price-section">
                                     @if (isShopItem)
                                     {
-                                        <span class="fy-card__from-label">From </span>
-                                        @if (Model.ShopItemPriceDisplay.ContainsKey(item.Id))
+                                        @* SHOP ITEM: Show "From" on original price only, current price shows just the range *@
+                                        @if (hasDiscount)
                                         {
-                                            @Model.ShopItemPriceDisplay[item.Id]
+                                            <div class="fy-card__original-price">
+                                                From ₱@(item.OriginalPrice?.ToString("N2"))
+                                            </div>
+                                            <div class="fy-card__current-price-row">
+                                                <span class="fy-card__current-price" @(isLongPrice ? "data-long-price=true" : "")>
+                                                    @priceDisplay
+                                                </span>
+                                                <span class="fy-card__discount-badge">
+                                                    -@(item.DiscountPercentage?.ToString("F0"))%
+                                                </span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(expiryText))
+                                            {
+                                                <div class="fy-card__discount-expiry">
+                                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                                        <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
+                                                    </svg>
+                                                    @expiryText
+                                                </div>
+                                            }
                                         }
                                         else
                                         {
-                                            <span>₱@item.Price.ToString("N2")</span>
+                                            <div class="fy-card__current-price-row">
+                                                <span class="fy-card__current-price" @(isLongPrice ? "data-long-price=true" : "")>
+                                                    @priceDisplay
+                                                </span>
+                                            </div>
                                         }
                                     }
                                     else
                                     {
-                                        <span>₱@item.Price.ToString("N2")</span>
+                                        @* P2P ITEM: Show original price strikethrough + discounted price *@
+                                        @if (hasDiscount)
+                                        {
+                                            <div class="fy-card__original-price">
+                                                ₱@(item.OriginalPrice?.ToString("N2"))
+                                            </div>
+                                            <div class="fy-card__current-price-row">
+                                                <span class="fy-card__current-price">₱@item.Price.ToString("N2")</span>
+                                                <span class="fy-card__discount-badge">-@(item.DiscountPercentage?.ToString("F0"))%</span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(expiryText))
+                                            {
+                                                <div class="fy-card__discount-expiry">
+                                                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                                                        <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
+                                                    </svg>
+                                                    @expiryText
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="fy-card__current-price-row">
+                                                <span class="fy-card__current-price">₱@item.Price.ToString("N2")</span>
+                                            </div>
+                                        }
                                     }
-                                </p>
+                                </div>
                             </div>
 
                             @if (isOwner)

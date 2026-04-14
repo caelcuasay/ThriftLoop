@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ThriftLoop.Data;
 
@@ -11,9 +12,11 @@ using ThriftLoop.Data;
 namespace ThriftLoop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260414021316_AddDiscountToItems")]
+    partial class AddDiscountToItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -263,12 +266,6 @@ namespace ThriftLoop.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("DiscountPercentage")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<decimal?>("OriginalPrice")
-                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(10,2)");

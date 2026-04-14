@@ -31,15 +31,30 @@
     }
     else
     {
+        @if (Model.InvalidItemCount > 0)
+        {
+            <div class="cart-warning-banner">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <span>@Model.InvalidItemCount item@(Model.InvalidItemCount > 1 ? "s are" : " is") no longer available and cannot be purchased.</span>
+                <form asp-controller="Cart" asp-action="Clear" method="post" style="margin-left: auto;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="cart-warning-banner__clear">Remove unavailable items</button>
+                </form>
+            </div>
+        }
+
         <div class="cart-page__content">
             <div class="cart-page__items">
                 @foreach (var shopGroup in groupedByShop)
                 {
+                    var hasValidItems = shopGroup.Items.Any(i => i.IsValid);
                     <div class="cart-shop-group" data-shop-id="@shopGroup.ShopId" data-seller-id="@shopGroup.SellerId">
                         <div class="cart-shop-header">
                             <div class="cart-shop-header__left">
                                 <label class="cart-shop-checkbox">
-                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" checked />
+                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" @(hasValidItems ? "checked" : "disabled") />
                                     <span class="checkmark"></span>
                                 </label>
                                 <span class="cart-shop-name">
@@ -102,19 +117,22 @@
                                             <span class="cart-item__category">@item.Category</span>
                                         </div>
 
-                                        @if (!item.IsValid)
+                                        @if (!item.IsValid && !string.IsNullOrEmpty(item.InvalidReason))
                                         {
                                             <div class="cart-item__error">
-                                                Only @item.AvailableStock available
+                                                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                                    <path fill-rule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm-.75-9.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                                </svg>
+                                                @item.InvalidReason
                                             </div>
                                         }
                                     </div>
 
                                     <div class="cart-item__actions">
                                         <div class="cart-item__quantity">
-                                            <button type="button" class="btn-quantity" data-action="decrease" @(item.Quantity <= 1 ? "disabled" : "")>-</button>
+                                            <button type="button" class="btn-quantity" data-action="decrease" @(item.Quantity <= 1 || !item.IsValid ? "disabled" : "")>-</button>
                                             <input type="number" value="@item.Quantity" min="1" max="@item.AvailableStock" readonly />
-                                            <button type="button" class="btn-quantity" data-action="increase" @(item.Quantity >= item.AvailableStock ? "disabled" : "")>+</button>
+                                            <button type="button" class="btn-quantity" data-action="increase" @(item.Quantity >= item.AvailableStock || !item.IsValid ? "disabled" : "")>+</button>
                                         </div>
 
                                         <div class="cart-item__price">
@@ -157,7 +175,10 @@
                 @if (!Model.HasValidItems)
                 {
                     <div class="alert alert-warning">
-                        Some items have insufficient stock. Please adjust quantities or remove them.
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Some items are unavailable. Please remove them to proceed.</span>
                     </div>
                 }
 
@@ -227,7 +248,6 @@
                 });
 
                 // Delivery fee is per SHOP (or per seller if shopId is null)
-                // For shop items, group by ShopId. For any P2P items (shouldn't be in cart), group by SellerId.
                 const uniqueDeliveryGroups = selectedShops.size > 0 ? selectedShops.size : selectedSellers.size;
                 const selectedDelivery = uniqueDeliveryGroups * DELIVERY_FEE_PER_SHOP;
                 const selectedTotal = selectedSubtotal + selectedDelivery;
@@ -252,7 +272,7 @@
                 
                 const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
                 const allChecked = Array.from(shopItems).every(cb => cb.checked);
-                shopCb.checked = allChecked;
+                shopCb.checked = allChecked && shopItems.length > 0;
             }
 
             // Quantity update function
@@ -313,6 +333,14 @@
                         const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
                         if (itemEl) {
                             updateShopSelectAll(itemEl.dataset.shopId);
+                        }
+                    } else {
+                        // Show error in the item row
+                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
+                        const errorEl = itemEl?.querySelector('.cart-item__error');
+                        if (errorEl) {
+                            errorEl.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm-.75-9.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>${data.error}`;
+                            errorEl.style.display = 'flex';
                         }
                     }
                 } catch (error) {
@@ -377,7 +405,7 @@
                 const cartBadge = document.querySelector('.cart-badge');
                 if (cartBadge) {
                     cartBadge.textContent = count;
-                    cartBadge.style.display = count > 0 ? 'block' : 'none';
+                    cartBadge.style.display = count > 0 ? 'flex' : 'none';
                 }
             }
 
@@ -388,6 +416,8 @@
                 // Quantity decrease
                 if (target.matches('[data-action="decrease"]') || target.closest('[data-action="decrease"]')) {
                     const btn = target.closest('[data-action="decrease"]');
+                    if (btn.disabled) return;
+                    
                     const itemEl = btn.closest('.cart-item');
                     const cartItemId = parseInt(itemEl.dataset.cartItemId);
                     const quantityInput = itemEl.querySelector('input[type="number"]');
@@ -401,6 +431,8 @@
                 // Quantity increase
                 if (target.matches('[data-action="increase"]') || target.closest('[data-action="increase"]')) {
                     const btn = target.closest('[data-action="increase"]');
+                    if (btn.disabled) return;
+                    
                     const itemEl = btn.closest('.cart-item');
                     const cartItemId = parseInt(itemEl.dataset.cartItemId);
                     const quantityInput = itemEl.querySelector('input[type="number"]');
@@ -447,7 +479,7 @@
 
             // Checkout button
             document.getElementById('checkoutBtn')?.addEventListener('click', () => {
-                const selected = document.querySelectorAll('.item-checkbox:checked');
+                const selected = document.querySelectorAll('.item-checkbox:checked:not(:disabled)');
                 if (selected.length === 0) return;
 
                 const params = new URLSearchParams();
@@ -501,6 +533,37 @@
             .cart-page__empty p {
                 font-size: 1.125rem;
                 margin-bottom: 1.5rem;
+            }
+
+        /* Warning banner for unavailable items */
+        .cart-warning-banner {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1.25rem;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            color: #92400e;
+            font-size: 0.9rem;
+        }
+
+        .cart-warning-banner__clear {
+            background: transparent;
+            border: 1px solid #d97706;
+            color: #d97706;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+            .cart-warning-banner__clear:hover {
+                background: #d97706;
+                color: white;
             }
 
         .cart-page__content {
@@ -580,12 +643,12 @@
             }
 
         .cart-item--invalid {
-            background: #fff5f5;
-            opacity: 0.7;
+            background: #fef2f2;
+            opacity: 0.85;
         }
 
-            .cart-item--invalid .cart-item__details {
-                opacity: 0.6;
+            .cart-item--invalid .cart-item__image img {
+                filter: grayscale(0.5);
             }
 
         /* Custom Checkbox Styles */
@@ -725,9 +788,14 @@
         }
 
         .cart-item__error {
-            color: #dc3545;
-            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            color: #dc2626;
+            font-size: 0.8rem;
             margin-top: 0.5rem;
+            padding: 0.375rem 0;
+            font-weight: 500;
         }
 
         .cart-item__actions {
@@ -852,13 +920,16 @@
         }
         
         .alert-warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
             padding: 0.75rem;
-            border-radius: 6px;
+            border-radius: 8px;
             margin: 1rem 0;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
         }
     </style>
 }

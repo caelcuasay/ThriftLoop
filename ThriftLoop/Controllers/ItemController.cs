@@ -314,6 +314,7 @@ public class ItemsController : Controller
         var (item, actionResult) = await GetOwnedItemAsync(id);
         if (actionResult is not null) return actionResult;
 
+        // Check for associated orders
         bool hasOrders = await _context.Orders.AnyAsync(o => o.ItemId == id);
         if (hasOrders)
         {
@@ -323,13 +324,329 @@ public class ItemsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        foreach (var url in item!.ImageUrls) DeleteImageFile(url);
+        // Check for associated likes - and delete them first
+        var itemLikes = await _context.ItemLikes
+            .Where(il => il.ItemId == id)
+            .ToListAsync();
+
+        if (itemLikes.Any())
+        {
+            _context.ItemLikes.RemoveRange(itemLikes);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Deleted {Count} likes associated with Item {ItemId}.",
+                itemLikes.Count, item!.Id);
+        }
+
+        // Also check for cart items that might reference this item
+        var cartItems = await _context.CartItems
+            .Where(ci => ci.ItemId == id)
+            .ToListAsync();
+
+        if (cartItems.Any())
+        {
+            _context.CartItems.RemoveRange(cartItems);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Deleted {Count} cart items associated with Item {ItemId}.",
+                cartItems.Count, item!.Id);
+        }
+
+        // Check for order items that reference this item through SKUs
+        // Get all SKU IDs for this item first
+        var skuIds = await _context.ItemVariantSkus
+            .Where(s => s.Variant != null && s.Variant.ItemId == id)
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        if (skuIds.Any())
+        {
+            var orderItems = await _context.OrderItems
+                .Where(oi => skuIds.Contains(oi.ItemVariantSkuId))
+                .ToListAsync();
+
+            if (orderItems.Any())
+            {
+                TempData["ErrorMessage"] =
+                    $"'{item!.Title}' cannot be deleted because it has associated order items. " +
+                    "Contact support if you need this listing removed.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // Delete the image files from disk
+        foreach (var url in item!.ImageUrls)
+            DeleteImageFile(url);
+
+        // Finally delete the item itself
         await _itemRepository.DeleteAsync(id);
 
         _logger.LogInformation("User {UserId} deleted Item {ItemId}.", item.UserId, item.Id);
 
         TempData["SuccessMessage"] = $"'{item.Title}' was deleted.";
         return RedirectToAction(nameof(Index));
+    }
+
+    // ── DISCOUNT ENDPOINTS ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Applies a discount to a P2P item. Only available after 24 hours of listing.
+    /// </summary>
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApplyDiscount([FromBody] ApplyDiscountDto dto)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId))
+            return Json(new DiscountResponse { Success = false, Error = "Not authenticated." });
+
+        var item = await _itemRepository.GetByIdAsync(dto.ItemId);
+        if (item is null)
+            return Json(new DiscountResponse { Success = false, Error = "Item not found." });
+
+        // Verify ownership
+        if (item.UserId != userId)
+            return Json(new DiscountResponse { Success = false, Error = "You don't own this item." });
+
+        // Check if item is available (not reserved/sold)
+        if (item.Status != ItemStatus.Available && item.Status != ItemStatus.Disabled)
+            return Json(new DiscountResponse { Success = false, Error = "Only available items can be discounted." });
+
+        // Check 24-hour eligibility for P2P items
+        if (item.ShopId == null)
+        {
+            var hoursSinceCreation = (DateTime.UtcNow - item.CreatedAt).TotalHours;
+            if (hoursSinceCreation < 24)
+            {
+                var hoursLeft = (int)Math.Ceiling(24 - hoursSinceCreation);
+                return Json(new DiscountResponse
+                {
+                    Success = false,
+                    Error = $"Discounts are available in {hoursLeft} hour{(hoursLeft != 1 ? "s" : "")} (24 hours after listing)."
+                });
+            }
+        }
+
+        // Validate discount percentage
+        if (dto.DiscountPercentage < 1 || dto.DiscountPercentage > 99)
+            return Json(new DiscountResponse { Success = false, Error = "Discount must be between 1% and 99%." });
+
+        // Validate expiration (if provided, must be in the future)
+        if (dto.ExpiresAt.HasValue && dto.ExpiresAt.Value <= DateTime.UtcNow)
+            return Json(new DiscountResponse { Success = false, Error = "Expiration date must be in the future." });
+
+        // Store original price if not already discounted
+        if (!item.OriginalPrice.HasValue)
+            item.OriginalPrice = item.Price;
+
+        // Calculate new price for the item (used for display purposes)
+        var discountMultiplier = (100 - dto.DiscountPercentage) / 100m;
+        var newPrice = Math.Round(item.OriginalPrice.Value * discountMultiplier, 2);
+
+        // Apply discount to Item
+        item.Price = newPrice;
+        item.DiscountPercentage = dto.DiscountPercentage;
+        item.DiscountedAt = DateTime.UtcNow;
+        item.DiscountExpiresAt = dto.ExpiresAt;
+
+        int updatedSkuCount = 0;
+
+        if (item.ShopId != null)
+        {
+            // ── SHOP ITEM: Update ALL SKUs across all variants ─────────────────
+            var allSkus = await _context.ItemVariantSkus
+                .Include(s => s.Variant)
+                .Where(s => s.Variant != null && s.Variant.ItemId == item.Id)
+                .ToListAsync();
+
+            foreach (var sku in allSkus)
+            {
+                // Store original SKU price if not already stored
+                if (!sku.OriginalPrice.HasValue)
+                    sku.OriginalPrice = sku.Price;
+
+                // Apply the same discount percentage to each SKU
+                var skuDiscountMultiplier = (100 - dto.DiscountPercentage) / 100m;
+                sku.Price = Math.Round(sku.OriginalPrice.Value * skuDiscountMultiplier, 2);
+                sku.DiscountPercentage = dto.DiscountPercentage;
+                updatedSkuCount++;
+            }
+
+            _logger.LogInformation(
+                "User {UserId} applied {DiscountPercent}% discount to Shop Item {ItemId}. " +
+                "Updated {SkuCount} SKUs. New base price: ₱{NewPrice}. Expires: {Expires}",
+                userId, dto.DiscountPercentage, item.Id, updatedSkuCount, newPrice,
+                dto.ExpiresAt?.ToString("O") ?? "never");
+        }
+        else
+        {
+            // ── P2P ITEM: Update the single default SKU ────────────────────────
+            var defaultSku = await _context.ItemVariantSkus
+                .FirstOrDefaultAsync(s => s.Variant != null && s.Variant.ItemId == item.Id);
+
+            if (defaultSku != null)
+            {
+                if (!defaultSku.OriginalPrice.HasValue)
+                    defaultSku.OriginalPrice = defaultSku.Price;
+
+                defaultSku.Price = newPrice;
+                defaultSku.DiscountPercentage = dto.DiscountPercentage;
+                updatedSkuCount = 1;
+            }
+
+            _logger.LogInformation(
+                "User {UserId} applied {DiscountPercent}% discount to P2P Item {ItemId}. " +
+                "New price: ₱{NewPrice}. Expires: {Expires}",
+                userId, dto.DiscountPercentage, item.Id, newPrice,
+                dto.ExpiresAt?.ToString("O") ?? "never");
+        }
+
+        await _itemRepository.UpdateAsync(item);
+
+        return Json(new DiscountResponse
+        {
+            Success = true,
+            NewPrice = newPrice,
+            OriginalPrice = item.OriginalPrice.Value,
+            DiscountPercentage = dto.DiscountPercentage,
+            SavingsAmount = item.OriginalPrice.Value - newPrice,
+            ExpiresAt = dto.ExpiresAt?.ToString("MMM d, yyyy 'at' h:mm tt"),
+            IsIndefinite = !dto.ExpiresAt.HasValue
+        });
+    }
+
+    /// <summary>
+    /// Removes the discount from an item, restoring the original prices.
+    /// For P2P: restores Item.Price and the single default SKU.
+    /// For Shop: restores Item.Price and ALL SKUs to their original prices.
+    /// </summary>
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveDiscount(int itemId)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId))
+            return Json(new { success = false, error = "Not authenticated." });
+
+        var item = await _itemRepository.GetByIdAsync(itemId);
+        if (item is null)
+            return Json(new { success = false, error = "Item not found." });
+
+        // Verify ownership
+        if (item.UserId != userId)
+            return Json(new { success = false, error = "You don't own this item." });
+
+        // Check if there's a discount to remove
+        if (!item.OriginalPrice.HasValue)
+            return Json(new { success = false, error = "This item is not discounted." });
+
+        // Restore original price on Item
+        var restoredPrice = item.OriginalPrice.Value;
+        item.Price = restoredPrice;
+        item.OriginalPrice = null;
+        item.DiscountPercentage = null;
+        item.DiscountedAt = null;
+        item.DiscountExpiresAt = null;
+
+        int restoredSkuCount = 0;
+
+        if (item.ShopId != null)
+        {
+            // ── SHOP ITEM: Restore ALL SKUs ────────────────────────────────────
+            var allSkus = await _context.ItemVariantSkus
+                .Include(s => s.Variant)
+                .Where(s => s.Variant != null && s.Variant.ItemId == item.Id)
+                .ToListAsync();
+
+            foreach (var sku in allSkus)
+            {
+                if (sku.OriginalPrice.HasValue)
+                {
+                    sku.Price = sku.OriginalPrice.Value;
+                    sku.OriginalPrice = null;
+                    sku.DiscountPercentage = null;
+                    restoredSkuCount++;
+                }
+            }
+
+            _logger.LogInformation(
+                "User {UserId} removed discount from Shop Item {ItemId}. " +
+                "Restored {SkuCount} SKUs to their original prices.",
+                userId, item.Id, restoredSkuCount);
+        }
+        else
+        {
+            // ── P2P ITEM: Restore the single default SKU ───────────────────────
+            var defaultSku = await _context.ItemVariantSkus
+                .FirstOrDefaultAsync(s => s.Variant != null && s.Variant.ItemId == item.Id);
+
+            if (defaultSku != null && defaultSku.OriginalPrice.HasValue)
+            {
+                defaultSku.Price = defaultSku.OriginalPrice.Value;
+                defaultSku.OriginalPrice = null;
+                defaultSku.DiscountPercentage = null;
+                restoredSkuCount = 1;
+            }
+
+            _logger.LogInformation(
+                "User {UserId} removed discount from P2P Item {ItemId}. Price restored to ₱{Price}.",
+                userId, item.Id, restoredPrice);
+        }
+
+        await _itemRepository.UpdateAsync(item);
+
+        return Json(new
+        {
+            success = true,
+            restoredPrice = restoredPrice,
+            message = "Discount removed successfully."
+        });
+    }
+
+    /// <summary>
+    /// Gets the current discount info for an item.
+    /// </summary>
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetDiscountInfo(int itemId)
+    {
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int userId))
+            return Json(new { success = false, error = "Not authenticated." });
+
+        var item = await _itemRepository.GetByIdAsync(itemId);
+        if (item is null)
+            return Json(new { success = false, error = "Item not found." });
+
+        // Verify ownership
+        if (item.UserId != userId)
+            return Json(new { success = false, error = "You don't own this item." });
+
+        var viewModel = new DiscountedItemViewModel
+        {
+            ItemId = item.Id,
+            CurrentPrice = item.Price,
+            OriginalPrice = item.OriginalPrice ?? item.Price,
+            DiscountPercentage = item.DiscountPercentage ?? 0,
+            SavingsAmount = item.SavingsAmount,
+            DiscountExpiresAt = item.DiscountExpiresAt,
+            HasActiveDiscount = item.HasActiveDiscount
+        };
+
+        return Json(new
+        {
+            success = true,
+            hasDiscount = item.HasActiveDiscount,
+            canBeDiscounted = item.CanBeDiscounted,
+            currentPrice = viewModel.FormattedCurrentPrice,
+            originalPrice = viewModel.FormattedOriginalPrice,
+            discountPercentage = item.DiscountPercentage,
+            discountBadge = viewModel.DiscountBadgeText,
+            savings = viewModel.FormattedSavings,
+            expiresAt = item.DiscountExpiresAt?.ToString("MMM d, yyyy"),
+            expiryText = viewModel.ExpiryText,
+            isIndefinite = viewModel.IsIndefinite
+        });
     }
 
     // ── GET ITEM (Stealable) ──────────────────────────────────────────────────

@@ -38,6 +38,31 @@ public class Item
     /// <summary>Standard clothing size. Nullable — bags, accessories may not have one.</summary>
     public string? Size { get; set; }
 
+    // ── Discount Fields ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The original price before any discount was applied.
+    /// Null when no discount is active.
+    /// </summary>
+    public decimal? OriginalPrice { get; set; }
+
+    /// <summary>
+    /// The discount percentage applied (e.g., 10.00 for 10% off).
+    /// Null when no discount is active.
+    /// </summary>
+    public decimal? DiscountPercentage { get; set; }
+
+    /// <summary>
+    /// UTC timestamp when the discount was applied.
+    /// </summary>
+    public DateTime? DiscountedAt { get; set; }
+
+    /// <summary>
+    /// UTC timestamp when the discount expires.
+    /// Null means the discount is indefinite (no expiration).
+    /// </summary>
+    public DateTime? DiscountExpiresAt { get; set; }
+
     // ── Images ────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -92,6 +117,45 @@ public class Item
     [NotMapped]
     public DateTime? FinalizeDeadline =>
         StealEndsAt.HasValue ? StealEndsAt.Value.AddHours(2) : null;
+
+    // ── Discount computed properties ──────────────────────────────────────────
+
+    /// <summary>
+    /// True if the item currently has an active discount.
+    /// A discount is active if OriginalPrice has a value AND
+    /// (DiscountExpiresAt is null OR DiscountExpiresAt > UTC now).
+    /// </summary>
+    [NotMapped]
+    public bool HasActiveDiscount =>
+        OriginalPrice.HasValue &&
+        OriginalPrice.Value > Price &&
+        (!DiscountExpiresAt.HasValue || DiscountExpiresAt.Value > DateTime.UtcNow);
+
+    /// <summary>
+    /// True if the discount has expired (DiscountExpiresAt is in the past).
+    /// </summary>
+    [NotMapped]
+    public bool HasExpiredDiscount =>
+        OriginalPrice.HasValue &&
+        DiscountExpiresAt.HasValue &&
+        DiscountExpiresAt.Value <= DateTime.UtcNow;
+
+    /// <summary>
+    /// The amount saved (OriginalPrice - Price).
+    /// </summary>
+    [NotMapped]
+    public decimal SavingsAmount =>
+        OriginalPrice.HasValue ? OriginalPrice.Value - Price : 0;
+
+    /// <summary>
+    /// True if the item is eligible for a discount.
+    /// - P2P items: 24h after creation + Available
+    /// - Shop items: Immediately (Available or Disabled)
+    /// </summary>
+    [NotMapped]
+    public bool CanBeDiscounted => ShopId == null
+        ? (Status == ItemStatus.Available && CreatedAt.AddHours(24) <= DateTime.UtcNow) // P2P: 24h rule
+        : (Status == ItemStatus.Available || Status == ItemStatus.Disabled); // Shop: immediate
 
     // ── Shop FK ───────────────────────────────────────────────────────────────
 

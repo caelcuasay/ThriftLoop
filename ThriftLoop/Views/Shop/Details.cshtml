@@ -5,6 +5,7 @@
     Layout = null;
 
     bool hasImages = Model.ImageUrls.Count > 0;
+    bool hasDiscount = Model.HasActiveDiscount;
 
     string condClass = Model.Condition switch
     {
@@ -14,6 +15,32 @@
         "Fair" => "detail-condition--fair",
         _ => "detail-condition--poor"
     };
+
+    // Calculate expiry text for discount
+    string? discountExpiryText = null;
+    if (hasDiscount && Model.DiscountExpiresAt.HasValue)
+    {
+        var timeLeft = Model.DiscountExpiresAt.Value - DateTime.UtcNow;
+        if (timeLeft.TotalDays >= 1)
+        {
+            var days = (int)timeLeft.TotalDays;
+            discountExpiryText = $"{days} day{(days != 1 ? "s" : "")} left";
+        }
+        else if (timeLeft.TotalHours >= 1)
+        {
+            var hours = (int)timeLeft.TotalHours;
+            discountExpiryText = $"{hours} hour{(hours != 1 ? "s" : "")} left";
+        }
+        else if (timeLeft.TotalMinutes > 0)
+        {
+            var mins = (int)timeLeft.TotalMinutes;
+            discountExpiryText = $"{mins} min{(mins != 1 ? "s" : "")} left";
+        }
+        else
+        {
+            discountExpiryText = "Ending soon";
+        }
+    }
 }
 
 <!DOCTYPE html>
@@ -27,6 +54,78 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Shop.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <style>
+            /* Discount display styles for details page */
+            .detail-price-block {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .detail-price-row {
+                display: flex;
+                align-items: baseline;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+
+            .detail-price-original {
+                font-size: 1.1rem;
+                color: #9ca3af;
+                text-decoration: line-through;
+                font-weight: 400;
+            }
+
+            .detail-price-current {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #1a1814;
+            }
+
+            .detail-discount-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #fee2e2;
+                color: #b91c1c;
+                font-size: 0.85rem;
+                font-weight: 600;
+                padding: 4px 12px;
+                border-radius: 24px;
+                line-height: 1;
+                white-space: nowrap;
+            }
+
+            .detail-discount-badge--inline {
+                margin-left: 0;
+            }
+
+            .detail-discount-expiry {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 8px;
+                font-size: 0.8rem;
+                color: #b91c1c;
+                font-weight: 500;
+            }
+
+                .detail-discount-expiry svg {
+                    flex-shrink: 0;
+                }
+
+            .detail-price-label {
+                font-size: 0.875rem;
+                color: #6b7280;
+            }
+
+            /* Original price wrapper - hidden when no discount or when SKU selected without discount tracking */
+            .detail-price-original-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+    </style>
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
@@ -150,14 +249,43 @@
                         </svg>
                         Shop
                     </span>
+                    @if (hasDiscount)
+                    {
+                        <span class="detail-discount-badge" style="margin-left: auto;">
+                            -@(Model.DiscountPercentage?.ToString("F0"))% OFF
+                        </span>
+                    }
                 </div>
 
                 <h1 class="detail-title">@Model.Title</h1>
 
-                <div class="detail-price-block">
-                    <span class="detail-price" id="selectedPrice">
-                        ₱@Model.StartingPrice.ToString("N2")
-                    </span>
+                @* ── Price Display with Discount Support ────────────────────────── *@
+                <div class="detail-price-block" id="priceBlock">
+                    @if (hasDiscount)
+                    {
+                        <div class="detail-price-original-wrapper">
+                            <span class="detail-price-original" id="originalPriceDisplay">
+                                ₱@(Model.OriginalPrice?.ToString("N2") ?? Model.StartingPrice.ToString("N2"))
+                            </span>
+                            <span class="detail-discount-badge detail-discount-badge--inline" id="inlineDiscountBadge">
+                                -@(Model.DiscountPercentage?.ToString("F0"))%
+                            </span>
+                        </div>
+                    }
+                    <div class="detail-price-row">
+                        <span class="detail-price-current" id="selectedPrice">
+                            ₱@Model.StartingPrice.ToString("N2")
+                        </span>
+                    </div>
+                    @if (hasDiscount && !string.IsNullOrEmpty(discountExpiryText))
+                    {
+                        <div class="detail-discount-expiry" id="discountExpiry">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
+                            </svg>
+                            @discountExpiryText
+                        </div>
+                    }
                     <span class="detail-price-label" id="priceLabel">Starting price</span>
                 </div>
 
@@ -220,10 +348,14 @@
 
                     </div>
 
-                    @* Variant data as JSON *@
+                    @* Variant data as JSON with discount info *@
                     <script id="variantData" type="application/json">
-                                        @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                                                Model.Variants.Select(v => new
+                                        @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+                                        {
+                                                hasDiscount = hasDiscount,
+                                                discountPercentage = Model.DiscountPercentage,
+                                                originalStartingPrice = Model.OriginalPrice ?? Model.StartingPrice,
+                                                variants = Model.Variants.Select(v => new
                                                 {
                                                         variantId = v.VariantId,
                                                         name = v.Name,
@@ -232,11 +364,12 @@
                                                                 skuId = s.SkuId,
                                                                 size = s.Size,
                                                                 price = s.Price,
+                                                                originalPrice = s.OriginalPrice,
                                                                 quantity = s.Quantity,
                                                                 isAvailable = s.IsAvailable
                                                         })
                                                 })
-                                        ))
+                                        }))
                     </script>
                 }
 
@@ -310,23 +443,102 @@
                 const rawData = document.getElementById('variantData');
                 if (!rawData) return;
 
-                const variants       = JSON.parse(rawData.textContent);
+                const parsedData = JSON.parse(rawData.textContent);
+                const variants = parsedData.variants;
+                const hasDiscount = parsedData.hasDiscount;
+                const discountPercentage = parsedData.discountPercentage;
+                const originalStartingPrice = parsedData.originalStartingPrice;
+
                 const variantChipsEl = document.getElementById('variantChips');
-                const skuSection     = document.getElementById('skuSection');
-                const skuChipsEl     = document.getElementById('skuChips');
-                const priceEl        = document.getElementById('selectedPrice');
-                const priceLabelEl   = document.getElementById('priceLabel');
-                const variantReqEl   = document.getElementById('variantRequired');
-                const skuReqEl       = document.getElementById('skuRequired');
-                const qtySection     = document.getElementById('qtySection');
-                const qtyInput       = document.getElementById('qtyInput');
-                const qtyDecBtn      = document.getElementById('qtyDec');
-                const qtyIncBtn      = document.getElementById('qtyInc');
-                const qtyStock       = document.getElementById('qtyStock');
-                const buyNowBtn      = document.getElementById('buyNowBtn');
+                const skuSection = document.getElementById('skuSection');
+                const skuChipsEl = document.getElementById('skuChips');
+                const priceEl = document.getElementById('selectedPrice');
+                const priceLabelEl = document.getElementById('priceLabel');
+                const originalPriceDisplay = document.getElementById('originalPriceDisplay');
+                const inlineDiscountBadge = document.getElementById('inlineDiscountBadge');
+                const discountExpiry = document.getElementById('discountExpiry');
+                const variantReqEl = document.getElementById('variantRequired');
+                const skuReqEl = document.getElementById('skuRequired');
+                const qtySection = document.getElementById('qtySection');
+                const qtyInput = document.getElementById('qtyInput');
+                const qtyDecBtn = document.getElementById('qtyDec');
+                const qtyIncBtn = document.getElementById('qtyInc');
+                const qtyStock = document.getElementById('qtyStock');
+                const buyNowBtn = document.getElementById('buyNowBtn');
 
                 let selectedVariantId = null;
-                let selectedSkuId     = null;
+                let selectedSkuId = null;
+                let currentUnitPrice = 0;
+                let currentOriginalPrice = 0;
+
+                // Format price helper
+                function formatPrice(price) {
+                    return '₱' + price.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                }
+
+                // Update price display for selected SKU
+                function updatePriceDisplay(unitPrice, originalPrice, qty) {
+                    const totalPrice = unitPrice * qty;
+                    priceEl.textContent = formatPrice(totalPrice);
+
+                    if (hasDiscount && originalPriceDisplay) {
+                        const totalOriginal = originalPrice * qty;
+                        originalPriceDisplay.textContent = formatPrice(totalOriginal);
+                        originalPriceDisplay.style.display = 'inline';
+                        if (inlineDiscountBadge) {
+                            inlineDiscountBadge.style.display = 'inline-flex';
+                            inlineDiscountBadge.textContent = '-' + discountPercentage + '%';
+                        }
+                        if (discountExpiry) {
+                            discountExpiry.style.display = 'flex';
+                        }
+                    } else if (!hasDiscount && originalPriceDisplay) {
+                        originalPriceDisplay.style.display = 'none';
+                        if (inlineDiscountBadge) {
+                            inlineDiscountBadge.style.display = 'none';
+                        }
+                        if (discountExpiry) {
+                            discountExpiry.style.display = 'none';
+                        }
+                    }
+
+                    if (qty > 1) {
+                        priceLabelEl.textContent = qty + ' × ' + formatPrice(unitPrice);
+                    } else {
+                        priceLabelEl.textContent = (parseInt(qtyInput?.max || 1)) + ' available';
+                    }
+                }
+
+                // Reset to starting price display
+                function resetToStartingPrice() {
+                    if (hasDiscount) {
+                        const discountedStarting = originalStartingPrice * (1 - discountPercentage / 100);
+                        priceEl.textContent = formatPrice(discountedStarting);
+                        if (originalPriceDisplay) {
+                            originalPriceDisplay.textContent = formatPrice(originalStartingPrice);
+                            originalPriceDisplay.style.display = 'inline';
+                        }
+                        if (inlineDiscountBadge) {
+                            inlineDiscountBadge.style.display = 'inline-flex';
+                            inlineDiscountBadge.textContent = '-' + discountPercentage + '%';
+                        }
+                        if (discountExpiry) {
+                            discountExpiry.style.display = 'flex';
+                        }
+                    } else {
+                        priceEl.textContent = formatPrice(originalStartingPrice);
+                        if (originalPriceDisplay) {
+                            originalPriceDisplay.style.display = 'none';
+                        }
+                        if (inlineDiscountBadge) {
+                            inlineDiscountBadge.style.display = 'none';
+                        }
+                        if (discountExpiry) {
+                            discountExpiry.style.display = 'none';
+                        }
+                    }
+                    priceLabelEl.textContent = 'Starting price';
+                }
 
                 // ── Variant chip click ──────────────────────────────────────────────
                 variantChipsEl?.addEventListener('click', function (e) {
@@ -337,7 +549,7 @@
                     chip.classList.add('vp-chip--active');
 
                     selectedVariantId = parseInt(chip.dataset.variantId);
-                    selectedSkuId     = null;
+                    selectedSkuId = null;
                     if (variantReqEl) variantReqEl.hidden = true;
                     hideQtyPicker();
                     if (buyNowBtn) buyNowBtn.disabled = true;
@@ -349,13 +561,14 @@
                     skuChipsEl.innerHTML = '';
                     variant.skus.forEach(sku => {
                         const btn = document.createElement('button');
-                        btn.type             = 'button';
-                        btn.className        = 'vp-chip' + (sku.isAvailable ? '' : ' vp-chip--disabled');
-                        btn.dataset.skuId    = sku.skuId;
-                        btn.dataset.price    = sku.price;
+                        btn.type = 'button';
+                        btn.className = 'vp-chip' + (sku.isAvailable ? '' : ' vp-chip--disabled');
+                        btn.dataset.skuId = sku.skuId;
+                        btn.dataset.price = sku.price;
+                        btn.dataset.originalPrice = sku.originalPrice || sku.price;
                         btn.dataset.quantity = sku.quantity;
-                        btn.disabled         = !sku.isAvailable;
-                        btn.textContent      = sku.size || 'One size';
+                        btn.disabled = !sku.isAvailable;
+                        btn.textContent = sku.size || 'One size';
                         if (!sku.isAvailable) btn.title = 'Out of stock';
                         skuChipsEl.appendChild(btn);
                     });
@@ -367,9 +580,37 @@
                         .reduce((min, s) => s.price < min ? s.price : min, Infinity);
 
                     if (lowestAvailable < Infinity) {
-                        priceEl.textContent      = '₱' + lowestAvailable.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                        const lowestSku = variant.skus.find(s => s.price === lowestAvailable);
+                        const lowestOriginal = lowestSku?.originalPrice || lowestAvailable;
+
+                        if (hasDiscount) {
+                            priceEl.textContent = formatPrice(lowestAvailable);
+                            if (originalPriceDisplay) {
+                                originalPriceDisplay.textContent = formatPrice(lowestOriginal);
+                                originalPriceDisplay.style.display = 'inline';
+                            }
+                            if (inlineDiscountBadge) {
+                                inlineDiscountBadge.style.display = 'inline-flex';
+                            }
+                            if (discountExpiry) {
+                                discountExpiry.style.display = 'flex';
+                            }
+                        } else {
+                            priceEl.textContent = formatPrice(lowestAvailable);
+                            if (originalPriceDisplay) {
+                                originalPriceDisplay.style.display = 'none';
+                            }
+                            if (inlineDiscountBadge) {
+                                inlineDiscountBadge.style.display = 'none';
+                            }
+                            if (discountExpiry) {
+                                discountExpiry.style.display = 'none';
+                            }
+                        }
                         priceLabelEl.textContent = 'Starting price';
                     }
+
+                    resetToStartingPrice();
                 });
 
                 // ── SKU chip click ──────────────────────────────────────────────────
@@ -383,72 +624,68 @@
                     selectedSkuId = parseInt(chip.dataset.skuId);
                     if (skuReqEl) skuReqEl.hidden = true;
 
-                    const unitPrice = parseFloat(chip.dataset.price);
-                    const maxQty    = parseInt(chip.dataset.quantity) || 1;
+                    currentUnitPrice = parseFloat(chip.dataset.price);
+                    currentOriginalPrice = parseFloat(chip.dataset.originalPrice || chip.dataset.price);
+                    const maxQty = parseInt(chip.dataset.quantity) || 1;
 
-                    priceEl.textContent      = '₱' + unitPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                    priceLabelEl.textContent = maxQty + ' available';
-
-                    showQtyPicker(maxQty, unitPrice);
+                    showQtyPicker(maxQty, currentUnitPrice, currentOriginalPrice);
                     if (buyNowBtn) buyNowBtn.disabled = false;
                     if (addToCartBtn) addToCartBtn.disabled = false;
                 });
 
                 // ── Quantity picker ────────────────────────────────────────────────
-                function showQtyPicker(maxQty, unitPrice) {
+                function showQtyPicker(maxQty, unitPrice, originalPrice) {
                     if (!qtySection) return;
-                    qtyInput.max   = maxQty;
+                    qtyInput.max = maxQty;
                     qtyInput.value = 1;
                     qtyStock.textContent = maxQty + ' in stock';
                     qtySection.removeAttribute('hidden');
                     updateQtyButtons();
-                    updatePriceForQty(unitPrice, 1);
+                    updatePriceDisplay(unitPrice, originalPrice, 1);
                 }
+
                 function hideQtyPicker() {
                     if (qtySection) qtySection.setAttribute('hidden', '');
                 }
+
                 function updateQtyButtons() {
                     if (!qtyInput) return;
-                    const v   = parseInt(qtyInput.value) || 1;
-                    const max = parseInt(qtyInput.max)   || 1;
+                    const v = parseInt(qtyInput.value) || 1;
+                    const max = parseInt(qtyInput.max) || 1;
                     if (qtyDecBtn) qtyDecBtn.disabled = v <= 1;
                     if (qtyIncBtn) qtyIncBtn.disabled = v >= max;
-                }
-                function updatePriceForQty(unitPrice, qty) {
-                    if (!priceEl) return;
-                    if (qty > 1) {
-                        priceEl.textContent      = '₱' + (unitPrice * qty).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                        priceLabelEl.textContent = qty + ' × ₱' + unitPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                    } else {
-                        priceEl.textContent      = '₱' + unitPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                        priceLabelEl.textContent = (parseInt(qtyInput?.max || 1)) + ' available';
-                    }
-                }
-                function currentUnitPrice() {
-                    const activeChip = skuChipsEl?.querySelector('.vp-chip--active');
-                    return activeChip ? parseFloat(activeChip.dataset.price) : 0;
                 }
 
                 qtyDecBtn?.addEventListener('click', () => {
                     const v = parseInt(qtyInput.value) || 1;
-                    if (v > 1) { qtyInput.value = v - 1; updateQtyButtons(); updatePriceForQty(currentUnitPrice(), v - 1); }
+                    if (v > 1) {
+                        qtyInput.value = v - 1;
+                        updateQtyButtons();
+                        updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v - 1);
+                    }
                 });
+
                 qtyIncBtn?.addEventListener('click', () => {
                     const v = parseInt(qtyInput.value) || 1, max = parseInt(qtyInput.max) || 1;
-                    if (v < max) { qtyInput.value = v + 1; updateQtyButtons(); updatePriceForQty(currentUnitPrice(), v + 1); }
+                    if (v < max) {
+                        qtyInput.value = v + 1;
+                        updateQtyButtons();
+                        updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v + 1);
+                    }
                 });
+
                 qtyInput?.addEventListener('input', () => {
                     let v = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, parseInt(qtyInput.max) || 1));
                     qtyInput.value = v;
                     updateQtyButtons();
-                    updatePriceForQty(currentUnitPrice(), v);
+                    updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v);
                 });
 
                 // ── Buy Now ────────────────────────────────────────────────────────
                 buyNowBtn?.addEventListener('click', () => {
                     let valid = true;
                     if (!selectedVariantId) { if (variantReqEl) variantReqEl.hidden = false; valid = false; }
-                    if (!selectedSkuId)     { if (skuReqEl)     skuReqEl.hidden     = false; valid = false; }
+                    if (!selectedSkuId) { if (skuReqEl) skuReqEl.hidden = false; valid = false; }
                     if (!valid) return;
                     const qty = parseInt(qtyInput?.value) || 1;
                     window.location.href = '/Orders/ShopCheckout?skuId=' + selectedSkuId + '&quantity=' + qty;
@@ -461,7 +698,7 @@
                 addToCartBtn?.addEventListener('click', async () => {
                     let valid = true;
                     if (!selectedVariantId) { if (variantReqEl) variantReqEl.hidden = false; valid = false; }
-                    if (!selectedSkuId)     { if (skuReqEl)     skuReqEl.hidden     = false; valid = false; }
+                    if (!selectedSkuId) { if (skuReqEl) skuReqEl.hidden = false; valid = false; }
                     if (!valid) return;
 
                     const qty = parseInt(qtyInput?.value) || 1;
@@ -499,7 +736,7 @@
 
                 // ── Image gallery ──────────────────────────────────────────────────
                 const mainImg = document.getElementById('mainGalleryImg');
-                const thumbs  = document.querySelectorAll('.gallery-thumb');
+                const thumbs = document.querySelectorAll('.gallery-thumb');
                 const counter = document.getElementById('galleryCounter');
                 const prevBtn = document.getElementById('galleryPrev');
                 const nextBtn = document.getElementById('galleryNext');
@@ -512,10 +749,9 @@
                     const next = (idx + urls.length) % urls.length;
                     if (next === current) return;
 
-                    // Crossfade
                     mainImg.classList.add('fading');
                     setTimeout(() => {
-                        current     = next;
+                        current = next;
                         mainImg.src = urls[current];
                         mainImg.classList.remove('fading');
                         thumbs.forEach((t, i) => t.classList.toggle('gallery-thumb--active', i === current));
@@ -527,17 +763,15 @@
                 prevBtn?.addEventListener('click', () => goTo(current - 1));
                 nextBtn?.addEventListener('click', () => goTo(current + 1));
 
-                // Keyboard navigation
                 document.addEventListener('keydown', e => {
-                    if (e.key === 'ArrowLeft')  goTo(current - 1);
+                    if (e.key === 'ArrowLeft') goTo(current - 1);
                     if (e.key === 'ArrowRight') goTo(current + 1);
                 });
 
-                // Swipe support
                 let touchStartX = 0;
                 const galleryEl = document.getElementById('galleryMain');
                 galleryEl?.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-                galleryEl?.addEventListener('touchend',   e => {
+                galleryEl?.addEventListener('touchend', e => {
                     const dx = e.changedTouches[0].clientX - touchStartX;
                     if (Math.abs(dx) > 40) goTo(dx < 0 ? current + 1 : current - 1);
                 });

@@ -1,11 +1,5 @@
-﻿<!-----------------------------------------------------------------------------------------
-    Index.cshtml (Full update)
-    - Reduced gap between bio and address (tight spacing)
-    - Address is now inline-editable: owner can click the text, edit in a modal, and save
-    - Removed the separate "Edit location" button (map picker is opened from address edit)
-    - Maintained all other functionality (image uploads, inline name/bio editing, etc.)
------------------------------------------------------------------------------------------->
-@model ThriftLoop.ViewModels.ShopPageViewModel
+﻿@model ThriftLoop.ViewModels.ShopPageViewModel
+@using ThriftLoop.Enums
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
 @{
@@ -20,14 +14,378 @@
     <link rel="stylesheet" href="~/css/navbar.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
+    <style>
+        /* Discount display styles */
+        .sp-item-card__price-section {
+            margin-top: 2px;
+        }
+
+        .sp-item-card__original-price {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            text-decoration: line-through;
+            line-height: 1.3;
+        }
+
+        .sp-item-card__current-price-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .sp-item-card__current-price {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1a1814;
+        }
+
+        .sp-item-card__discount-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            color: #6b7280;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 20px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .sp-item-card__discount-expiry {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 3px;
+            font-size: 0.65rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        /* Disabled item styling */
+        .sp-item-card--disabled {
+            opacity: 0.65;
+            position: relative;
+        }
+        
+            .sp-item-card--disabled .sp-item-card__img-wrap::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 12px;
+                pointer-events: none;
+            }
+        
+        .sp-item-disabled-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: #6b7280;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 20px;
+            z-index: 2;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .sp-item-card__owner-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--color-border, #e2ddd6);
+            flex-wrap: wrap;
+        }
+        
+        .sp-item-card__action {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.15s;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        
+        .sp-item-card__action--edit {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+            .sp-item-card__action--edit:hover {
+                background: #e5e7eb;
+            }
+        
+        .sp-item-card__action--delete {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        
+            .sp-item-card__action--delete:hover {
+                background: #fecaca;
+            }
+        
+        .sp-item-card__action--toggle {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+            .sp-item-card__action--toggle.enable {
+                background: #dcfce7;
+                color: #16a34a;
+            }
+        
+            .sp-item-card__action--toggle.disable {
+                background: #fef3c7;
+                color: #d97706;
+            }
+        
+        .sp-item-card__action--discount {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+        
+            .sp-item-card__action--discount:hover {
+                background: #ddd6fe;
+            }
+
+        /* Sold count badge */
+        .sp-item-card__sold-count {
+            font-size: 0.65rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 4px;
+        }
+
+        /* Bulk actions bar */
+        .sp-bulk-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f8f7f5;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .sp-bulk-actions__select-all {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .sp-bulk-actions__selected-count {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .sp-bulk-actions__btn {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 20px;
+            border: 1px solid #e2ddd6;
+            background: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+            .sp-bulk-actions__btn:hover {
+                background: #f3f4f6;
+            }
+
+            .sp-bulk-actions__btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        /* Item checkbox */
+        .sp-item-checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 5;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #2d5a27;
+        }
+
+        .sp-item-card {
+            position: relative;
+        }
+
+        /* Discount Modal */
+        .discount-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .discount-modal {
+            background: #fff;
+            border-radius: 20px;
+            padding: 1.75rem;
+            max-width: 420px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .discount-modal__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            margin: 0 0 0.5rem;
+        }
+
+        .discount-modal__subtitle {
+            color: #6b6560;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .discount-presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .discount-preset {
+            flex: 1;
+            padding: 0.625rem;
+            border: 1.5px solid #e2ddd6;
+            border-radius: 10px;
+            background: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+            .discount-preset:hover {
+                border-color: #2d5a27;
+            }
+
+        .discount-preset--active {
+            border-color: #2d5a27;
+            background: #f0fdf4;
+            color: #2d5a27;
+        }
+
+        .discount-field {
+            margin-bottom: 1.25rem;
+        }
+
+        .discount-field__label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.375rem;
+        }
+
+        .discount-field__input-wrapper {
+            display: flex;
+            align-items: center;
+            border: 1.5px solid #e2ddd6;
+            border-radius: 10px;
+            padding: 0 0.75rem;
+        }
+
+        .discount-field__input {
+            flex: 1;
+            border: none;
+            padding: 0.75rem 0;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .discount-field__suffix {
+            color: #6b6560;
+            font-weight: 500;
+        }
+
+        .discount-expiry-options {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .discount-expiry-option {
+            flex: 1;
+            min-width: 70px;
+            padding: 0.5rem;
+            border: 1.5px solid #e2ddd6;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .discount-expiry-option--active {
+            border-color: #2d5a27;
+            background: #f0fdf4;
+        }
+
+        .discount-preview {
+            padding: 1rem;
+            background: #f0fdf4;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+
+        .discount-preview__row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+
+        .discount-preview__new-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d5a27;
+        }
+
+        .discount-modal__actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .discount-modal__error {
+            color: #dc2626;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+    </style>
 }
 
-@* ── Image upload modal ───────────────────────────────────────────────────── *@
+@* Image upload modal *@
 @if (isOwner)
 {
     <div class="sp-modal-backdrop" id="imgModalBackdrop" hidden>
         <div class="sp-modal" id="imgModal" role="dialog" aria-modal="true" aria-labelledby="imgModalTitle">
-
             <div class="sp-modal__header">
                 <span class="sp-modal__title" id="imgModalTitle">Banner</span>
                 <button class="sp-modal__close" id="imgModalClose" type="button" aria-label="Close">
@@ -36,9 +394,7 @@
                     </svg>
                 </button>
             </div>
-
             <div class="sp-modal__preview-area" id="imgPreviewArea"></div>
-
             <div class="sp-modal__body">
                 <label class="sp-modal__drop-zone" id="imgDropZone" tabindex="0">
                     <input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp,image/gif"
@@ -53,9 +409,7 @@
                         <span class="sp-modal__drop-hint">JPEG, PNG, WebP or GIF · Max 5 MB</span>
                     </div>
                 </label>
-
                 <p class="sp-field__error" id="imgModalError" hidden></p>
-
                 <div class="sp-modal__actions">
                     <button type="button" class="tl-btn tl-btn--ghost" id="imgModalCancel">Cancel</button>
                     <button type="button" class="tl-btn tl-btn--primary" id="imgModalSave" disabled>
@@ -66,12 +420,11 @@
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
 }
 
-@* ── Banner ────────────────────────────────────────────────────────────────── *@
+@* Banner *@
 <div class="sp-banner @(isOwner ? "sp-banner--editable" : "")"
      id="shopBanner"
      data-original-bg="@(Model.BannerUrl != null ? Model.BannerUrl : "")"
@@ -91,13 +444,11 @@
     }
 </div>
 
-@* ── Main shell ────────────────────────────────────────────────────────────── *@
+@* Main shell *@
 <div class="sp-shell">
 
     @* Identity row *@
     <div class="sp-identity">
-
-        @* Logo *@
         <div class="sp-identity__logo-wrap @(isOwner ? "sp-identity__logo-wrap--editable" : "")"
              id="shopLogoWrap"
              tabindex="@(isOwner ? "0" : "-1")"
@@ -124,10 +475,7 @@
             }
         </div>
 
-        @* Name + bio + address (tight spacing) *@
         <div class="sp-identity__text">
-
-            @* Shop name *@
             <div class="sp-inline @(isOwner ? "sp-inline--editable" : "")"
                  data-field="ShopName" data-maxlength="100">
                 <h1 class="sp-identity__name sp-inline__display">
@@ -155,7 +503,6 @@
                 }
             </div>
 
-            @* Bio (tight margin below) *@
             <div class="sp-inline @(isOwner ? "sp-inline--editable" : "")"
                  data-field="Bio" data-maxlength="500">
                 <p class="sp-identity__bio sp-inline__display @(!string.IsNullOrWhiteSpace(Model.Bio) ? "" : "sp-identity__bio--empty")">
@@ -190,7 +537,6 @@
                 }
             </div>
 
-            @* Address — Now inline-editable like name/bio. No dedicated button. *@
             <div class="sp-address @(isOwner ? "sp-inline sp-inline--editable" : "")" data-field="StoreAddress">
                 <div class="sp-address__line-wrapper">
                     <p id="shopAddressDisplay" class="sp-address__line sp-inline__display">
@@ -208,7 +554,6 @@
 
                 @if (isOwner)
                 {
-                    @* Hidden editor for address (opens map picker + text input) *@
                     <div class="sp-address__editor" hidden>
                         <div class="sp-address__editor-field">
                             <input type="text" id="addressTextInput" class="sp-field__input" placeholder="Street address, city, postal code" value="@Model.StoreAddress" />
@@ -226,23 +571,19 @@
                         </div>
                         <p class="sp-field__error sp-address__error" hidden></p>
                     </div>
-
-                    @* Hidden inputs for map picker *@
                     <input type="hidden" id="ShopLocation-latitude" value="@(Model.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
                     <input type="hidden" id="ShopLocation-longitude" value="@(Model.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
                 }
                 else
                 {
-                    @* Ensure hidden lat/lng inputs exist for viewers so the map picker can pre-populate the pin in view-only mode *@
                     <input type="hidden" id="ShopLocation-latitude" value="@(Model.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
                     <input type="hidden" id="ShopLocation-longitude" value="@(Model.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)" />
                 }
             </div>
-
         </div>
     </div>
 
-    @* ── Listings section ──────────────────────────────────────────────────── *@
+    @* Listings section *@
     <div class="sp-listings-header">
         <span class="sp-listings-header__label">
             Listings
@@ -278,10 +619,59 @@
     }
     else
     {
+        @if (isOwner)
+        {
+            <div class="sp-bulk-actions" id="bulkActionsBar" style="display: none;">
+                <label class="sp-bulk-actions__select-all">
+                    <input type="checkbox" id="selectAllItems" />
+                    <span>Select All</span>
+                </label>
+                <span class="sp-bulk-actions__selected-count" id="selectedCount">0 selected</span>
+                <button type="button" class="sp-bulk-actions__btn" id="bulkDiscountBtn" disabled>
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                        <path d="M14 4.5L9 1.5v6l5-3zM7 2.5L2 5.5v5l5 3 5-3v-5L7 2.5z" />
+                    </svg>
+                    Bulk Discount
+                </button>
+                <button type="button" class="sp-bulk-actions__btn" id="bulkEnableBtn" disabled>Enable</button>
+                <button type="button" class="sp-bulk-actions__btn" id="bulkDisableBtn" disabled>Disable</button>
+            </div>
+        }
+
         <div class="sp-items-grid">
             @foreach (var item in Model.Items)
             {
-                <div class="sp-item-card" data-item-id="@item.Id">
+                var isDisabled = item.Status == ItemStatus.Disabled;
+                var hasDiscount = item.HasActiveDiscount;
+                var soldCount = Model.ItemSoldCounts.GetValueOrDefault(item.Id, 0);
+                        
+                string? expiryText = null;
+                if (hasDiscount && item.DiscountExpiresAt.HasValue)
+                {
+                    var timeLeft = item.DiscountExpiresAt.Value - DateTime.UtcNow;
+                    if (timeLeft.TotalDays >= 1)
+                    {
+                        var days = (int)timeLeft.TotalDays;
+                        expiryText = $"{days}d left";
+                    }
+                    else if (timeLeft.TotalHours >= 1)
+                    {
+                        var hours = (int)timeLeft.TotalHours;
+                        expiryText = $"{hours}h left";
+                    }
+                    else if (timeLeft.TotalMinutes > 0)
+                    {
+                        var mins = (int)timeLeft.TotalMinutes;
+                        expiryText = $"{mins}m left";
+                    }
+                }
+
+                <div class="sp-item-card @(isDisabled ? "sp-item-card--disabled" : "")" data-item-id="@item.Id">
+                    @if (isOwner)
+                    {
+                        <input type="checkbox" class="sp-item-checkbox item-selector" data-item-id="@item.Id" data-status="@item.Status" />
+                    }
+                    
                     <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.Id" class="sp-item-card__link">
                         <div class="sp-item-card__img-wrap">
                             @if (item.ImageUrls.Count > 0)
@@ -301,12 +691,54 @@
                                 </div>
                             }
                             <span class="sp-item-card__condition">@item.Condition</span>
+                            @if (isDisabled)
+                            {
+                                <span class="sp-item-disabled-badge">Disabled</span>
+                            }
                         </div>
 
                         <div class="sp-item-card__body">
                             <p class="sp-item-card__title">@item.Title</p>
-                            <p class="sp-item-card__price">From &#x20B1;@item.Price.ToString("N2")</p>
+                            
+                            <div class="sp-item-card__price-section">
+                                @if (hasDiscount)
+                                {
+                                    <div class="sp-item-card__original-price">
+                                        From ₱@(item.OriginalPrice?.ToString("N2"))
+                                    </div>
+                                    <div class="sp-item-card__current-price-row">
+                                        <span class="sp-item-card__current-price">From ₱@item.Price.ToString("N2")</span>
+                                        <span class="sp-item-card__discount-badge">-@(item.DiscountPercentage?.ToString("F0"))%</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(expiryText))
+                                    {
+                                        <div class="sp-item-card__discount-expiry">
+                                            <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
+                                                <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
+                                            </svg>
+                                            @expiryText
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="sp-item-card__current-price-row">
+                                        <span class="sp-item-card__current-price">From ₱@item.Price.ToString("N2")</span>
+                                    </div>
+                                }
+                            </div>
+                            
                             <p class="sp-item-card__category">@item.Category</p>
+                            
+                            @if (soldCount > 0)
+                            {
+                                <div class="sp-item-card__sold-count">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
+                                        <path d="M0 1.75A.75.75 0 01.75 1h1.628a1.75 1.75 0 011.734 1.51L4.358 4h9.109a.75.75 0 01.72.96l-1.5 5.25a.75.75 0 01-.72.54H5.744l.239 1.185A.25.25 0 006.22 12h7.28a.75.75 0 010 1.5H6.22a1.75 1.75 0 01-1.717-1.424L2.637 2.773A.25.25 0 002.395 2.5H.75A.75.75 0 010 1.75z" />
+                                    </svg>
+                                    @soldCount sold
+                                </div>
+                            }
                         </div>
                     </a>
 
@@ -316,7 +748,7 @@
                             <a href="/Shop/Edit/@item.Id"
                                    class="sp-item-card__action sp-item-card__action--edit"
                                    onclick="event.stopPropagation()">
-                                <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" aria-hidden="true" style="vertical-align:middle;margin-right:3px">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" style="vertical-align:middle;margin-right:3px">
                                     <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />
                                 </svg>
                                 Edit
@@ -324,11 +756,42 @@
                             <a href="/Shop/Delete/@item.Id"
                                    class="sp-item-card__action sp-item-card__action--delete"
                                    onclick="event.stopPropagation()">
-                                <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" aria-hidden="true" style="vertical-align:middle;margin-right:3px">
-                                    <path d="M11 1.75V3h2.25a.75.75 0 010 1.5H2.75a.75.75 0 010-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75z" />
-                                </svg>
                                 Delete
                             </a>
+                            @if (item.Status == ItemStatus.Available || item.Status == ItemStatus.Disabled)
+                            {
+                                var canDiscount = !hasDiscount;
+                                if (canDiscount)
+                                {
+                                    <button type="button"
+                                            class="sp-item-card__action sp-item-card__action--discount discount-item-btn"
+                                            data-item-id="@item.Id"
+                                            data-item-title="@item.Title"
+                                            data-item-price="@item.Price"
+                                            data-item-image="@(item.ImageUrls.FirstOrDefault())"
+                                            onclick="event.stopPropagation(); openDiscountModal(this)">
+                                        Discount
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="sp-item-card__action"
+                                            onclick="event.stopPropagation(); removeDiscount(@item.Id)">
+                                        Remove Discount
+                                    </button>
+                                }
+                                
+                                var toggleText = item.Status == ItemStatus.Available ? "Disable" : "Enable";
+                                var toggleClass = item.Status == ItemStatus.Available ? "disable" : "enable";
+                                <button type="button"
+                                        class="sp-item-card__action sp-item-card__action--toggle @toggleClass toggle-item-btn"
+                                        data-item-id="@item.Id"
+                                        data-current-status="@item.Status"
+                                        onclick="event.stopPropagation()">
+                                    @toggleText
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -338,119 +801,354 @@
 
 </div>
 
-@* Render map modal and picker for all viewers (view-only or editable depending on openMapPicker args) *@
+@* Discount Modal *@
+<div id="discountModal" class="discount-modal-backdrop" style="display:none;">
+    <div class="discount-modal">
+        <h2 class="discount-modal__title">Apply Discount</h2>
+        <p class="discount-modal__subtitle" id="modalSubtitle">Set a discount for this listing</p>
+
+        <input type="hidden" id="modalItemId" />
+        <input type="hidden" id="modalIsBulk" value="false" />
+
+        <div class="discount-presets">
+            <button type="button" class="discount-preset" data-percent="5">5%</button>
+            <button type="button" class="discount-preset" data-percent="10">10%</button>
+            <button type="button" class="discount-preset" data-percent="20">20%</button>
+        </div>
+
+        <div class="discount-field">
+            <label class="discount-field__label">Custom Percentage</label>
+            <div class="discount-field__input-wrapper">
+                <input type="number" id="discountPercent" class="discount-field__input"
+                       min="1" max="99" step="1" value="10" />
+                <span class="discount-field__suffix">%</span>
+            </div>
+        </div>
+
+        <label class="discount-field__label">Discount Duration</label>
+        <div class="discount-expiry-options">
+            <button type="button" class="discount-expiry-option discount-expiry-option--active" data-duration="indefinite">Indefinite</button>
+            <button type="button" class="discount-expiry-option" data-duration="24">24h</button>
+            <button type="button" class="discount-expiry-option" data-duration="72">3d</button>
+            <button type="button" class="discount-expiry-option" data-duration="168">7d</button>
+        </div>
+
+        <div id="modalError" class="discount-modal__error" style="display:none;"></div>
+
+        <div class="discount-modal__actions">
+            <button type="button" class="tl-btn tl-btn--ghost" onclick="closeDiscountModal()" style="flex:1">Cancel</button>
+            <button type="button" class="tl-btn tl-btn--primary" onclick="applyDiscount()" style="flex:1">Apply</button>
+        </div>
+    </div>
+</div>
+
 @await Html.PartialAsync("_AddressMapModal")
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/map-picker.js" asp-append-version="true"></script>
-
-    <script>
-    (function () {
-        'use strict';
-
-        // Attach a simple view-only opener for non-owners so they can see the exact pin
-        const isOwnerFlag = @isOwner.ToString().ToLowerInvariant();
-        if (isOwnerFlag === 'false') {
-            function attachViewClick() {
-                const el = document.getElementById('shopAddressDisplay');
-                if (!el) return;
-                el.style.cursor = 'pointer';
-                el.addEventListener('click', async function (e) {
-                    e.preventDefault();
-                    console.log('[shop] address clicked — attempting to open map picker');
-                    try {
-                        if (typeof window.openMapPicker === 'function') {
-                            window.openMapPicker('ShopLocation', null, 'view');
-                            return;
-                        }
-
-                        // If map-picker isn't loaded for some reason, load it dynamically then open
-                        const scriptUrl = '/js/map-picker.js';
-                        await new Promise((resolve, reject) => {
-                            const s = document.createElement('script');
-                            s.src = scriptUrl;
-                            s.async = false;
-                            s.onload = resolve;
-                            s.onerror = () => reject(new Error('Failed to load ' + scriptUrl));
-                            document.head.appendChild(s);
-                        });
-
-                        if (typeof window.openMapPicker === 'function') {
-                            window.openMapPicker('ShopLocation', null, 'view');
-                        } else {
-                            console.warn('[shop] openMapPicker still not available after loading script');
-                            alert('Map picker is not available.');
-                        }
-                    } catch (err) {
-                        console.warn('Map picker not available', err);
-                        alert('Unable to open map picker. See console for details.');
-                    }
-                });
-            }
-
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachViewClick);
-            else attachViewClick();
-        }
-    }());
-</script>
 
 @if (isOwner)
 {
     <input type="hidden" id="afToken" value="@afToken" />
     <script>
-        (function () {
-        'use strict';
-
-        const SHOP_ID   = @Model.ShopId;
-        const AF_TOKEN  = document.getElementById('afToken').value;
+        const SHOP_ID = @Model.ShopId;
+        const AF_TOKEN = document.getElementById('afToken').value;
         const FIELD_URL = '/Shop/SaveField';
         const IMAGE_URL = '/Shop/SaveImage';
+        const TOGGLE_URL = '/Shop/ToggleItemStatus';
+        const DISCOUNT_URL = '/Shop/ApplyShopDiscount';
+        const REMOVE_DISCOUNT_URL = '/Shop/RemoveShopDiscount';
+        const BULK_DISCOUNT_URL = '/Shop/BulkApplyDiscount';
 
-        // ── AJAX helpers ───────────────────────────────────────────────────────
-        async function saveTextField(field, value) {
-        const res = await fetch(FIELD_URL, {
+        let currentItemId = 0;
+        let selectedDuration = null;
+        let selectedItems = new Set();
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  ITEM SELECTION & BULK ACTIONS
+        // ══════════════════════════════════════════════════════════════════════
+        
+        const bulkBar = document.getElementById('bulkActionsBar');
+        const selectAllCb = document.getElementById('selectAllItems');
+        const selectedCountEl = document.getElementById('selectedCount');
+        const bulkDiscountBtn = document.getElementById('bulkDiscountBtn');
+        const bulkEnableBtn = document.getElementById('bulkEnableBtn');
+        const bulkDisableBtn = document.getElementById('bulkDisableBtn');
+
+        function updateBulkUI() {
+        const count = selectedItems.size;
+        selectedCountEl.textContent = count + ' selected';
+            
+        const hasSelected = count > 0;
+        bulkDiscountBtn.disabled = !hasSelected;
+        bulkEnableBtn.disabled = !hasSelected;
+        bulkDisableBtn.disabled = !hasSelected;
+            
+        if (count > 0) {
+        bulkBar.style.display = 'flex';
+        } else {
+        bulkBar.style.display = 'none';
+        }
+        }
+
+        document.querySelectorAll('.item-selector').forEach(cb => {
+        cb.addEventListener('change', function() {
+        const itemId = parseInt(this.dataset.itemId);
+        if (this.checked) {
+        selectedItems.add(itemId);
+        } else {
+        selectedItems.delete(itemId);
+        }
+        updateBulkUI();
+                
+        const allCbs = document.querySelectorAll('.item-selector');
+        const checkedCbs = document.querySelectorAll('.item-selector:checked');
+        if (selectAllCb) {
+        selectAllCb.checked = allCbs.length === checkedCbs.length;
+        selectAllCb.indeterminate = checkedCbs.length > 0 && checkedCbs.length < allCbs.length;
+        }
+        });
+        });
+
+        if (selectAllCb) {
+        selectAllCb.addEventListener('change', function() {
+        document.querySelectorAll('.item-selector').forEach(cb => {
+        cb.checked = this.checked;
+        const itemId = parseInt(cb.dataset.itemId);
+        if (this.checked) {
+        selectedItems.add(itemId);
+        } else {
+        selectedItems.delete(itemId);
+        }
+        });
+        updateBulkUI();
+        });
+        }
+
+        bulkDiscountBtn?.addEventListener('click', function() {
+        if (selectedItems.size === 0) return;
+            
+        document.getElementById('modalIsBulk').value = 'true';
+        document.getElementById('modalSubtitle').textContent = `Apply discount to ${selectedItems.size} item${selectedItems.size !== 1 ? 's' : ''}`;
+        document.getElementById('discountPercent').value = 10;
+        document.querySelectorAll('.discount-preset').forEach(p => p.classList.remove('discount-preset--active'));
+        document.querySelector('.discount-preset[data-percent="10"]').classList.add('discount-preset--active');
+        document.querySelectorAll('.discount-expiry-option').forEach(o => o.classList.remove('discount-expiry-option--active'));
+        document.querySelector('.discount-expiry-option[data-duration="indefinite"]').classList.add('discount-expiry-option--active');
+        selectedDuration = null;
+        document.getElementById('modalError').style.display = 'none';
+        document.getElementById('discountModal').style.display = 'flex';
+        });
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  DISCOUNT MODAL
+        // ══════════════════════════════════════════════════════════════════════
+
+        function openDiscountModal(btn) {
+        const itemId = btn.dataset.itemId;
+        const title = btn.dataset.itemTitle;
+            
+        currentItemId = parseInt(itemId);
+        document.getElementById('modalIsBulk').value = 'false';
+        document.getElementById('modalSubtitle').textContent = `Set a discount for "${title}"`;
+        document.getElementById('modalItemId').value = itemId;
+        document.getElementById('discountPercent').value = 10;
+            
+        document.querySelectorAll('.discount-preset').forEach(p => p.classList.remove('discount-preset--active'));
+        document.querySelector('.discount-preset[data-percent="10"]').classList.add('discount-preset--active');
+        document.querySelectorAll('.discount-expiry-option').forEach(o => o.classList.remove('discount-expiry-option--active'));
+        document.querySelector('.discount-expiry-option[data-duration="indefinite"]').classList.add('discount-expiry-option--active');
+        selectedDuration = null;
+            
+        document.getElementById('modalError').style.display = 'none';
+        document.getElementById('discountModal').style.display = 'flex';
+        }
+
+        function closeDiscountModal() {
+        document.getElementById('discountModal').style.display = 'none';
+        }
+
+        document.querySelectorAll('.discount-preset').forEach(btn => {
+        btn.addEventListener('click', function() {
+        document.querySelectorAll('.discount-preset').forEach(p => p.classList.remove('discount-preset--active'));
+        this.classList.add('discount-preset--active');
+        document.getElementById('discountPercent').value = this.dataset.percent;
+        });
+        });
+
+        document.querySelectorAll('.discount-expiry-option').forEach(btn => {
+        btn.addEventListener('click', function() {
+        document.querySelectorAll('.discount-expiry-option').forEach(o => o.classList.remove('discount-expiry-option--active'));
+        this.classList.add('discount-expiry-option--active');
+        selectedDuration = this.dataset.duration === 'indefinite' ? null : parseInt(this.dataset.duration);
+        });
+        });
+
+        async function applyDiscount() {
+        const percent = parseFloat(document.getElementById('discountPercent').value);
+        if (percent < 1 || percent > 99) {
+        showModalError('Discount must be between 1% and 99%.');
+        return;
+        }
+
+        let expiresAt = null;
+        if (selectedDuration) {
+        const date = new Date();
+        date.setHours(date.getHours() + selectedDuration);
+        expiresAt = date.toISOString();
+        }
+
+        const isBulk = document.getElementById('modalIsBulk').value === 'true';
+            
+        const btn = document.querySelector('#discountModal .tl-btn--primary');
+        btn.disabled = true;
+        btn.textContent = 'Applying...';
+
+        try {
+        let url, body;
+                
+        if (isBulk) {
+        url = BULK_DISCOUNT_URL;
+        body = {
+        itemIds: Array.from(selectedItems),
+        discountPercentage: percent,
+        expiresAt: expiresAt
+        };
+        } else {
+        url = DISCOUNT_URL;
+        body = {
+        itemId: currentItemId,
+        discountPercentage: percent,
+        expiresAt: expiresAt
+        };
+        }
+
+        const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json',
+        'RequestVerificationToken': AF_TOKEN
+        },
+        body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+        location.reload();
+        } else {
+        showModalError(data.error || 'Failed to apply discount.');
+        btn.disabled = false;
+        btn.textContent = 'Apply';
+        }
+        } catch (err) {
+        showModalError('Network error. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Apply';
+        }
+        }
+
+        async function removeDiscount(itemId) {
+        if (!confirm('Remove the discount and restore original prices?')) return;
+
+        try {
+        const response = await fetch(REMOVE_DISCOUNT_URL + '?itemId=' + itemId, {
+        method: 'POST',
+        headers: {
+        'RequestVerificationToken': AF_TOKEN
+        }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+        location.reload();
+        } else {
+        alert(data.error || 'Failed to remove discount.');
+        }
+        } catch (err) {
+        alert('Network error. Please try again.');
+        }
+        }
+
+        function showModalError(msg) {
+        const errEl = document.getElementById('modalError');
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        }
+
+        document.getElementById('discountModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDiscountModal();
+        });
+
+        window.openDiscountModal = openDiscountModal;
+        window.closeDiscountModal = closeDiscountModal;
+        window.applyDiscount = applyDiscount;
+        window.removeDiscount = removeDiscount;
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  TOGGLE ITEM STATUS
+        // ══════════════════════════════════════════════════════════════════════
+        
+        async function toggleItemStatus(itemId) {
+        const res = await fetch(TOGGLE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
-        body: JSON.stringify({ shopId: SHOP_ID, field, value })
+        body: JSON.stringify({ itemId: itemId })
         });
         return res.json();
         }
 
-        async function uploadImage(field, file) {
-        const fd = new FormData();
-        fd.append('shopId', SHOP_ID);
-        fd.append('field',  field);
-        fd.append('file',   file);
-        const res = await fetch(IMAGE_URL, {
-        method: 'POST',
-        headers: { 'RequestVerificationToken': AF_TOKEN },
-        body: fd
-        });
-        return res.json();
+        document.querySelectorAll('.toggle-item-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+                
+        const itemId = parseInt(this.dataset.itemId);
+        const originalText = this.innerHTML;
+                
+        this.disabled = true;
+        this.innerHTML = '...';
+                
+        try {
+        const result = await toggleItemStatus(itemId);
+        if (result.ok) {
+        location.reload();
+        } else {
+        alert(result.error || 'Failed to update status.');
+        this.disabled = false;
+        this.innerHTML = originalText;
         }
+        } catch (err) {
+        alert('Network error.');
+        this.disabled = false;
+        this.innerHTML = originalText;
+        }
+        });
+        });
 
         // ══════════════════════════════════════════════════════════════════════
-        //  IMAGE MODAL (unchanged)
+        //  IMAGE MODAL
         // ══════════════════════════════════════════════════════════════════════
-        const backdrop    = document.getElementById('imgModalBackdrop');
-        const modalTitle  = document.getElementById('imgModalTitle');
+        const backdrop = document.getElementById('imgModalBackdrop');
+        const modalTitle = document.getElementById('imgModalTitle');
         const previewArea = document.getElementById('imgPreviewArea');
-        const dropZone    = document.getElementById('imgDropZone');
-        const fileInput   = document.getElementById('imgFileInput');
-        const dropInner   = document.getElementById('imgDropInner');
-        const saveBtn     = document.getElementById('imgModalSave');
-        const cancelBtn   = document.getElementById('imgModalCancel');
-        const closeBtn    = document.getElementById('imgModalClose');
-        const errorEl     = document.getElementById('imgModalError');
+        const dropZone = document.getElementById('imgDropZone');
+        const fileInput = document.getElementById('imgFileInput');
+        const dropInner = document.getElementById('imgDropInner');
+        const saveBtn = document.getElementById('imgModalSave');
+        const cancelBtn = document.getElementById('imgModalCancel');
+        const closeBtn = document.getElementById('imgModalClose');
+        const errorEl = document.getElementById('imgModalError');
 
         let activeField = null;
         let pendingFile = null;
 
         function openModal(field, currentUrl, title) {
-        activeField      = field;
-        pendingFile      = null;
+        activeField = field;
+        pendingFile = null;
         saveBtn.disabled = true;
-        errorEl.hidden   = true;
-        fileInput.value  = '';
+        errorEl.hidden = true;
+        fileInput.value = '';
         modalTitle.textContent = title;
 
         previewArea.innerHTML = '';
@@ -485,20 +1183,20 @@
         activeField = pendingFile = null;
         }
 
-        closeBtn?.addEventListener('click',  closeModal);
+        closeBtn?.addEventListener('click', closeModal);
         cancelBtn?.addEventListener('click', closeModal);
-        backdrop?.addEventListener('click',  e => { if (e.target === backdrop) closeModal(); });
+        backdrop?.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
         function handleFile(file) {
         if (!file) return;
         const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
-        if (!allowed.includes(file.type)) { showModalError('Only JPEG, PNG, WebP, or GIF images are allowed.'); return; }
-        if (file.size > 5 * 1024 * 1024)  { showModalError('File exceeds the 5 MB limit.'); return; }
+        if (!allowed.includes(file.type)) { showModalImageError('Only JPEG, PNG, WebP, or GIF images are allowed.'); return; }
+        if (file.size > 5 * 1024 * 1024) { showModalImageError('File exceeds the 5 MB limit.'); return; }
 
-        errorEl.hidden     = true;
-        pendingFile        = file;
-        saveBtn.disabled   = false;
+        errorEl.hidden = true;
+        pendingFile = file;
+        saveBtn.disabled = false;
 
         const reader = new FileReader();
         reader.onload = e => {
@@ -520,8 +1218,8 @@
         }
 
         fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
-        dropZone?.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('sp-modal__drop-zone--over'); });
-        dropZone?.addEventListener('dragleave', ()  => dropZone.classList.remove('sp-modal__drop-zone--over'));
+        dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('sp-modal__drop-zone--over'); });
+        dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('sp-modal__drop-zone--over'));
         dropZone?.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.classList.remove('sp-modal__drop-zone--over');
@@ -530,33 +1228,42 @@
 
         saveBtn?.addEventListener('click', async () => {
         if (!pendingFile || !activeField) return;
-                
+            
         const originalText = saveBtn.textContent;
-        saveBtn.disabled    = true;
-        saveBtn.textContent = 'Uploading…';
-        errorEl.hidden      = true;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Uploading...';
+        errorEl.hidden = true;
 
         try {
-        const res = await uploadImage(activeField, pendingFile);
-                    
-        if (!res.ok) {
-        showModalError(res.error || 'Upload failed');
+        const fd = new FormData();
+        fd.append('shopId', SHOP_ID);
+        fd.append('field', activeField);
+        fd.append('file', pendingFile);
+                
+        const res = await fetch(IMAGE_URL, {
+        method: 'POST',
+        headers: { 'RequestVerificationToken': AF_TOKEN },
+        body: fd
+        });
+        const data = await res.json();
+                
+        if (!data.ok) {
+        showModalImageError(data.error || 'Upload failed');
         saveBtn.disabled = false;
         saveBtn.textContent = originalText;
         return;
         }
 
-        const cacheBuster = `${res.url}?v=${Date.now()}`;
+        const cacheBuster = `${data.url}?v=${Date.now()}`;
 
         if (activeField === 'BannerUrl') {
         const banner = document.getElementById('shopBanner');
         banner.style.backgroundImage = `url('${cacheBuster}')`;
         const placeholder = banner.querySelector('.sp-banner__placeholder');
         if (placeholder) placeholder.remove();
-        banner.setAttribute('data-original-bg', res.url);
+        banner.setAttribute('data-original-bg', data.url);
         } else {
         const existingLogo = document.getElementById('shopLogoImg');
-                        
         if (existingLogo) {
         if (existingLogo.tagName === 'DIV') {
         const img = document.createElement('img');
@@ -564,35 +1271,27 @@
         img.id = 'shopLogoImg';
         img.alt = 'Shop logo';
         img.className = 'sp-identity__logo';
-        img.setAttribute('data-original-src', res.url);
+        img.setAttribute('data-original-src', data.url);
         existingLogo.replaceWith(img);
         } else if (existingLogo.tagName === 'IMG') {
         existingLogo.src = cacheBuster;
-        existingLogo.setAttribute('data-original-src', res.url);
+        existingLogo.setAttribute('data-original-src', data.url);
         }
         }
         }
-                    
-        const tempMsg = document.createElement('div');
-        tempMsg.textContent = 'Image uploaded successfully!';
-        tempMsg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0e6245;color:#fff;padding:10px 20px;border-radius:8px;z-index:1000;animation:fadeOut 2s ease forwards;';
-        document.body.appendChild(tempMsg);
-        setTimeout(() => tempMsg.remove(), 2000);
-                    
+                
+        closeModal();
         } catch (err) {
-        showModalError('Network error. Please try again.');
-        console.error('Upload error:', err);
+        showModalImageError('Network error. Please try again.');
         } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = originalText;
         }
-                
-        closeModal();
         });
 
-        function showModalError(msg) {
+        function showModalImageError(msg) {
         errorEl.textContent = msg;
-        errorEl.hidden      = false;
+        errorEl.hidden = false;
         }
 
         const bannerElement = document.getElementById('shopBanner');
@@ -626,55 +1325,26 @@
         });
         }
 
-        const style = document.createElement('style');
-        style.textContent = `
-        @@keyframes fadeOut {
-        0% { opacity: 1; transform: translateY(0); }
-        70% { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(-20px); visibility: hidden; }
-        }
-        `;
-        document.head.appendChild(style);
-
-        function refreshImagesWithCacheBuster() {
-        const logo = document.getElementById('shopLogoImg');
-        if (logo && logo.tagName === 'IMG' && logo.src) {
-        const originalSrc = logo.getAttribute('data-original-src') || logo.src.split('?')[0];
-        if (originalSrc && originalSrc !== '') {
-        logo.src = originalSrc + '?v=' + Date.now();
-        }
-        }
-                
-        const banner = document.getElementById('shopBanner');
-        if (banner && banner.style.backgroundImage) {
-        const bg = banner.style.backgroundImage;
-        const urlMatch = bg.match(/url\(['"]?([^'"]+)['"]?\)/);
-        if (urlMatch && urlMatch[1]) {
-        const cleanUrl = urlMatch[1].split('?')[0];
-        if (cleanUrl && cleanUrl !== '' && cleanUrl !== 'none') {
-        banner.style.backgroundImage = `url('${cleanUrl}?v=${Date.now()}')`;
-        }
-        }
-        }
-        }
-
-        if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', refreshImagesWithCacheBuster);
-        } else {
-        refreshImagesWithCacheBuster();
-        }
-
         // ══════════════════════════════════════════════════════════════════════
-        //  INLINE TEXT EDITING (ShopName + Bio) - unchanged
+        //  INLINE TEXT EDITING
         // ══════════════════════════════════════════════════════════════════════
+        async function saveTextField(field, value) {
+        const res = await fetch(FIELD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
+        body: JSON.stringify({ shopId: SHOP_ID, field, value })
+        });
+        return res.json();
+        }
+
         document.querySelectorAll('.sp-inline--editable').forEach(block => {
-        const display   = block.querySelector('.sp-inline__display');
-        const editor    = block.querySelector('.sp-inline__editor');
-        const input     = block.querySelector('.sp-inline__input');
-        const saveBtn   = block.querySelector('.sp-inline__save');
-        const cancelBtn = block.querySelector('.sp-inline__cancel');
-        const errorEl   = block.querySelector('.sp-inline__error');
-        const field     = block.dataset.field;
+        const display = block.querySelector('.sp-inline__display');
+        const editor = block.querySelector('.sp-inline__editor');
+        const input = block.querySelector('.sp-inline__input');
+        const saveBtnInline = block.querySelector('.sp-inline__save');
+        const cancelBtnInline = block.querySelector('.sp-inline__cancel');
+        const errorElInline = block.querySelector('.sp-inline__error');
+        const field = block.dataset.field;
 
         if (!display || !editor || !input) return;
 
@@ -689,36 +1359,37 @@
         if (input.tagName === 'INPUT')
         input.setSelectionRange(input.value.length, input.value.length);
         }
+
         function closeEditor(restore) {
         if (restore) input.value = originalValue;
         display.hidden = false;
         editor.setAttribute('hidden', '');
-        errorEl.hidden = true;
+        errorElInline.hidden = true;
         block.classList.remove('sp-inline--editing');
         }
 
         display.addEventListener('click', openEditor);
-        cancelBtn.addEventListener('click', () => closeEditor(true));
+        cancelBtnInline.addEventListener('click', () => closeEditor(true));
 
         input.addEventListener('keydown', e => {
         if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveBtn.click();
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveBtnInline.click();
         });
 
-        saveBtn.addEventListener('click', async () => {
+        saveBtnInline.addEventListener('click', async () => {
         const val = input.value.trim();
-        errorEl.hidden      = true;
-        saveBtn.disabled    = true;
-        saveBtn.textContent = 'Saving…';
+        errorElInline.hidden = true;
+        saveBtnInline.disabled = true;
+        saveBtnInline.textContent = 'Saving...';
 
         const res = await saveTextField(field, val);
 
-        saveBtn.disabled    = false;
-        saveBtn.textContent = 'Save';
+        saveBtnInline.disabled = false;
+        saveBtnInline.textContent = 'Save';
 
         if (!res.ok) {
-        errorEl.textContent = res.error;
-        errorEl.hidden      = false;
+        errorElInline.textContent = res.error;
+        errorElInline.hidden = false;
         return;
         }
 
@@ -734,7 +1405,7 @@
         }
         document.title = val;
         } else {
-        display.textContent = val || 'Click to add a bio…';
+        display.textContent = val || 'Click to add a bio...';
         display.classList.toggle('sp-identity__bio--empty', !val);
         if (val) {
         const hint = block.querySelector('.sp-inline__edit-hint');
@@ -747,7 +1418,7 @@
         });
 
         // ══════════════════════════════════════════════════════════════════════
-        //  ADDRESS INLINE EDIT (click on address line opens editor with map picker)
+        //  ADDRESS INLINE EDIT
         // ══════════════════════════════════════════════════════════════════════
         const addressContainer = document.querySelector('.sp-address');
         if (addressContainer && addressContainer.classList.contains('sp-inline--editable')) {
@@ -758,7 +1429,7 @@
         const cancelAddressBtn = addressContainer.querySelector('.sp-address__cancel');
         const addressError = addressContainer.querySelector('.sp-address__error');
         const mapPickerBtn = document.getElementById('openMapPickerBtn');
-                
+            
         let originalAddress = addressInput?.value || '';
 
         function openAddressEditor() {
@@ -776,148 +1447,71 @@
         if (addressError) addressError.hidden = true;
         }
 
-        // Click on address line opens editor
         displayEl?.addEventListener('click', openAddressEditor);
-
-        // Cancel button
         cancelAddressBtn?.addEventListener('click', () => closeAddressEditor(true));
 
-        // Save address (text + lat/lng)
         saveAddressBtn?.addEventListener('click', async () => {
         const newAddress = addressInput?.value.trim() || '';
         if (addressError) addressError.hidden = true;
         saveAddressBtn.disabled = true;
-        saveAddressBtn.textContent = 'Saving…';
+        saveAddressBtn.textContent = 'Saving...';
 
-        // Get current lat/lng from hidden fields
-        let lat = document.getElementById('ShopLocation-latitude')?.value || '';
-        let lng = document.getElementById('ShopLocation-longitude')?.value || '';
-
-        // Save both address text and coordinates via SaveField?
-        // Since the backend expects a single field per call, we save address text first,
-        // then coordinates if they changed (map picker would have updated them).
-        // For simplicity, we call SaveField for StoreAddress.
         const res = await saveTextField('StoreAddress', newAddress);
 
-        // If saving text failed, show error and stop
         if (!res.ok) {
-            saveAddressBtn.disabled = false;
-            saveAddressBtn.textContent = 'Save';
-            if (addressError) {
-                addressError.textContent = res.error || 'Failed to save address';
-                addressError.hidden = false;
-            }
-            return;
+        saveAddressBtn.disabled = false;
+        saveAddressBtn.textContent = 'Save';
+        if (addressError) {
+        addressError.textContent = res.error || 'Failed to save address';
+        addressError.hidden = false;
+        }
+        return;
         }
 
-        // If we have coordinates, send them via SaveLocation so server persists lat/lng
         try {
-            const latNum = lat ? parseFloat(lat) : null;
-            const lngNum = lng ? parseFloat(lng) : null;
-            if (latNum != null && lngNum != null) {
-                const locRes = await fetch('/Shop/SaveLocation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
-                    body: JSON.stringify({ shopId: SHOP_ID, latitude: latNum, longitude: lngNum })
-                });
-                const locJson = await locRes.json();
-                if (!locJson.ok) {
-                    // non-fatal: show error but keep address text saved
-                    if (addressError) {
-                        addressError.textContent = locJson.error || 'Failed to save coordinates';
-                        addressError.hidden = false;
-                    }
-                }
-            }
+        const lat = document.getElementById('ShopLocation-latitude')?.value || '';
+        const lng = document.getElementById('ShopLocation-longitude')?.value || '';
+        const latNum = lat ? parseFloat(lat) : null;
+        const lngNum = lng ? parseFloat(lng) : null;
+                    
+        if (latNum != null && lngNum != null) {
+        const locRes = await fetch('/Shop/SaveLocation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
+        body: JSON.stringify({ shopId: SHOP_ID, latitude: latNum, longitude: lngNum })
+        });
+        const locJson = await locRes.json();
+        if (!locJson.ok && addressError) {
+        addressError.textContent = locJson.error || 'Failed to save coordinates';
+        addressError.hidden = false;
+        }
+        }
         } catch (err) {
-            console.warn('Failed to save coordinates', err);
+        console.warn('Failed to save coordinates', err);
         } finally {
-            saveAddressBtn.disabled = false;
-            saveAddressBtn.textContent = 'Save';
+        saveAddressBtn.disabled = false;
+        saveAddressBtn.textContent = 'Save';
         }
 
-        // Update displayed address
         displayEl.innerHTML = (newAddress || 'No address set') +
-            `<span class="sp-inline__edit-hint" aria-hidden="true">` +
-            `<svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">` +
-            `<path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />` +
-            `</svg></span>`;
+        `<span class="sp-inline__edit-hint" aria-hidden="true">` +
+        `<svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">` +
+        `<path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />` +
+        `</svg></span>`;
         originalAddress = newAddress;
         closeAddressEditor(false);
         });
 
-        // Map picker integration
         if (mapPickerBtn && typeof window.openMapPicker === 'function') {
         mapPickerBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        // Open map picker, after selection it will fill lat/lng hidden inputs and address text field
         window.openMapPicker('ShopLocation', (latLng, addressString) => {
         if (addressInput && addressString) {
         addressInput.value = addressString;
         }
-        // The map-picker.js also updates hidden lat/lng inputs
         });
         });
-        } else if (mapPickerBtn) {
-        // Fallback if map picker not loaded
-        console.warn('openMapPicker not available');
         }
-
-        @* For non-owners: clicking the address should open the map in view-only mode *@
-        @if (!isOwner)
-        {
-            <text>
-        const shopAddressDisplayView = document.getElementById('shopAddressDisplay');
-        shopAddressDisplayView?.addEventListener('click', function (e) {
-            e.preventDefault();
-            // open in view-only mode so users can see the precise pin (no editing)
-            window.openMapPicker('ShopLocation', null, 'view');
-        });
-            </text>
         }
-
-        // Close on Escape
-        document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && editorDiv && !editorDiv.hidden) {
-        closeAddressEditor(true);
-        }
-        });
-        }
-
-        }());
     </script>
 }
-
-<script>
-    (function () {
-        'use strict';
-        var isOwner = @isOwner.ToString().ToLowerInvariant();
-        if (!isOwner) {
-            function attachViewerAddressClick() {
-                var addr = document.getElementById('shopAddressDisplay');
-                if (!addr) return;
-                addr.style.cursor = 'pointer';
-                addr.setAttribute('role', 'button');
-                addr.tabIndex = 0;
-                addr.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    try {
-                        if (typeof window.openMapPicker === 'function') {
-                            window.openMapPicker('ShopLocation', null, 'view');
-                            return;
-                        }
-                        var s = document.createElement('script');
-                        s.src = '/js/map-picker.js';
-                        s.onload = function () { if (typeof window.openMapPicker === 'function') window.openMapPicker('ShopLocation', null, 'view'); };
-                        s.onerror = function () { console.warn('Failed to load map-picker.js'); };
-                        document.head.appendChild(s);
-                    } catch (err) {
-                        console.warn('openMapPicker failed', err);
-                    }
-                });
-                addr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addr.click(); } });
-            }
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachViewerAddressClick); else attachViewerAddressClick();
-        }
-    }());
-</script>

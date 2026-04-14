@@ -64,6 +64,12 @@ public class ShopItemDetailsViewModel
 
     public List<string> ImageUrls { get; set; } = new();
     public List<ShopItemVariantViewModel> Variants { get; set; } = new();
+
+    // ── Discount Fields ───────────────────────────────────────────────────────
+    public bool HasActiveDiscount { get; set; }
+    public decimal? OriginalPrice { get; set; }
+    public decimal? DiscountPercentage { get; set; }
+    public DateTime? DiscountExpiresAt { get; set; }
 }
 
 public class ShopItemVariantViewModel
@@ -80,6 +86,9 @@ public class ShopItemSkuViewModel
     public decimal Price { get; set; }
     public int Quantity { get; set; }
     public bool IsAvailable { get; set; }
+
+    // ── Discount Fields ───────────────────────────────────────────────────────
+    public decimal? OriginalPrice { get; set; }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -138,3 +147,4 @@ public class ShopSkuEditDto
     [Required, Range(0.01, 999999.99)] public decimal Price { get; set; }
     [Required, Range(1, 9999)] public int Quantity { get; set; }
 }
+

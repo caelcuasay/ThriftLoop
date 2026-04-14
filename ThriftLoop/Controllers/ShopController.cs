@@ -6,6 +6,7 @@ using ThriftLoop.Constants;
 using ThriftLoop.Data;
 using ThriftLoop.Enums;
 using ThriftLoop.Models;
+using ThriftLoop.Repositories.Implementation;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
 
@@ -51,12 +52,27 @@ public class ShopController : Controller
         if (shop is null) return NotFound();
 
         var currentUserId = GetCurrentUserId();
+        var isOwner = currentUserId.HasValue && shop.UserId == currentUserId.Value;
+
         var items = await _itemRepo.GetByShopIdAsync(id);
+
+        // Filter out disabled items for non-owners
+        if (!isOwner)
+        {
+            items = items.Where(i => i.Status != ItemStatus.Disabled).ToList();
+        }
+
+        // Calculate sold counts for each item
+        var soldCounts = new Dictionary<int, int>();
+        foreach (var item in items)
+        {
+            soldCounts[item.Id] = await GetSoldCountAsync(item.Id);
+        }
 
         var vm = new ShopPageViewModel
         {
             ShopId = shop.Id,
-            IsOwner = currentUserId.HasValue && shop.UserId == currentUserId.Value,
+            IsOwner = isOwner,
             ShopName = shop.ShopName,
             Bio = shop.Bio,
             BannerUrl = shop.BannerUrl,
@@ -64,7 +80,8 @@ public class ShopController : Controller
             Latitude = shop.Latitude,
             Longitude = shop.Longitude,
             StoreAddress = shop.StoreAddress,
-            Items = items
+            Items = items,
+            ItemSoldCounts = soldCounts
         };
 
         return View(vm);
@@ -87,6 +104,320 @@ public class ShopController : Controller
         }
 
         return RedirectToAction(nameof(Index), new { id = shop.Id });
+    }
+
+    // POST /Shop/ToggleItemStatus  (AJAX — enable/disable listing)
+    [HttpPost]
+    [Authorize(Roles = "Seller")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleItemStatus([FromBody] ToggleItemStatusDto dto)
+    {
+        if (!ModelState.IsValid)
+            return Json(new { ok = false, error = "Invalid request." });
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Json(new { ok = false, error = "Not authenticated." });
+
+        var item = await _context.Items
+            .Include(i => i.Variants)
+            .FirstOrDefaultAsync(i => i.Id == dto.ItemId);
+
+        if (item is null || item.ShopId is null)
+            return Json(new { ok = false, error = "Item not found." });
+
+        // Verify ownership through the shop
+        var shop = await _shopRepo.GetByIdAsync(item.ShopId.Value);
+        if (shop is null || shop.UserId != userId.Value)
+            return Json(new { ok = false, error = "Permission denied." });
+
+        // Toggle between Available and Disabled
+        if (item.Status != ItemStatus.Available && item.Status != ItemStatus.Disabled)
+        {
+            return Json(new { ok = false, error = $"Cannot {(item.Status == ItemStatus.Disabled ? "enable" : "disable")} this listing because it is {item.Status.ToString().ToLower()}." });
+        }
+
+        var newStatus = item.Status == ItemStatus.Available
+            ? ItemStatus.Disabled
+            : ItemStatus.Available;
+
+        item.Status = newStatus;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Seller {UserId} {Action} shop item {ItemId}.",
+            userId.Value,
+            newStatus == ItemStatus.Disabled ? "disabled" : "enabled",
+            item.Id);
+
+        return Json(new
+        {
+            ok = true,
+            isDisabled = newStatus == ItemStatus.Disabled,
+            message = newStatus == ItemStatus.Disabled
+                ? "Listing is now hidden from public view."
+                : "Listing is now visible to everyone."
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  SHOP DISCOUNT ENDPOINTS
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Applies a discount to a shop item. Available immediately.
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Seller")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApplyShopDiscount([FromBody] ApplyDiscountDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Json(new DiscountResponse { Success = false, Error = "Not authenticated." });
+
+        var item = await _context.Items
+            .Include(i => i.Variants)
+                .ThenInclude(v => v.Skus)
+            .FirstOrDefaultAsync(i => i.Id == dto.ItemId);
+
+        if (item is null)
+            return Json(new DiscountResponse { Success = false, Error = "Item not found." });
+
+        // Verify ownership through shop
+        if (item.ShopId is null)
+            return Json(new DiscountResponse { Success = false, Error = "This endpoint is for shop items only." });
+
+        var shop = await _shopRepo.GetByIdAsync(item.ShopId.Value);
+        if (shop is null || shop.UserId != userId.Value)
+            return Json(new DiscountResponse { Success = false, Error = "Permission denied." });
+
+        // Check if item is available or disabled (can discount both)
+        if (item.Status != ItemStatus.Available && item.Status != ItemStatus.Disabled)
+            return Json(new DiscountResponse { Success = false, Error = "Only available or disabled items can be discounted." });
+
+        // Validate discount percentage
+        if (dto.DiscountPercentage < 1 || dto.DiscountPercentage > 99)
+            return Json(new DiscountResponse { Success = false, Error = "Discount must be between 1% and 99%." });
+
+        // Validate expiration (if provided, must be in the future)
+        if (dto.ExpiresAt.HasValue && dto.ExpiresAt.Value <= DateTime.UtcNow)
+            return Json(new DiscountResponse { Success = false, Error = "Expiration date must be in the future." });
+
+        // Store original price if not already discounted
+        if (!item.OriginalPrice.HasValue)
+            item.OriginalPrice = item.Price;
+
+        // Calculate new base price
+        var discountMultiplier = (100 - dto.DiscountPercentage) / 100m;
+        var newBasePrice = Math.Round(item.OriginalPrice.Value * discountMultiplier, 2);
+
+        // Apply discount to item
+        item.Price = newBasePrice;
+        item.DiscountPercentage = dto.DiscountPercentage;
+        item.DiscountedAt = DateTime.UtcNow;
+        item.DiscountExpiresAt = dto.ExpiresAt;
+
+        // FIX: Apply discount to all SKUs using OriginalPrice, not current price
+        int updatedSkuCount = 0;
+        foreach (var variant in item.Variants)
+        {
+            foreach (var sku in variant.Skus)
+            {
+                // Store original SKU price if not already stored
+                if (!sku.OriginalPrice.HasValue)
+                    sku.OriginalPrice = sku.Price;
+
+                // Apply discount based on ORIGINAL price, not current price
+                sku.Price = Math.Round(sku.OriginalPrice.Value * discountMultiplier, 2);
+                sku.DiscountPercentage = dto.DiscountPercentage;
+                updatedSkuCount++;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Seller {UserId} applied {DiscountPercent}% discount to Shop Item {ItemId}. " +
+            "Updated {SkuCount} SKUs. New base price: ₱{NewPrice}. Expires: {Expires}",
+            userId, dto.DiscountPercentage, item.Id, updatedSkuCount, newBasePrice,
+            dto.ExpiresAt?.ToString("O") ?? "never");
+
+        return Json(new DiscountResponse
+        {
+            Success = true,
+            NewPrice = newBasePrice,
+            OriginalPrice = item.OriginalPrice.Value,
+            DiscountPercentage = dto.DiscountPercentage,
+            SavingsAmount = item.OriginalPrice.Value - newBasePrice,
+            ExpiresAt = dto.ExpiresAt?.ToString("MMM d, yyyy 'at' h:mm tt"),
+            IsIndefinite = !dto.ExpiresAt.HasValue
+        });
+    }
+
+    /// <summary>
+    /// Removes the discount from a shop item, restoring original prices.
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Seller")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveShopDiscount(int itemId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Json(new { success = false, error = "Not authenticated." });
+
+        var item = await _context.Items
+            .Include(i => i.Variants)
+                .ThenInclude(v => v.Skus)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item is null)
+            return Json(new { success = false, error = "Item not found." });
+
+        // Verify ownership through shop
+        if (item.ShopId is null)
+            return Json(new { success = false, error = "This endpoint is for shop items only." });
+
+        var shop = await _shopRepo.GetByIdAsync(item.ShopId.Value);
+        if (shop is null || shop.UserId != userId.Value)
+            return Json(new { success = false, error = "Permission denied." });
+
+        // Check if there's a discount to remove
+        if (!item.OriginalPrice.HasValue)
+            return Json(new { success = false, error = "This item is not discounted." });
+
+        // Restore item price
+        var restoredPrice = item.OriginalPrice.Value;
+        item.Price = restoredPrice;
+        item.OriginalPrice = null;
+        item.DiscountPercentage = null;
+        item.DiscountedAt = null;
+        item.DiscountExpiresAt = null;
+
+        // FIX: Restore each SKU using its own OriginalPrice
+        int restoredSkuCount = 0;
+        foreach (var variant in item.Variants)
+        {
+            foreach (var sku in variant.Skus)
+            {
+                if (sku.OriginalPrice.HasValue)
+                {
+                    sku.Price = sku.OriginalPrice.Value;
+                    sku.OriginalPrice = null;
+                    sku.DiscountPercentage = null;
+                    restoredSkuCount++;
+                }
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Seller {UserId} removed discount from Shop Item {ItemId}. " +
+            "Restored {SkuCount} SKUs to their original prices. Base price restored to ₱{Price}.",
+            userId, item.Id, restoredSkuCount, restoredPrice);
+
+        return Json(new
+        {
+            success = true,
+            restoredPrice = restoredPrice,
+            message = "Discount removed successfully."
+        });
+    }
+
+    /// <summary>
+    /// Bulk apply discount to multiple shop items.
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Seller")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkApplyDiscount([FromBody] BulkDiscountDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Json(new { success = false, error = "Not authenticated." });
+
+        if (dto.ItemIds == null || dto.ItemIds.Count == 0)
+            return Json(new { success = false, error = "No items selected." });
+
+        // Validate discount percentage
+        if (dto.DiscountPercentage < 1 || dto.DiscountPercentage > 99)
+            return Json(new { success = false, error = "Discount must be between 1% and 99%." });
+
+        var successCount = 0;
+        var errors = new List<string>();
+        var discountMultiplier = (100 - dto.DiscountPercentage) / 100m;
+
+        foreach (var itemId in dto.ItemIds)
+        {
+            var item = await _context.Items
+                .Include(i => i.Variants)
+                    .ThenInclude(v => v.Skus)
+                .FirstOrDefaultAsync(i => i.Id == itemId);
+
+            if (item == null || item.ShopId == null)
+            {
+                errors.Add($"Item {itemId} not found or not a shop item.");
+                continue;
+            }
+
+            var shop = await _shopRepo.GetByIdAsync(item.ShopId.Value);
+            if (shop == null || shop.UserId != userId.Value)
+            {
+                errors.Add($"Permission denied for item {itemId}.");
+                continue;
+            }
+
+            if (item.Status != ItemStatus.Available && item.Status != ItemStatus.Disabled)
+            {
+                errors.Add($"Item {itemId} cannot be discounted (status: {item.Status}).");
+                continue;
+            }
+
+            // Store original price if not already discounted
+            if (!item.OriginalPrice.HasValue)
+                item.OriginalPrice = item.Price;
+
+            var newBasePrice = Math.Round(item.OriginalPrice.Value * discountMultiplier, 2);
+
+            item.Price = newBasePrice;
+            item.DiscountPercentage = dto.DiscountPercentage;
+            item.DiscountedAt = DateTime.UtcNow;
+            item.DiscountExpiresAt = dto.ExpiresAt;
+
+            // FIX: Apply discount to SKUs using OriginalPrice
+            foreach (var variant in item.Variants)
+            {
+                foreach (var sku in variant.Skus)
+                {
+                    // Store original SKU price if not already stored
+                    if (!sku.OriginalPrice.HasValue)
+                        sku.OriginalPrice = sku.Price;
+
+                    // Apply discount based on ORIGINAL price
+                    sku.Price = Math.Round(sku.OriginalPrice.Value * discountMultiplier, 2);
+                    sku.DiscountPercentage = dto.DiscountPercentage;
+                }
+            }
+
+            successCount++;
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Seller {UserId} bulk applied {DiscountPercent}% discount to {Count} items.",
+            userId, dto.DiscountPercentage, successCount);
+
+        return Json(new
+        {
+            success = true,
+            successCount,
+            errorCount = errors.Count,
+            errors,
+            message = $"Discount applied to {successCount} item{(successCount != 1 ? "s" : "")}."
+        });
     }
 
     // POST /Shop/SaveField  (AJAX — shop name/bio)
@@ -252,18 +583,51 @@ public class ShopController : Controller
 
     // GET /Shop/Details/5
     [HttpGet]
-    [AllowAnonymous]
     public async Task<IActionResult> Details(int id)
     {
         var item = await _itemRepo.GetByIdWithVariantsAsync(id);
-        if (item is null || item.ShopId is null) return NotFound();
+        if (item == null || item.ShopId == null)
+            return NotFound();
 
         var shop = await _shopRepo.GetByIdAsync(item.ShopId.Value);
-        if (shop is null) return NotFound();
+        if (shop == null)
+            return NotFound();
 
-        var currentUserId = GetCurrentUserId();
+        var currentUserId = User.Identity?.IsAuthenticated == true
+            ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
+            : (int?)null;
 
-        var vm = new ShopItemDetailsViewModel
+        // Get all available SKUs
+        var allSkus = item.Variants
+            .SelectMany(v => v.Skus)
+            .Where(s => s.Status == ThriftLoop.Enums.SkuStatus.Available)
+            .ToList();
+
+        // Calculate starting price (lowest current price)
+        var startingPrice = allSkus.Any()
+            ? allSkus.Min(s => s.Price)
+            : item.Price;
+
+        // Calculate original starting price (lowest original price) for discount display
+        decimal? originalStartingPrice = null;
+        if (item.HasActiveDiscount)
+        {
+            // Get SKUs that have OriginalPrice set
+            var skusWithOriginalPrice = allSkus.Where(s => s.OriginalPrice.HasValue).ToList();
+
+            if (skusWithOriginalPrice.Any())
+            {
+                // Get the lowest original price among available SKUs that have it set
+                originalStartingPrice = skusWithOriginalPrice.Min(s => s.OriginalPrice!.Value);
+            }
+            else
+            {
+                // Fall back to item.OriginalPrice
+                originalStartingPrice = item.OriginalPrice;
+            }
+        }
+
+        var viewModel = new ShopItemDetailsViewModel
         {
             ItemId = item.Id,
             ShopId = shop.Id,
@@ -274,8 +638,12 @@ public class ShopController : Controller
             Description = item.Description,
             Category = item.Category,
             Condition = item.Condition,
-            StartingPrice = item.Price,
+            StartingPrice = startingPrice,
             ImageUrls = item.ImageUrls,
+            HasActiveDiscount = item.HasActiveDiscount,
+            OriginalPrice = originalStartingPrice,
+            DiscountPercentage = item.DiscountPercentage,
+            DiscountExpiresAt = item.DiscountExpiresAt,
             Variants = item.Variants.Select(v => new ShopItemVariantViewModel
             {
                 VariantId = v.Id,
@@ -286,12 +654,13 @@ public class ShopController : Controller
                     Size = s.Size,
                     Price = s.Price,
                     Quantity = s.Quantity,
-                    IsAvailable = s.Status == SkuStatus.Available && s.Quantity > 0
+                    IsAvailable = s.Status == ThriftLoop.Enums.SkuStatus.Available && s.Quantity > 0,
+                    OriginalPrice = s.OriginalPrice
                 }).ToList()
             }).ToList()
         };
 
-        return View(vm);
+        return View(viewModel);
     }
 
     // GET /Shop/Create
@@ -652,6 +1021,27 @@ public class ShopController : Controller
         return int.TryParse(raw, out var id) ? id : null;
     }
 
+    private async Task<int> GetSoldCountAsync(int itemId)
+    {
+        // Get all SKU IDs for this item
+        var skuIds = await _context.ItemVariantSkus
+            .Where(s => s.Variant != null && s.Variant.ItemId == itemId)
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        if (!skuIds.Any()) return 0;
+
+        // Count completed orders for these SKUs
+        return await _context.OrderItems
+            .Where(oi => skuIds.Contains(oi.ItemVariantSkuId))
+            .Join(_context.Orders,
+                oi => oi.OrderId,
+                o => o.Id,
+                (oi, o) => new { oi, o })
+            .Where(x => x.o.Status == OrderStatus.Completed)
+            .SumAsync(x => x.oi.Quantity);
+    }
+
     /// <summary>
     /// Loads the item with variants+SKUs (no-tracking) and verifies it is a shop item owned
     /// by the current user. Returns Forbid/NotFound result on failure.
@@ -740,4 +1130,17 @@ public class ShopController : Controller
             }
         }
     }
+}
+
+// DTOs
+public class ToggleItemStatusDto
+{
+    public int ItemId { get; set; }
+}
+
+public class BulkDiscountDto
+{
+    public List<int> ItemIds { get; set; } = new();
+    public decimal DiscountPercentage { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 }

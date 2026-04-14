@@ -70,11 +70,11 @@ public class ApplicationDbContext : DbContext
             // Coordinates precision — prevent SQL truncation warnings
             entity.Property(u => u.Latitude)
                   .IsRequired(false)
-                  .HasPrecision(9,6);
+                  .HasPrecision(9, 6);
 
             entity.Property(u => u.Longitude)
                   .IsRequired(false)
-                  .HasPrecision(9,6);
+                  .HasPrecision(9, 6);
         });
 
         // ── Riders ─────────────────────────────────────────────────────────────
@@ -185,11 +185,11 @@ public class ApplicationDbContext : DbContext
             // Optional shop coordinates for geolocation
             entity.Property(sp => sp.Latitude)
                   .IsRequired(false)
-                  .HasPrecision(9,6);
+                  .HasPrecision(9, 6);
 
             entity.Property(sp => sp.Longitude)
                   .IsRequired(false)
-                  .HasPrecision(9,6);
+                  .HasPrecision(9, 6);
         });
 
         // ── Items ─────────────────────────────────────────────────────────────
@@ -205,6 +205,23 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.Category).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Condition).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Size).IsRequired(false).HasMaxLength(10);
+
+            // ── Discount Fields ────────────────────────────────────────────────
+            entity.Property(i => i.OriginalPrice)
+                  .IsRequired(false)
+                  .HasColumnType("decimal(10,2)");
+
+            entity.Property(i => i.DiscountPercentage)
+                  .IsRequired(false)
+                  .HasColumnType("decimal(5,2)");
+
+            entity.Property(i => i.DiscountedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(i => i.DiscountExpiresAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
 
             var imageUrlsComparer = new ValueComparer<List<string>>(
                 (a, b) => a != null && b != null && a.SequenceEqual(b),
@@ -239,6 +256,10 @@ public class ApplicationDbContext : DbContext
 
             entity.Ignore(i => i.IsInFinalizeWindow);
             entity.Ignore(i => i.FinalizeDeadline);
+            entity.Ignore(i => i.HasActiveDiscount);
+            entity.Ignore(i => i.HasExpiredDiscount);
+            entity.Ignore(i => i.SavingsAmount);
+            entity.Ignore(i => i.CanBeDiscounted);
 
             entity.Property(i => i.ShopId).IsRequired(false);
 
@@ -276,6 +297,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(s => s.Price).IsRequired().HasColumnType("decimal(10,2)");
             entity.Property(s => s.Quantity).IsRequired().HasDefaultValue(1);
             entity.Property(s => s.Status).IsRequired().HasDefaultValue(SkuStatus.Available);
+
+            // ── Discount Fields ────────────────────────────────────────────────
+            entity.Property(s => s.OriginalPrice)
+                  .IsRequired(false)
+                  .HasColumnType("decimal(10,2)");
+
+            entity.Property(s => s.DiscountPercentage)
+                  .IsRequired(false)
+                  .HasColumnType("decimal(5,2)");
         });
 
         // ── Orders ────────────────────────────────────────────────────────────

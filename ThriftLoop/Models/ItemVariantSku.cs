@@ -60,6 +60,21 @@ public class ItemVariantSku
     /// </summary>
     public SkuStatus Status { get; set; } = SkuStatus.Available;
 
+    // ── Discount Fields ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The original price of this SKU before any discount was applied.
+    /// Null when no discount is active on this SKU.
+    /// </summary>
+    public decimal? OriginalPrice { get; set; }
+
+    /// <summary>
+    /// The discount percentage applied to this SKU (e.g., 10.00 for 10% off).
+    /// Mirrors Item.DiscountPercentage when discounts are applied listing-wide.
+    /// Null when no discount is active.
+    /// </summary>
+    public decimal? DiscountPercentage { get; set; }
+
     // ── Navigation ────────────────────────────────────────────────────────────
 
     public ItemVariant? Variant { get; set; }

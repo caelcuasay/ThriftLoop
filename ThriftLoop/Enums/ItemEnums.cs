@@ -7,7 +7,12 @@ public enum ItemStatus
     Available,
     Reserved,
     Sold,
-    StolenPendingCheckout
+    StolenPendingCheckout,
+    /// <summary>
+    /// Listing is temporarily hidden from public views.
+    /// Seller can toggle this on/off at any time, even if items are in carts.
+    /// </summary>
+    Disabled
 }
 
 /// <summary>

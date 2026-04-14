@@ -1,4 +1,5 @@
 using ThriftLoop.Models;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.ViewModels;
 
@@ -34,9 +35,34 @@ public class CartItemViewModel
     public int Quantity { get; set; }
     public DateTime AddedAt { get; set; }
 
+    /// <summary>
+    /// True if the parent item has been disabled by the seller.
+    /// Disabled items cannot be purchased.
+    /// </summary>
+    public bool IsItemDisabled { get; set; }
+
+    /// <summary>
+    /// True if the SKU has sufficient stock AND the item is not disabled.
+    /// </summary>
+    public bool IsValid => AvailableStock >= Quantity && !IsItemDisabled;
+
     // Computed
     public decimal LineTotal => Price * Quantity;
-    public bool IsValid => AvailableStock >= Quantity;
+
+    /// <summary>
+    /// Human-readable reason why this item cannot be purchased.
+    /// </summary>
+    public string? InvalidReason
+    {
+        get
+        {
+            if (IsItemDisabled)
+                return "Item Unavailable";
+            if (AvailableStock < Quantity)
+                return $"Only {AvailableStock} available";
+            return null;
+        }
+    }
 }
 
 /// <summary>
@@ -67,6 +93,11 @@ public class CartIndexViewModel
     // Validation
     public bool HasValidItems => Items.All(i => i.IsValid);
     public bool IsEmpty => Items.Count == 0;
+
+    /// <summary>
+    /// Count of items that are disabled or out of stock.
+    /// </summary>
+    public int InvalidItemCount => Items.Count(i => !i.IsValid);
 }
 
 /// <summary>

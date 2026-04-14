@@ -21,6 +21,9 @@ public class ShopPageViewModel
 
     /// <summary>Listings belonging to this shop — loaded on Index.</summary>
     public IReadOnlyList<ThriftLoop.Models.Item> Items { get; set; } = new List<ThriftLoop.Models.Item>();
+
+    /// <summary>Sold counts per item (ItemId -> Sold Count).</summary>
+    public Dictionary<int, int> ItemSoldCounts { get; set; } = new();
 }
 
 public class SaveLocationDto
@@ -47,4 +50,3 @@ public class SaveFieldDto
     /// <summary>New value. Null/empty is allowed for Bio.</summary>
     public string? Value { get; set; }
 }
-// Note: Items property added below via sed

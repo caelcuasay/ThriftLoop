@@ -69,6 +69,9 @@ public class CartController : BaseController
         if (item.ShopId is null)
             return Json(new { success = false, error = "P2P items cannot be added to cart." });
 
+        if (item.Status == ItemStatus.Disabled)
+            return Json(new { success = false, error = "This listing is currently unavailable." });
+
         if (item.UserId == userId.Value)
             return Json(new { success = false, error = "You cannot add your own items to cart." });
 
@@ -116,6 +119,10 @@ public class CartController : BaseController
 
         if (sku is null)
             return Json(new CartOperationResponse { Success = false, Error = "Item variant not found." });
+
+        // Check if item is disabled
+        if (sku.Variant?.Item?.Status == ItemStatus.Disabled)
+            return Json(new CartOperationResponse { Success = false, Error = "This listing is no longer available." });
 
         var quantity = Math.Max(1, Math.Min(dto.Quantity, sku.Quantity));
 
@@ -218,24 +225,32 @@ public class CartController : BaseController
 
     private static CartIndexViewModel BuildCartViewModel(IReadOnlyList<CartItem> cartItems)
     {
-        var items = cartItems.Select(ci => new CartItemViewModel
+        var items = cartItems.Select(ci =>
         {
-            CartItemId = ci.Id,
-            ItemId = ci.ItemId,
-            ItemVariantSkuId = ci.ItemVariantSkuId,
-            ItemTitle = ci.Item?.Title ?? "Unknown Item",
-            ItemImageUrl = ci.Item?.ImageUrl,
-            Category = ci.Item?.Category ?? "",
-            Condition = ci.Item?.Condition ?? "",
-            ShopId = ci.Item?.ShopId,
-            ShopName = ci.Item?.Shop?.ShopName,
-            SellerId = ci.Item?.UserId ?? 0,
-            VariantName = ci.ItemVariantSku?.Variant?.Name ?? "",
-            Size = ci.ItemVariantSku?.Size,
-            Price = ci.ItemVariantSku?.Price ?? 0,
-            AvailableStock = ci.ItemVariantSku?.Quantity ?? 0,
-            Quantity = ci.Quantity,
-            AddedAt = ci.AddedAt
+            var item = ci.Item;
+            var sku = ci.ItemVariantSku;
+            var isItemDisabled = item?.Status == ItemStatus.Disabled;
+
+            return new CartItemViewModel
+            {
+                CartItemId = ci.Id,
+                ItemId = ci.ItemId,
+                ItemVariantSkuId = ci.ItemVariantSkuId,
+                ItemTitle = item?.Title ?? "Unknown Item",
+                ItemImageUrl = item?.ImageUrl,
+                Category = item?.Category ?? "",
+                Condition = item?.Condition ?? "",
+                ShopId = item?.ShopId,
+                ShopName = item?.Shop?.ShopName,
+                SellerId = item?.UserId ?? 0,
+                VariantName = sku?.Variant?.Name ?? "",
+                Size = sku?.Size,
+                Price = sku?.Price ?? 0,
+                AvailableStock = sku?.Quantity ?? 0,
+                Quantity = ci.Quantity,
+                AddedAt = ci.AddedAt,
+                IsItemDisabled = isItemDisabled
+            };
         }).ToList();
 
         return new CartIndexViewModel
