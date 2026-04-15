@@ -119,7 +119,6 @@
                 color: #6b7280;
             }
 
-            /* Original price wrapper - hidden when no discount or when SKU selected without discount tracking */
             .detail-price-original-wrapper {
                 display: flex;
                 align-items: center;
@@ -263,13 +262,20 @@
                 <div class="detail-price-block" id="priceBlock">
                     @if (hasDiscount)
                     {
-                        <div class="detail-price-original-wrapper">
+                        <div class="detail-price-original-wrapper" id="originalPriceWrapper">
                             <span class="detail-price-original" id="originalPriceDisplay">
                                 ₱@(Model.OriginalPrice?.ToString("N2") ?? Model.StartingPrice.ToString("N2"))
                             </span>
                             <span class="detail-discount-badge detail-discount-badge--inline" id="inlineDiscountBadge">
                                 -@(Model.DiscountPercentage?.ToString("F0"))%
                             </span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-price-original-wrapper" id="originalPriceWrapper" style="display:none;">
+                            <span class="detail-price-original" id="originalPriceDisplay"></span>
+                            <span class="detail-discount-badge detail-discount-badge--inline" id="inlineDiscountBadge"></span>
                         </div>
                     }
                     <div class="detail-price-row">
@@ -284,6 +290,15 @@
                                 <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
                             </svg>
                             @discountExpiryText
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-discount-expiry" id="discountExpiry" style="display:none;">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" />
+                            </svg>
+                            <span id="discountExpiryText"></span>
                         </div>
                     }
                     <span class="detail-price-label" id="priceLabel">Starting price</span>
@@ -352,23 +367,25 @@
                     <script id="variantData" type="application/json">
                                         @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
                                         {
-                                                hasDiscount = hasDiscount,
-                                                discountPercentage = Model.DiscountPercentage,
-                                                originalStartingPrice = Model.OriginalPrice ?? Model.StartingPrice,
-                                                variants = Model.Variants.Select(v => new
-                                                {
-                                                        variantId = v.VariantId,
-                                                        name = v.Name,
-                                                        skus = v.Skus.Select(s => new
-                                                        {
-                                                                skuId = s.SkuId,
-                                                                size = s.Size,
-                                                                price = s.Price,
-                                                                originalPrice = s.OriginalPrice,
-                                                                quantity = s.Quantity,
-                                                                isAvailable = s.IsAvailable
-                                                        })
-                                                })
+                                                    hasDiscount = hasDiscount,
+                                                    discountPercentage = Model.DiscountPercentage,
+                                                    discountExpiresAt = Model.DiscountExpiresAt?.ToString("O"),
+                                                    expiryText = discountExpiryText,
+                                                    originalStartingPrice = Model.OriginalPrice ?? Model.StartingPrice,
+                                                    variants = Model.Variants.Select(v => new
+                                                    {
+                                                                variantId = v.VariantId,
+                                                                name = v.Name,
+                                                                skus = v.Skus.Select(s => new
+                                                                {
+                                                                            skuId = s.SkuId,
+                                                                            size = s.Size,
+                                                                            price = s.Price,
+                                                                            originalPrice = s.OriginalPrice,
+                                                                            quantity = s.Quantity,
+                                                                            isAvailable = s.IsAvailable
+                                                                })
+                                                    })
                                         }))
                     </script>
                 }
@@ -448,6 +465,7 @@
                 const hasDiscount = parsedData.hasDiscount;
                 const discountPercentage = parsedData.discountPercentage;
                 const originalStartingPrice = parsedData.originalStartingPrice;
+                const expiryText = parsedData.expiryText;
 
                 const variantChipsEl = document.getElementById('variantChips');
                 const skuSection = document.getElementById('skuSection');
@@ -455,8 +473,10 @@
                 const priceEl = document.getElementById('selectedPrice');
                 const priceLabelEl = document.getElementById('priceLabel');
                 const originalPriceDisplay = document.getElementById('originalPriceDisplay');
+                const originalPriceWrapper = document.getElementById('originalPriceWrapper');
                 const inlineDiscountBadge = document.getElementById('inlineDiscountBadge');
                 const discountExpiry = document.getElementById('discountExpiry');
+                const discountExpiryTextEl = document.getElementById('discountExpiryText');
                 const variantReqEl = document.getElementById('variantRequired');
                 const skuReqEl = document.getElementById('skuRequired');
                 const qtySection = document.getElementById('qtySection');
@@ -465,6 +485,7 @@
                 const qtyIncBtn = document.getElementById('qtyInc');
                 const qtyStock = document.getElementById('qtyStock');
                 const buyNowBtn = document.getElementById('buyNowBtn');
+                const addToCartBtn = document.getElementById('addToCartBtn');
 
                 let selectedVariantId = null;
                 let selectedSkuId = null;
@@ -473,7 +494,16 @@
 
                 // Format price helper
                 function formatPrice(price) {
-                    return '₱' + price.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                    return '₱' + price.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Reconstruct original price from discounted price + discount percentage.
+                // Used as fallback when a SKU's originalPrice is null (e.g. added after discount was applied).
+                function getEffectiveOriginalPrice(discountedPrice) {
+                    if (hasDiscount && discountPercentage > 0) {
+                        return Math.round(discountedPrice / (1 - discountPercentage / 100) * 100) / 100;
+                    }
+                    return discountedPrice;
                 }
 
                 // Update price display for selected SKU
@@ -481,22 +511,28 @@
                     const totalPrice = unitPrice * qty;
                     priceEl.textContent = formatPrice(totalPrice);
 
-                    if (hasDiscount && originalPriceDisplay) {
+                    // A valid discount requires: item has discount, original is a real number,
+                    // and it is meaningfully higher than the current price (≥ 1 cent difference).
+                    const hasValidDiscount = hasDiscount
+                        && !isNaN(originalPrice)
+                        && (originalPrice - unitPrice) >= 0.01;
+                
+                    if (hasValidDiscount && originalPriceWrapper) {
                         const totalOriginal = originalPrice * qty;
                         originalPriceDisplay.textContent = formatPrice(totalOriginal);
-                        originalPriceDisplay.style.display = 'inline';
+                        originalPriceWrapper.style.display = 'flex';
                         if (inlineDiscountBadge) {
-                            inlineDiscountBadge.style.display = 'inline-flex';
                             inlineDiscountBadge.textContent = '-' + discountPercentage + '%';
                         }
                         if (discountExpiry) {
                             discountExpiry.style.display = 'flex';
+                            if (discountExpiryTextEl && expiryText) {
+                                discountExpiryTextEl.textContent = expiryText;
+                            }
                         }
-                    } else if (!hasDiscount && originalPriceDisplay) {
-                        originalPriceDisplay.style.display = 'none';
-                        if (inlineDiscountBadge) {
-                            inlineDiscountBadge.style.display = 'none';
-                        }
+                    } else if (originalPriceWrapper) {
+                        // Hide discount elements if no valid discount
+                        originalPriceWrapper.style.display = 'none';
                         if (discountExpiry) {
                             discountExpiry.style.display = 'none';
                         }
@@ -512,14 +548,29 @@
                 // Reset to starting price display
                 function resetToStartingPrice() {
                     if (hasDiscount) {
-                        const discountedStarting = originalStartingPrice * (1 - discountPercentage / 100);
-                        priceEl.textContent = formatPrice(discountedStarting);
-                        if (originalPriceDisplay) {
-                            originalPriceDisplay.textContent = formatPrice(originalStartingPrice);
-                            originalPriceDisplay.style.display = 'inline';
+                        // Find the lowest available SKU price and its original price
+                        let lowestPrice = Infinity;
+                        let lowestOriginal = originalStartingPrice;
+                    
+                        for (const variant of variants) {
+                            for (const sku of variant.skus) {
+                                if (sku.isAvailable && sku.price < lowestPrice) {
+                                    lowestPrice = sku.price;
+                                    lowestOriginal = sku.originalPrice != null
+                                        ? sku.originalPrice
+                                        : getEffectiveOriginalPrice(sku.price);
+                                }
+                            }
+                        }
+                    
+                        const displayPrice = lowestPrice < Infinity ? lowestPrice : originalStartingPrice * (1 - discountPercentage / 100);
+                    
+                        priceEl.textContent = formatPrice(displayPrice);
+                        if (originalPriceWrapper) {
+                            originalPriceDisplay.textContent = formatPrice(lowestOriginal);
+                            originalPriceWrapper.style.display = 'flex';
                         }
                         if (inlineDiscountBadge) {
-                            inlineDiscountBadge.style.display = 'inline-flex';
                             inlineDiscountBadge.textContent = '-' + discountPercentage + '%';
                         }
                         if (discountExpiry) {
@@ -527,11 +578,8 @@
                         }
                     } else {
                         priceEl.textContent = formatPrice(originalStartingPrice);
-                        if (originalPriceDisplay) {
-                            originalPriceDisplay.style.display = 'none';
-                        }
-                        if (inlineDiscountBadge) {
-                            inlineDiscountBadge.style.display = 'none';
+                        if (originalPriceWrapper) {
+                            originalPriceWrapper.style.display = 'none';
                         }
                         if (discountExpiry) {
                             discountExpiry.style.display = 'none';
@@ -565,7 +613,9 @@
                         btn.className = 'vp-chip' + (sku.isAvailable ? '' : ' vp-chip--disabled');
                         btn.dataset.skuId = sku.skuId;
                         btn.dataset.price = sku.price;
-                        btn.dataset.originalPrice = sku.originalPrice || sku.price;
+                        btn.dataset.originalPrice = sku.originalPrice != null
+                            ? sku.originalPrice
+                            : getEffectiveOriginalPrice(sku.price);
                         btn.dataset.quantity = sku.quantity;
                         btn.disabled = !sku.isAvailable;
                         btn.textContent = sku.size || 'One size';
@@ -575,42 +625,38 @@
 
                     skuSection.removeAttribute('hidden');
 
-                    const lowestAvailable = variant.skus
-                        .filter(s => s.isAvailable)
-                        .reduce((min, s) => s.price < min ? s.price : min, Infinity);
-
-                    if (lowestAvailable < Infinity) {
-                        const lowestSku = variant.skus.find(s => s.price === lowestAvailable);
-                        const lowestOriginal = lowestSku?.originalPrice || lowestAvailable;
-
-                        if (hasDiscount) {
-                            priceEl.textContent = formatPrice(lowestAvailable);
-                            if (originalPriceDisplay) {
+                    // Find lowest price among available SKUs in this variant
+                    const availableSkus = variant.skus.filter(s => s.isAvailable);
+                    if (availableSkus.length > 0) {
+                        const lowestSku = availableSkus.reduce((min, s) => s.price < min.price ? s : min);
+                        const lowestOriginal = lowestSku.originalPrice != null
+                        ? lowestSku.originalPrice
+                        : getEffectiveOriginalPrice(lowestSku.price);
+                    
+                        priceEl.textContent = formatPrice(lowestSku.price);
+                    
+                        if (hasDiscount && lowestOriginal > lowestSku.price) {
+                            if (originalPriceWrapper) {
                                 originalPriceDisplay.textContent = formatPrice(lowestOriginal);
-                                originalPriceDisplay.style.display = 'inline';
+                                originalPriceWrapper.style.display = 'flex';
                             }
                             if (inlineDiscountBadge) {
-                                inlineDiscountBadge.style.display = 'inline-flex';
+                                inlineDiscountBadge.textContent = '-' + discountPercentage + '%';
                             }
                             if (discountExpiry) {
                                 discountExpiry.style.display = 'flex';
                             }
-                        } else {
-                            priceEl.textContent = formatPrice(lowestAvailable);
-                            if (originalPriceDisplay) {
-                                originalPriceDisplay.style.display = 'none';
-                            }
-                            if (inlineDiscountBadge) {
-                                inlineDiscountBadge.style.display = 'none';
-                            }
+                        } else if (originalPriceWrapper) {
+                            originalPriceWrapper.style.display = 'none';
                             if (discountExpiry) {
                                 discountExpiry.style.display = 'none';
                             }
                         }
-                        priceLabelEl.textContent = 'Starting price';
+                    } else {
+                        resetToStartingPrice();
                     }
-
-                    resetToStartingPrice();
+                
+                    priceLabelEl.textContent = 'Starting price';
                 });
 
                 // ── SKU chip click ──────────────────────────────────────────────────
@@ -625,7 +671,7 @@
                     if (skuReqEl) skuReqEl.hidden = true;
 
                     currentUnitPrice = parseFloat(chip.dataset.price);
-                    currentOriginalPrice = parseFloat(chip.dataset.originalPrice || chip.dataset.price);
+                    currentOriginalPrice = parseFloat(chip.dataset.originalPrice);
                     const maxQty = parseInt(chip.dataset.quantity) || 1;
 
                     showQtyPicker(maxQty, currentUnitPrice, currentOriginalPrice);
@@ -692,7 +738,6 @@
                 });
 
                 // ── Add to Cart ─────────────────────────────────────────────────────
-                const addToCartBtn = document.getElementById('addToCartBtn');
                 const cartFeedback = document.getElementById('cartFeedback');
 
                 addToCartBtn?.addEventListener('click', async () => {
