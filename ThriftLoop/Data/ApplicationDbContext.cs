@@ -206,6 +206,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(i => i.Condition).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Size).IsRequired(false).HasMaxLength(10);
 
+            // ── Fulfillment Options ────────────────────────────────────────────
+            entity.Property(i => i.AllowDelivery)
+                  .IsRequired()
+                  .HasDefaultValue(true);
+
+            entity.Property(i => i.AllowHalfway)
+                  .IsRequired()
+                  .HasDefaultValue(false);
+
+            entity.Property(i => i.AllowPickup)
+                  .IsRequired()
+                  .HasDefaultValue(false);
+
             // ── Discount Fields ────────────────────────────────────────────────
             entity.Property(i => i.OriginalPrice)
                   .IsRequired(false)
@@ -320,8 +333,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(o => o.OrderDate)
                   .IsRequired().HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(o => o.Status).IsRequired().HasDefaultValue(OrderStatus.Pending);
+            entity.Property(o => o.FulfillmentMethod)
+                  .IsRequired()
+                  .HasDefaultValue(FulfillmentMethod.Delivery);
             entity.Property(o => o.PaymentMethod).IsRequired().HasDefaultValue(PaymentMethod.Wallet);
             entity.Property(o => o.CashCollectedByRider).IsRequired().HasDefaultValue(false);
+            entity.Property(o => o.ChatInitialized).IsRequired().HasDefaultValue(false);
+            entity.Property(o => o.ChatSessionId).IsRequired(false).HasMaxLength(100).IsUnicode(false);
 
             entity.HasOne(o => o.Item)
                   .WithMany()

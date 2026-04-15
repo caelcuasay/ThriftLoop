@@ -38,6 +38,26 @@ public class Item
     /// <summary>Standard clothing size. Nullable — bags, accessories may not have one.</summary>
     public string? Size { get; set; }
 
+    // ── Fulfillment Options ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Seller allows delivery via ThriftLoop rider.
+    /// When selected at checkout, creates a Delivery record and rider job.
+    /// </summary>
+    public bool AllowDelivery { get; set; } = true;
+
+    /// <summary>
+    /// Seller allows meeting at a halfway point.
+    /// When selected at checkout, bypasses rider system and initializes chat.
+    /// </summary>
+    public bool AllowHalfway { get; set; } = false;
+
+    /// <summary>
+    /// Seller allows buyer to pick up directly from their location.
+    /// When selected at checkout, bypasses rider system and initializes chat.
+    /// </summary>
+    public bool AllowPickup { get; set; } = false;
+
     // ── Discount Fields ───────────────────────────────────────────────────────
 
     /// <summary>

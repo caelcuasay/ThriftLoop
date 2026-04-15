@@ -4,122 +4,87 @@ using ThriftLoop.Constants;
 namespace ThriftLoop.ViewModels;
 
 /// <summary>
-/// Carries all data the Checkout view needs to render the order summary,
-/// price breakdown, payment method selector, and confirm-purchase form.
+/// ViewModel for the unified Checkout page that supports both P2P and Shop orders,
+/// as well as the three fulfillment methods (Delivery, Halfway, Pickup).
 ///
-/// Covers two paths:
-///   P2P  — Standard / Stealable single-unit order (IsShopOrder = false).
-///   Shop — One SKU, fluid quantity, Option B     (IsShopOrder = true).
-///
-/// Built by the GET Checkout / ShopCheckout action; the relevant hidden
-/// fields are re-posted on confirmation.
-///
-/// FinalPrice always includes the flat ₱50 delivery fee. The view should
-/// display a line-item breakdown: item price → steal premium (if any) →
-/// delivery fee → total.
+/// FinalPrice calculation logic:
+/// - If Delivery: Includes DeliveryFee in the view (though not deducted from wallet).
+/// - If Halfway/Pickup: DeliveryFee is excluded.
 /// </summary>
 public class CheckoutViewModel
 {
-    // ── Item identity ──────────────────────────────────────────────────────
-    public int ItemId { get; init; }
-    public string ItemTitle { get; init; } = string.Empty;
-    public string? ItemImageUrl { get; init; }
-    public string ItemCategory { get; init; } = string.Empty;
-    public string ItemCondition { get; init; } = string.Empty;
+    // ── Item Information ──────────────────────────────────────────────────────
+    public int ItemId { get; set; }
+    public string ItemTitle { get; set; } = string.Empty;
+    public string? ItemImageUrl { get; set; }
+    public string ItemCategory { get; set; } = string.Empty;
+    public string ItemCondition { get; set; } = string.Empty;
+    public string? ItemSize { get; set; }
 
-    /// <summary>For P2P items only — size label from Item.Size.</summary>
-    public string? ItemSize { get; init; }
+    // ── Seller Information ────────────────────────────────────────────────────
+    public string SellerName { get; set; } = string.Empty;
+    public string SellerEmail { get; set; } = string.Empty;
 
-    // ── Seller ────────────────────────────────────────────────────────────
-    public string SellerName { get; init; } = string.Empty;
-    public string SellerEmail { get; init; } = string.Empty;
-
-    // ── Price ─────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Per-unit price for shop orders (= ItemVariantSku.Price).
-    /// Item price for P2P orders (steal premium excluded).
-    /// </summary>
-    public decimal BasePrice { get; init; }
+    // ── Pricing ───────────────────────────────────────────────────────────────
+    public decimal BasePrice { get; set; }
+    public decimal DeliveryFee { get; set; } = ItemConstants.DeliveryFee;
 
     /// <summary>
-    /// ₱50 premium applied when the buyer stole a Stealable listing.
-    /// Always zero for shop orders.
-    /// Sourced from <see cref="ItemConstants.StealPremium"/>.
+    /// The total price displayed to the user. 
+    /// Includes the delivery fee only if 'Delivery' is selected.
     /// </summary>
-    public decimal StealPremium => (WasStolen && !IsShopOrder) ? ItemConstants.StealPremium : 0m;
+    public decimal FinalPrice => WasStolen
+        ? BasePrice + StealPremium + (SelectedFulfillmentMethod == "Delivery" ? DeliveryFee : 0)
+        : BasePrice + (SelectedFulfillmentMethod == "Delivery" ? DeliveryFee : 0);
+
+    // ── Stealable Fields (P2P specific) ───────────────────────────────────────
+    public bool IsStealable { get; set; }
+    public bool WasStolen { get; set; }
+    public decimal StealPremium => WasStolen ? ItemConstants.StealPremium : 0;
+
+    // ── Shop Order Fields (Option B) ──────────────────────────────────────────
+    public bool IsShopOrder { get; set; }
+    public int? SkuId { get; set; }
+    public int Quantity { get; set; } = 1;
+    public int MaxQuantity { get; set; } = 1;
+    public string SelectedVariantName { get; set; } = string.Empty;
+    public string? SelectedSize { get; set; }
+
+    // ── Fulfillment Options ───────────────────────────────────────────────────
+    public bool AllowDelivery { get; set; } = true;
+    public bool AllowHalfway { get; set; } = false;
+    public bool AllowPickup { get; set; } = false;
 
     /// <summary>
-    /// Flat delivery fee applied to every order. Always ₱50.
-    /// Sourced from <see cref="ItemConstants.DeliveryFee"/>.
-    /// For Wallet orders this is included in the escrow hold and paid out
-    /// to the rider's wallet after delivery confirmation.
-    /// For COD orders the buyer pays the rider in cash; the seller receives
-    /// only the item price.
+    /// Bound to the radio button selection in the view.
+    /// Values: "Delivery", "Halfway", or "Pickup".
     /// </summary>
-    public decimal DeliveryFee => ItemConstants.DeliveryFee;
+    public string SelectedFulfillmentMethod { get; set; } = "Delivery";
+
+    // ── Buyer Information ─────────────────────────────────────────────────────
+    public decimal BuyerBalance { get; set; }
 
     /// <summary>
-    /// Subtotal before delivery fee.
-    ///   Shop: BasePrice × Quantity
-    ///   P2P:  BasePrice + StealPremium
+    /// Check against FinalPrice. Note: In the controller logic, for Delivery, 
+    /// the fee is expected to be paid in cash, so ensure your OrderController 
+    /// wallet deduction logic matches this requirement.
     /// </summary>
-    public decimal ItemSubtotal => IsShopOrder
-        ? BasePrice * Quantity
-        : BasePrice + StealPremium;
-
-    /// <summary>
-    /// Total the buyer will be charged, locked at checkout time.
-    /// Always equals ItemSubtotal + DeliveryFee.
-    ///   Shop: (BasePrice × Quantity) + DeliveryFee
-    ///   P2P:  (BasePrice + StealPremium) + DeliveryFee
-    /// </summary>
-    public decimal FinalPrice => ItemSubtotal + DeliveryFee;
-
-    // ── P2P context flags ─────────────────────────────────────────────────
-    public bool WasStolen { get; init; }
-    public bool IsStealable { get; init; }
-
-    // ── Shop-order extras (Option B) ──────────────────────────────────────
-
-    /// <summary>True when this checkout is for a shop SKU, not a P2P item.</summary>
-    public bool IsShopOrder { get; init; } = false;
-
-    /// <summary>
-    /// FK → ItemVariantSkus.Id.
-    /// The specific size/variant the buyer selected on the Details page.
-    /// Populated for shop orders only; 0 for P2P.
-    /// </summary>
-    public int SkuId { get; init; }
-
-    /// <summary>
-    /// How many units the buyer wants to purchase.
-    /// Always 1 for P2P. Buyer-chosen for shop orders, capped at available stock.
-    /// </summary>
-    public int Quantity { get; init; } = 1;
-
-    /// <summary>
-    /// The SKU's available stock at the time the GET was served.
-    /// Used to cap the quantity stepper shown in the view.
-    /// </summary>
-    public int MaxQuantity { get; init; } = 1;
-
-    /// <summary>Display name of the selected variant (e.g. "Red"). Empty string for P2P.</summary>
-    public string SelectedVariantName { get; init; } = string.Empty;
-
-    /// <summary>Size label of the selected SKU (e.g. "M"). Null when the SKU has no size.</summary>
-    public string? SelectedSize { get; init; }
-
-    // ── Wallet ────────────────────────────────────────────────────────────
-
-    /// <summary>Buyer's current available (non-escrowed) balance.</summary>
-    public decimal BuyerBalance { get; init; }
-
-    /// <summary>True when the buyer has enough wallet funds to cover FinalPrice (including delivery fee).</summary>
     public bool HasSufficientBalance => BuyerBalance >= FinalPrice;
 
-    // ── Payment method (bound on POST) ────────────────────────────────────
+    // ── Computed Properties for View Logic ────────────────────────────────────
+    public bool HasAnyFulfillmentOption => AllowDelivery || AllowHalfway || AllowPickup;
+    public bool IsDeliverySelected => SelectedFulfillmentMethod == "Delivery";
+    public bool IsHalfwaySelected => SelectedFulfillmentMethod == "Halfway";
+    public bool IsPickupSelected => SelectedFulfillmentMethod == "Pickup";
 
-    /// <summary>The method chosen by the buyer. Defaults to Wallet.</summary>
-    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Wallet;
+    /// <summary>
+    /// Used to display specific instructions to the buyer based on their selection.
+    /// </summary>
+    public string FulfillmentDescription => SelectedFulfillmentMethod switch
+    {
+        "Delivery" => $"A ThriftLoop rider will deliver this item. Delivery fee: ₱{DeliveryFee:N2} (paid to rider in cash).",
+        "Halfway" => "You and the seller will meet at a halfway point. A chat will be opened to coordinate meeting details.",
+        "Pickup" => "You will pick up the item directly from the seller's location. A chat will be opened to coordinate.",
+        _ => "Please select a fulfillment method."
+    };
 }

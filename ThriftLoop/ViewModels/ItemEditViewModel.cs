@@ -44,6 +44,17 @@ public class ItemEditViewModel
     [Display(Name = "Size (optional)")]
     public string? Size { get; set; }
 
+    // ── Fulfillment Options ───────────────────────────────────────────────────
+
+    [Display(Name = "Allow delivery via ThriftLoop rider")]
+    public bool AllowDelivery { get; set; } = true;
+
+    [Display(Name = "Allow meeting at a halfway point")]
+    public bool AllowHalfway { get; set; } = false;
+
+    [Display(Name = "Allow buyer to pick up directly")]
+    public bool AllowPickup { get; set; } = false;
+
     // ── Images ────────────────────────────────────────────────────────────────
 
     /// <summary>New images added by the user on the Edit form (name="NewImages").</summary>

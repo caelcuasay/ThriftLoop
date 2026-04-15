@@ -55,7 +55,6 @@
 
     <div class="detail-shell">
 
-        @* ── Back navigation ────────────────────────────────────────────────────── *@
         <nav class="detail-breadcrumb" aria-label="Breadcrumb">
             <a asp-action="Index" asp-controller="Home" class="detail-breadcrumb__link">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -65,17 +64,10 @@
             </a>
         </nav>
 
-        @* ── Two-column layout ──────────────────────────────────────────────────── *@
         <div class="detail-grid">
 
-            @* ════════════════════════════════
-               LEFT — Image Gallery
-               ════════════════════════════════ *@
             <aside class="detail-img-col">
-
                 <div class="detail-gallery">
-
-                    @* ── Main image display ── *@
                     <div class="detail-img-frame" id="galleryMain">
                         @if (hasImages)
                         {
@@ -145,10 +137,8 @@
                             }
                         </div>
                     }
-
                 </div>
 
-                @* Seller card *@
                 <div class="detail-seller detail-seller--below-img">
                     <div class="detail-seller__avatar" aria-hidden="true">
                         @sellerDisplay.Substring(0, 1).ToUpper()
@@ -161,14 +151,9 @@
                         </p>
                     </div>
                 </div>
-
             </aside>
 
-            @* ════════════════════════════════
-               RIGHT — Details
-               ════════════════════════════════ *@
             <section class="detail-info-col">
-
                 <div class="detail-meta-row">
                     <span class="detail-category">@Model.Category</span>
                     <span class="detail-condition @condClass">@Model.Condition</span>
@@ -198,7 +183,6 @@
                     }
                 </div>
 
-                @* ── Stealable countdown / status banners ────────────────────────── *@
                 @if (isStealable && Model.Status == ItemStatus.Reserved && Model.StealEndsAt.HasValue)
                 {
                     if (stealWindowOpen)
@@ -212,8 +196,8 @@
                             <div class="steal-countdown-card__body">
                                 <p class="steal-countdown-card__label">Steal window closes in</p>
                                 <p class="steal-countdown-card__timer"
-                                   id="stealTimer"
-                                   data-ends-at="@(DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O"))">
+                                       id="stealTimer"
+                                       data-ends-at="@(DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O"))">
                                     ——:——:——
                                 </p>
                             </div>
@@ -230,8 +214,8 @@
                             <div class="steal-countdown-card__body">
                                 <p class="steal-countdown-card__label">Steal window closed — finalise window open</p>
                                 <p class="steal-countdown-card__timer"
-                                   id="finalizeTimer"
-                                   data-ends-at="@(DateTime.SpecifyKind(Model.FinalizeDeadline!.Value, DateTimeKind.Utc).ToString("O"))">
+                                       id="finalizeTimer"
+                                       data-ends-at="@(DateTime.SpecifyKind(Model.FinalizeDeadline!.Value, DateTimeKind.Utc).ToString("O"))">
                                     ——:——:——
                                 </p>
                             </div>
@@ -239,7 +223,6 @@
                     }
                 }
 
-                @* Steal pending checkout notice — visible to everyone *@
                 @if (isStealable && Model.Status == ItemStatus.StolenPendingCheckout)
                 {
                     <div class="steal-countdown-card steal-countdown-card--stolen">
@@ -269,7 +252,6 @@
                     </div>
                 }
 
-                @* Sold notice *@
                 @if (Model.Status == ItemStatus.Sold)
                 {
                     <div class="steal-sold-notice">
@@ -335,21 +317,18 @@
 
                 <hr class="detail-divider" />
 
-                @* ── Action buttons ──────────────────────────────────────────────── *@
-
-                @* ── 1. Owner ──────────────────────────────────────────────── *@
                 @if (isOwner)
                 {
                     <div class="detail-actions">
                         <a asp-action="Edit" asp-controller="Items" asp-route-id="@Model.Id"
-                           class="detail-btn detail-btn--edit">
+                               class="detail-btn detail-btn--edit">
                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                             </svg>
                             Edit Listing
                         </a>
                         <a asp-action="Delete" asp-controller="Items" asp-route-id="@Model.Id"
-                           class="detail-btn detail-btn--delete">
+                               class="detail-btn detail-btn--delete">
                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
                             </svg>
@@ -361,24 +340,13 @@
                         <a asp-action="Index" asp-controller="Items">View all your listings →</a>
                     </p>
                 }
-
-                @* ── 2. Anonymous visitor ──────────────────────────────────── *@
                 else if (isAnonymous)
                 {
                     <div class="detail-actions">
                         <a asp-action="Login" asp-controller="Auth"
-                           asp-route-returnUrl="@Context.Request.Path"
-                           class="detail-btn detail-btn--buy">
+                               asp-route-returnUrl="@Context.Request.Path"
+                               class="detail-btn detail-btn--buy">
                             Sign in to Buy
-                        </a>
-                        <a asp-action="Login" asp-controller="Auth"
-                           asp-route-returnUrl="@Context.Request.Path"
-                           class="detail-btn detail-btn--cart">
-                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path d="M1 1.75A.75.75 0 011.75 1h1.628a1.75 1.75 0 011.734 1.51L5.61 7h9.945a.75.75 0 01.736.88l-1.5 7.5a.75.75 0 01-.736.62H6.75a.75.75 0 01-.736-.62L4.514 7.88l-.002-.009-.44-4.371A.25.25 0 003.826 3H1.75A.75.75 0 011 2.25v-.5zM6.75 8.5l1.25 6.25H13l1.25-6.25H6.75z" />
-                                <path d="M7.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM13.5 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
-                            </svg>
-                            Add to Cart
                         </a>
                     </div>
                     <p class="detail-anon-note">
@@ -387,18 +355,15 @@
                         to purchase this item.
                     </p>
                 }
-
-                @* ── 3. Authenticated buyer ────────────────────────────────── *@
                 else
                 {
-                    @* ══ 3a. Standard listing ══ *@
                     @if (!isStealable)
                     {
                         @if (Model.Status != ItemStatus.Sold)
                         {
                             <div class="detail-actions">
                                 <a asp-action="BuyNow" asp-controller="Items" asp-route-id="@Model.Id"
-                                   class="detail-btn detail-btn--buy">
+                                       class="detail-btn detail-btn--buy">
                                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
                                         <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                     </svg>
@@ -407,14 +372,12 @@
                             </div>
                         }
                     }
-
-                    @* ══ 3b. Stealable — Available ══ *@
                     else if (Model.Status == ItemStatus.Available)
                     {
                         <div class="detail-actions">
-                            <form asp-action="GetItem" asp-controller="Items" asp-route-id="@Model.Id" method="post">
+                            <form asp-action="GetItem" asp-controller="Items" asp-route-id="@Model.Id" method="post" class="get-item-form">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="detail-btn detail-btn--get">
+                                <button type="submit" class="detail-btn detail-btn--get" data-get-item>
                                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
                                         <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                     </svg>
@@ -428,8 +391,6 @@
                             If no one steals it, the item is yours to finalise.
                         </p>
                     }
-
-                    @* ══ 3c. Stealable — Reserved (original getter) ══ *@
                     else if (Model.Status == ItemStatus.Reserved)
                     {
                         @if (isCurrentWinner)
@@ -438,7 +399,7 @@
                             {
                                 <div class="detail-actions">
                                     <a asp-action="Checkout" asp-controller="Orders" asp-route-itemId="@Model.Id"
-                                       class="detail-btn detail-btn--complete">
+                                           class="detail-btn detail-btn--complete">
                                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
                                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -462,7 +423,6 @@
                                     </div>
                                 </div>
 
-                                @* Cancel Get widget — only shown while steal window is still open *@
                                 <div class="detail-cancel-get-wrap">
                                     <p class="detail-cancel-get-hint">Changed your mind?</p>
                                     <form asp-action="CancelGet" asp-controller="Items" asp-route-id="@Model.Id" method="post">
@@ -485,9 +445,9 @@
                             @if (stealWindowOpen)
                             {
                                 <div class="detail-actions">
-                                    <form asp-action="StealItem" asp-controller="Items" asp-route-id="@Model.Id" method="post">
+                                    <form asp-action="StealItem" asp-controller="Items" asp-route-id="@Model.Id" method="post" class="steal-item-form">
                                         @Html.AntiForgeryToken()
-                                        <button type="submit" class="detail-btn detail-btn--steal">
+                                        <button type="submit" class="detail-btn detail-btn--steal" data-steal-item>
                                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
                                                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                                                 <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
@@ -522,15 +482,13 @@
                             }
                         }
                     }
-
-                    @* ══ 3d. Stealable — StolenPendingCheckout ══ *@
                     else if (isStealable && Model.Status == ItemStatus.StolenPendingCheckout)
                     {
                         @if (isCurrentWinner)
                         {
                             <div class="detail-actions">
                                 <a asp-action="Checkout" asp-controller="Orders" asp-route-itemId="@Model.Id"
-                                   class="detail-btn detail-btn--complete">
+                                       class="detail-btn detail-btn--complete">
                                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
                                         <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                                         <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -569,184 +527,99 @@
 
                     @if (TempData["InfoMessage"] is string infoMsg)
                     {
-                        <div class="create-toast create-toast--info">
+                        <div class="create-toast create-toast--info" data-auto-hide>
                             <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
                             </svg>
                             @infoMsg
                         </div>
                     }
-
-                    @* ══ 3e. Stealable — Sold (order confirmed) ══ *@
-                    else if (isStealable && Model.Status == ItemStatus.Sold)
-                    {
-                        @* Sold notice is rendered above; no button needed unless still pending *@
-                    }
                 }
-
             </section>
-
         </div>
+    </div>
 
+    @* How-it-works modal for Get *@
+    <div class="hiw-overlay" id="hiwGetOverlay">
+        <div class="hiw-modal">
+            <div class="hiw-modal__icon hiw-modal__icon--get">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h3 class="hiw-modal__title">How "Get" Works</h3>
+            <ul class="hiw-steps hiw-steps--get">
+                <li class="hiw-step">
+                    <span class="hiw-step__num">1</span>
+                    <span class="hiw-step__text"><strong>Claim the item</strong> at the listed price</span>
+                </li>
+                <li class="hiw-step">
+                    <span class="hiw-step__num">2</span>
+                    <span class="hiw-step__text">Others can <strong>Steal</strong> it within the time window by paying +₱50</span>
+                </li>
+                <li class="hiw-step">
+                    <span class="hiw-step__num">3</span>
+                    <span class="hiw-step__text">If no one steals, you have <strong>2 hours to finalise</strong> your purchase</span>
+                </li>
+            </ul>
+            <div class="hiw-modal__note">
+                You can cancel your claim anytime during the steal window.
+            </div>
+            <div class="hiw-modal__actions">
+                <button type="button" class="hiw-modal__proceed hiw-modal__proceed--get" id="hiwGetProceed">Got it — Claim Item</button>
+                <label class="hiw-modal__dismiss">
+                    <input type="checkbox" id="hiwGetDismiss" />
+                    <span>Don't show this again today</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    @* How-it-works modal for Steal *@
+    <div class="hiw-overlay" id="hiwStealOverlay">
+        <div class="hiw-modal">
+            <div class="hiw-modal__icon hiw-modal__icon--steal">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h3 class="hiw-modal__title">How "Steal" Works</h3>
+            <ul class="hiw-steps hiw-steps--steal">
+                <li class="hiw-step">
+                    <span class="hiw-step__num">1</span>
+                    <span class="hiw-step__text"><strong>Steal the item</strong> by paying the current price +₱50</span>
+                </li>
+                <li class="hiw-step">
+                    <span class="hiw-step__num">2</span>
+                    <span class="hiw-step__text">You'll be sent to <strong>checkout immediately</strong></span>
+                </li>
+                <li class="hiw-step">
+                    <span class="hiw-step__num">3</span>
+                    <span class="hiw-step__text">Complete your purchase to secure the item</span>
+                </li>
+            </ul>
+            <div class="hiw-modal__note">
+                If you cancel at checkout, the item returns to the previous holder at the original price.
+            </div>
+            <div class="hiw-modal__actions">
+                <button type="button" class="hiw-modal__proceed hiw-modal__proceed--steal" id="hiwStealProceed">Got it — Steal Item</button>
+                <label class="hiw-modal__dismiss">
+                    <input type="checkbox" id="hiwStealDismiss" />
+                    <span>Don't show this again today</span>
+                </label>
+            </div>
+        </div>
     </div>
 
     <script>
-        (function () {
-            'use strict';
-
-            // ── Gallery (runs only when multi-image elements exist) ───────────────
-            (function () {
-                var mainImg   = document.getElementById('mainGalleryImg');
-                var thumbsEl  = document.getElementById('galleryThumbs');
-                var prevBtn   = document.getElementById('galleryPrev');
-                var nextBtn   = document.getElementById('galleryNext');
-                var counterEl = document.getElementById('galleryCounter');
-
-                // Early-exit is now safely scoped inside a nested IIFE
-                // so it does NOT kill the countdown timers below.
-                if (!mainImg || !thumbsEl) return;
-
-                var thumbBtns = Array.prototype.slice.call(thumbsEl.querySelectorAll('.gallery-thumb'));
-                var total     = thumbBtns.length;
-                var current   = 0;
-
-                function goTo(idx) {
-                    if (idx === current) return;
-                    mainImg.classList.add('gallery-fading');
-                    setTimeout(function () {
-                        mainImg.src = thumbBtns[idx].dataset.src;
-                        mainImg.classList.remove('gallery-fading');
-                    }, 200);
-                    thumbBtns[current].classList.remove('gallery-thumb--active');
-                    thumbBtns[idx].classList.add('gallery-thumb--active');
-                    if (counterEl) counterEl.textContent = (idx + 1) + ' / ' + total;
-                    current = idx;
-                }
-
-                thumbBtns.forEach(function (btn, i) {
-                    btn.addEventListener('click', function () { goTo(i); });
-                });
-                if (prevBtn) prevBtn.addEventListener('click', function () { goTo((current - 1 + total) % total); });
-                if (nextBtn) nextBtn.addEventListener('click', function () { goTo((current + 1) % total); });
-
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'ArrowLeft')  goTo((current - 1 + total) % total);
-                    if (e.key === 'ArrowRight') goTo((current + 1) % total);
-                });
-
-                var touchStartX = null;
-                mainImg.addEventListener('touchstart', function (e) {
-                    touchStartX = e.touches[0].clientX;
-                }, { passive: true });
-                mainImg.addEventListener('touchend', function (e) {
-                    if (touchStartX === null) return;
-                    var dx = e.changedTouches[0].clientX - touchStartX;
-                    touchStartX = null;
-                    if (Math.abs(dx) < 40) return;
-                    if (dx < 0) goTo((current + 1) % total);
-                    else        goTo((current - 1 + total) % total);
-                }, { passive: true });
-            }());
-
-            // ── Countdown timers — always run regardless of gallery state ─────────
-            function startCountdown(el) {
-                if (!el) return;
-                var endsAt = new Date(el.dataset.endsAt);
-                if (endsAt <= new Date()) { el.textContent = '00:00:00'; return; }
-                var intervalId = null;
-                function tick() {
-                    var diffMs = endsAt - new Date();
-                    if (diffMs <= 0) {
-                        el.textContent = '00:00:00';
-                        clearInterval(intervalId);
-                        window.location.reload();
-                        return;
-                    }
-                    var s = Math.floor(diffMs / 1000);
-                    var h = Math.floor(s / 3600);
-                    var m = Math.floor((s % 3600) / 60);
-                    el.textContent =
-                        String(h).padStart(2, '0') + ':' +
-                        String(m).padStart(2, '0') + ':' +
-                        String(s % 60).padStart(2, '0');
-                }
-                tick();
-                intervalId = setInterval(tick, 1000);
-            }
-
-            // These run unconditionally
-            startCountdown(document.getElementById('stealTimer'));
-            startCountdown(document.getElementById('finalizeTimer'));
-
-            // ── How-it-works modals ───────────────────────────────────────────────
-            var TODAY = new Date().toISOString().slice(0, 10);
-
-            function wasDismissedToday(key) {
-                try { return localStorage.getItem(key) === TODAY; } catch(e) { return false; }
-            }
-            function dismissForToday(key) {
-                try { localStorage.setItem(key, TODAY); } catch(e) {}
-            }
-
-            function initModal(opts) {
-                var overlay    = document.getElementById(opts.overlayId);
-                var proceedBtn = document.getElementById(opts.proceedId);
-                var dismissChk = document.getElementById(opts.dismissCheckId);
-                var triggers   = document.querySelectorAll(opts.triggerSelector);
-
-                if (!overlay || !triggers.length) return;
-
-                function showModal() {
-                    overlay.classList.add('hiw-overlay--visible');
-                    if (proceedBtn) proceedBtn.focus();
-                }
-                function hideModal() {
-                    overlay.classList.remove('hiw-overlay--visible');
-                }
-                function proceed() {
-                    if (dismissChk && dismissChk.checked) dismissForToday(opts.storageKey);
-                    hideModal();
-                    opts.onProceed();
-                }
-
-                triggers.forEach(function (trigger) {
-                    var form = trigger.closest('form');
-                    if (form) {
-                        form.addEventListener('submit', function (e) {
-                            if (wasDismissedToday(opts.storageKey)) return;
-                            e.preventDefault();
-                            showModal();
-                            opts.onProceed = function () { form.submit(); };
-                        });
-                    }
-                });
-
-                if (proceedBtn) proceedBtn.addEventListener('click', proceed);
-                overlay.addEventListener('click', function (e) { if (e.target === overlay) hideModal(); });
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'Escape' && overlay.classList.contains('hiw-overlay--visible')) hideModal();
-                });
-            }
-
-            initModal({
-                storageKey:      'thriftloop_hiw_get',
-                overlayId:       'hiwGetOverlay',
-                proceedId:       'hiwGetProceed',
-                dismissCheckId:  'hiwGetDismiss',
-                triggerSelector: 'form[action*="GetItem"] button[type="submit"]',
-                onProceed:       function () {}
-            });
-
-            initModal({
-                storageKey:      'thriftloop_hiw_steal',
-                overlayId:       'hiwStealOverlay',
-                proceedId:       'hiwStealProceed',
-                dismissCheckId:  'hiwStealDismiss',
-                triggerSelector: 'form[action*="StealItem"] button[type="submit"]',
-                onProceed:       function () {}
-            });
-
-        }());
+            window.itemDetailsData = {
+                itemId: @Model.Id,
+                imageUrls: @Json.Serialize(Model.ImageUrls),
+                stealEndsAt: '@(Model.StealEndsAt.HasValue? DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O") : "")',
+                finalizeDeadline: '@(Model.FinalizeDeadline.HasValue? DateTime.SpecifyKind(Model.FinalizeDeadline.Value, DateTimeKind.Utc).ToString("O") : "")'
+            };
     </script>
+    <script src="~/js/items-details.js" asp-append-version="true"></script>
 </body>
 </html>

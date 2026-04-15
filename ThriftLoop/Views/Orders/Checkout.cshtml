@@ -37,7 +37,7 @@
             @if (Model.IsShopOrder)
             {
                 <a asp-action="Details" asp-controller="Shop" asp-route-id="@Model.ItemId"
-                   class="co-breadcrumb__link">
+                       class="co-breadcrumb__link">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
@@ -47,7 +47,7 @@
             else
             {
                 <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
-                   class="co-breadcrumb__link">
+                       class="co-breadcrumb__link">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
@@ -291,11 +291,95 @@
 
                     </div>
 
+                    @* ── Delivery fee row (only shown when Delivery is selected) ── *@
+                    <div class="co-breakdown__row co-breakdown__row--delivery" id="deliveryFeeRow">
+                        <span class="co-breakdown__label">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true">
+                                <path d="M3 3.5A1.5 1.5 0 014.5 2h7A1.5 1.5 0 0113 3.5v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z" />
+                                <path fill-rule="evenodd" d="M2 6.5A1.5 1.5 0 013.5 5h9A1.5 1.5 0 0114 6.5v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-6zM10 10a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                            Delivery Fee
+                        </span>
+                        <span class="co-breakdown__value" id="deliveryFeeValue">₱@Model.DeliveryFee.ToString("N2")</span>
+                    </div>
+
                     <div class="co-breakdown__divider" aria-hidden="true"></div>
 
                     <div class="co-breakdown__total-row">
                         <span class="co-breakdown__total-label">Total</span>
-                        <span class="co-breakdown__total-value">₱@Model.FinalPrice.ToString("N2")</span>
+                        <span class="co-breakdown__total-value" id="finalPriceDisplay">₱@Model.FinalPrice.ToString("N2")</span>
+                    </div>
+
+                    @* ── Fulfillment Method Selector ──────────────────────────────── *@
+                    <div class="co-fulfillment-section">
+                        <h3 class="co-fulfillment-section__heading">How would you like to receive this item?</h3>
+                        
+                        <div class="co-fulfillment-options" id="fulfillmentOptions">
+                            @if (Model.AllowDelivery)
+                            {
+                                <label class="co-fulfillment-option @(Model.SelectedFulfillmentMethod == "Delivery" ? "co-fulfillment-option--selected" : "")" data-method="Delivery">
+                                    <input type="radio" name="fulfillmentMethod" value="Delivery" class="co-fulfillment-radio"
+                                    @(Model.SelectedFulfillmentMethod == "Delivery" ? "checked" : "") />
+                                    <div class="co-fulfillment-option__content">
+                                        <div class="co-fulfillment-option__icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                                                <path d="M4 7h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                                                <circle cx="7" cy="14" r="2" />
+                                                <circle cx="17" cy="14" r="2" />
+                                                <path d="M9 14h6" />
+                                            </svg>
+                                        </div>
+                                        <div class="co-fulfillment-option__info">
+                                            <span class="co-fulfillment-option__title">Rider Delivery</span>
+                                            <span class="co-fulfillment-option__price">+₱@Model.DeliveryFee.ToString("N2") delivery fee</span>
+                                            <span class="co-fulfillment-option__description">A ThriftLoop rider will deliver this item. You'll pay the delivery fee to the rider in cash.</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            }
+
+                            @if (Model.AllowHalfway)
+                            {
+                                <label class="co-fulfillment-option @(Model.SelectedFulfillmentMethod == "Halfway" ? "co-fulfillment-option--selected" : "")" data-method="Halfway">
+                                    <input type="radio" name="fulfillmentMethod" value="Halfway" class="co-fulfillment-radio"
+                                    @(Model.SelectedFulfillmentMethod == "Halfway" ? "checked" : "") />
+                                    <div class="co-fulfillment-option__content">
+                                        <div class="co-fulfillment-option__icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                                                <path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z" />
+                                                <circle cx="12" cy="9" r="3" />
+                                            </svg>
+                                        </div>
+                                        <div class="co-fulfillment-option__info">
+                                            <span class="co-fulfillment-option__title">Halfway Meetup</span>
+                                            <span class="co-fulfillment-option__price">No delivery fee</span>
+                                            <span class="co-fulfillment-option__description">Meet the seller at a halfway point. A chat will open after checkout to coordinate.</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            }
+
+                            @if (Model.AllowPickup)
+                            {
+                                <label class="co-fulfillment-option @(Model.SelectedFulfillmentMethod == "Pickup" ? "co-fulfillment-option--selected" : "")" data-method="Pickup">
+                                    <input type="radio" name="fulfillmentMethod" value="Pickup" class="co-fulfillment-radio"
+                                    @(Model.SelectedFulfillmentMethod == "Pickup" ? "checked" : "") />
+                                    <div class="co-fulfillment-option__content">
+                                        <div class="co-fulfillment-option__icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                <path d="M9 22V12h6v10" />
+                                            </svg>
+                                        </div>
+                                        <div class="co-fulfillment-option__info">
+                                            <span class="co-fulfillment-option__title">Self Pickup</span>
+                                            <span class="co-fulfillment-option__price">No delivery fee</span>
+                                            <span class="co-fulfillment-option__description">Pick up directly from the seller. A chat will open after checkout to arrange details.</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            }
+                        </div>
                     </div>
 
                     @* ── Payment method selector ──────────────────────────────── *@
@@ -308,11 +392,11 @@
                             <label class="co-pay-option @(Model.HasSufficientBalance ? "" : "co-pay-option--disabled")"
                                    id="payWalletLabel">
                                 <input type="radio"
-                                       name="__payMethod"
+                                       name="paymentMethod"
                                        value="Wallet"
                                        class="co-pay-radio"
                                        id="payWallet"
-                                       @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                                @(Model.HasSufficientBalance ? "checked" : "disabled") />
                                 <div class="co-pay-option__icon">
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
                                         <path d="M1 4.25a3.733 3.733 0 012-.575h13.5c.43 0 .845.069 1.232.198A2.25 2.25 0 0015.5 3h-11a3 3 0 00-3 3v1.25H1V4.25zM3.75 7A.75.75 0 013 6.25v-.5A2.75 2.75 0 015.75 3h8.5A2.75 2.75 0 0117 5.75v.5a.75.75 0 01-.75.75h-12.5z" />
@@ -341,19 +425,19 @@
                             @* Cash on Delivery option *@
                             <label class="co-pay-option" id="payCodLabel">
                                 <input type="radio"
-                                       name="__payMethod"
+                                       name="paymentMethod"
                                        value="Cash"
                                        class="co-pay-radio"
                                        id="payCod"
-                                       @(!Model.HasSufficientBalance ? "checked" : "") />
+                                @(!Model.HasSufficientBalance ? "checked" : "") />
                                 <div class="co-pay-option__icon">
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.798 7.45c.512-.67 1.135-.95 1.702-.95s1.19.28 1.702.95a.75.75 0 001.192-.91C12.637 5.55 11.596 5 10.5 5s-2.137.55-2.894 1.54A4.501 4.501 0 007 9.5c0 1.079.37 2.077 1 2.879V14a.75.75 0 001.5 0v-1.734c-.35-.588-.5-1.14-.5-1.766 0-.863.275-1.61.798-2.05zM10 14.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd" />
                                     </svg>
                                 </div>
                                 <div class="co-pay-option__body">
-                                    <p class="co-pay-option__name">Cash on Delivery</p>
-                                    <p class="co-pay-option__detail">Pay cash when your item arrives</p>
+                                    <p class="co-pay-option__name">Cash on Delivery / Meetup</p>
+                                    <p class="co-pay-option__detail" id="cashPaymentDetail">Pay cash when your item arrives</p>
                                 </div>
                             </label>
 
@@ -370,6 +454,8 @@
                             <input type="hidden" name="quantity" value="@Model.Quantity" />
                             <input type="hidden" name="paymentMethod" id="paymentMethodInput"
                                    value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+                            <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput"
+                                   value="@Model.SelectedFulfillmentMethod" />
 
                             <button type="submit" class="co-confirm-btn" id="confirmBtn">
                                 <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
@@ -380,7 +466,7 @@
                         </form>
 
                         <a asp-action="Details" asp-controller="Shop" asp-route-id="@Model.ItemId"
-                           class="co-cancel-link">
+                               class="co-cancel-link">
                             Cancel and go back
                         </a>
                     }
@@ -392,6 +478,8 @@
                             <input type="hidden" name="itemId" value="@Model.ItemId" />
                             <input type="hidden" name="paymentMethod" id="paymentMethodInput"
                                    value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+                            <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput"
+                                   value="@Model.SelectedFulfillmentMethod" />
 
                             <button type="submit" class="co-confirm-btn" id="confirmBtn">
                                 <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
@@ -404,7 +492,7 @@
                         @if (!Model.WasStolen)
                         {
                             <a asp-action="Details" asp-controller="Items" asp-route-id="@Model.ItemId"
-                               class="co-cancel-link">
+                                   class="co-cancel-link">
                                 Cancel and go back
                             </a>
                         }
@@ -419,35 +507,214 @@
     </div>
 
     <script>
-        (function () {
-            'use strict';
+            (function () {
+                'use strict';
 
-            var radios      = document.querySelectorAll('.co-pay-radio');
-            var hiddenInput = document.getElementById('paymentMethodInput');
-            var form        = document.getElementById('confirmForm');
-            var btn         = document.getElementById('confirmBtn');
+                var paymentRadios = document.querySelectorAll('.co-pay-radio');
+                var paymentHiddenInput = document.getElementById('paymentMethodInput');
+                var fulfillmentRadios = document.querySelectorAll('.co-fulfillment-radio');
+                var fulfillmentHiddenInput = document.getElementById('fulfillmentMethodInput');
+                var form = document.getElementById('confirmForm');
+                var btn = document.getElementById('confirmBtn');
+                var deliveryFeeRow = document.getElementById('deliveryFeeRow');
+                var deliveryFeeValue = document.getElementById('deliveryFeeValue');
+                var finalPriceDisplay = document.getElementById('finalPriceDisplay');
+                var cashPaymentDetail = document.getElementById('cashPaymentDetail');
+                var fulfillmentOptions = document.querySelectorAll('.co-fulfillment-option');
 
-            // Keep the hidden paymentMethod input in sync with whichever radio is selected
-            radios.forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    if (hiddenInput) hiddenInput.value = radio.value;
+                var basePrice = @Model.BasePrice;
+                var stealPremium = @(Model.WasStolen? Model.StealPremium: 0);
+                var deliveryFee = @Model.DeliveryFee;
+                var quantity = @Model.Quantity;
+
+                // Function to update UI based on selected fulfillment method
+                function updateFulfillmentUI(method) {
+                    var isDelivery = method === 'Delivery';
+                
+                    // Update option selection styling
+                    fulfillmentOptions.forEach(function(opt) {
+                        opt.classList.remove('co-fulfillment-option--selected');
+                    });
+                    var selectedOption = document.querySelector('.co-fulfillment-option[data-method="' + method + '"]');
+                    if (selectedOption) {
+                        selectedOption.classList.add('co-fulfillment-option--selected');
+                    }
+                
+                    // Show/hide delivery fee row
+                    if (deliveryFeeRow) {
+                        deliveryFeeRow.style.display = isDelivery ? 'flex' : 'none';
+                    }
+                
+                    // Calculate and update final price
+                    var itemTotal = basePrice + stealPremium;
+                    var finalPrice = isDelivery ? itemTotal + deliveryFee : itemTotal;
+                
+                    if (finalPriceDisplay) {
+                        finalPriceDisplay.textContent = '₱' + finalPrice.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                    }
+                
+                    // Update cash payment detail text
+                    if (cashPaymentDetail) {
+                        if (isDelivery) {
+                            cashPaymentDetail.textContent = 'Pay cash to the rider upon delivery';
+                        } else if (method === 'Halfway') {
+                            cashPaymentDetail.textContent = 'Pay cash to the seller when you meet';
+                        } else if (method === 'Pickup') {
+                            cashPaymentDetail.textContent = 'Pay cash to the seller when you pick up the item';
+                        }
+                    }
+                
+                    // Update hidden input
+                    if (fulfillmentHiddenInput) {
+                        fulfillmentHiddenInput.value = method;
+                    }
+                }
+
+                // Keep payment method input in sync
+                paymentRadios.forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        if (paymentHiddenInput) paymentHiddenInput.value = radio.value;
+                    });
                 });
-            });
 
-            // Disable button + show spinner on submit to prevent double-confirm
-            if (form && btn) {
-                form.addEventListener('submit', function () {
-                    btn.disabled = true;
-                    btn.innerHTML =
-                        '<svg class="co-spin" viewBox="0 0 20 20" fill="currentColor" ' +
-                        'width="16" height="16" aria-hidden="true">' +
-                        '<path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".3"/>' +
-                        '<path d="M10 3a7 7 0 017 7h-1.5A5.5 5.5 0 0010 4.5V3z"/>' +
-                        '</svg> Confirming\u2026';
+                // Handle fulfillment method selection
+                fulfillmentRadios.forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        updateFulfillmentUI(radio.value);
+                    });
                 });
+
+                // Also handle click on the whole option card
+                fulfillmentOptions.forEach(function(opt) {
+                    opt.addEventListener('click', function(e) {
+                        var radio = this.querySelector('.co-fulfillment-radio');
+                        if (radio && !radio.disabled) {
+                            radio.checked = true;
+                            updateFulfillmentUI(radio.value);
+                        }
+                    });
+                });
+
+                // Initialize UI with default selection
+                var checkedFulfillment = document.querySelector('.co-fulfillment-radio:checked');
+                if (checkedFulfillment) {
+                    updateFulfillmentUI(checkedFulfillment.value);
+                } else {
+                    // Default to first available option
+                    var firstOption = document.querySelector('.co-fulfillment-radio');
+                    if (firstOption) {
+                        firstOption.checked = true;
+                        updateFulfillmentUI(firstOption.value);
+                    }
+                }
+
+                // Disable button + show spinner on submit
+                if (form && btn) {
+                    form.addEventListener('submit', function () {
+                        btn.disabled = true;
+                        btn.innerHTML =
+                            '<svg class="co-spin" viewBox="0 0 20 20" fill="currentColor" ' +
+                            'width="16" height="16" aria-hidden="true">' +
+                            '<path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".3"/>' +
+                            '<path d="M10 3a7 7 0 017 7h-1.5A5.5 5.5 0 0010 4.5V3z"/>' +
+                            '</svg> Confirming\u2026';
+                    });
+                }
+
+            }());
+    </script>
+
+    <style>
+            /* Fulfillment Section Styles */
+            .co-fulfillment-section {
+                margin-top: 1.5rem;
+                padding-top: 1rem;
+                border-top: 1px solid var(--co-border, #e4e4ea);
             }
 
-        }());
-    </script>
+            .co-fulfillment-section__heading {
+                font-size: 1rem;
+                font-weight: 600;
+                margin-bottom: 1rem;
+                color: var(--co-text, #111827);
+            }
+
+            .co-fulfillment-options {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .co-fulfillment-option {
+                cursor: pointer;
+                display: block;
+            }
+
+            .co-fulfillment-radio {
+                display: none;
+            }
+
+            .co-fulfillment-option__content {
+                display: flex;
+                align-items: flex-start;
+                gap: 1rem;
+                padding: 1rem;
+                border: 1.5px solid var(--co-border, #e4e4ea);
+                border-radius: 12px;
+                transition: all 0.15s;
+            }
+
+            .co-fulfillment-option--selected .co-fulfillment-option__content,
+            .co-fulfillment-radio:checked + .co-fulfillment-option__content {
+                border-color: var(--co-primary, #2d1b69);
+                background: rgba(45, 27, 105, 0.02);
+            }
+
+            .co-fulfillment-option__icon {
+                flex-shrink: 0;
+                color: #6b7280;
+            }
+
+            .co-fulfillment-option--selected .co-fulfillment-option__icon,
+            .co-fulfillment-radio:checked + .co-fulfillment-option__content .co-fulfillment-option__icon {
+                color: var(--co-primary, #2d1b69);
+            }
+
+            .co-fulfillment-option__info {
+                flex: 1;
+            }
+
+            .co-fulfillment-option__title {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+                color: var(--co-text, #111827);
+            }
+
+            .co-fulfillment-option__price {
+                display: block;
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: var(--co-primary, #2d1b69);
+                margin-bottom: 0.25rem;
+            }
+
+            .co-fulfillment-option__description {
+                display: block;
+                font-size: 0.8rem;
+                color: #6b7280;
+                line-height: 1.4;
+            }
+
+            .co-breakdown__row--delivery {
+                color: #6b7280;
+            }
+
+                .co-breakdown__row--delivery .co-breakdown__label {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+    </style>
 </body>
 </html>

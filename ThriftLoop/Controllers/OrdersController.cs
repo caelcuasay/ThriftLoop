@@ -64,6 +64,31 @@ public class OrdersController : BaseController
         return RedirectToAction("Index", "User");
     }
 
+    // ── Helper to initialize chat for non-delivery orders ────────────────────
+    /// <summary>
+    /// Initializes a chat session between buyer and seller for Halfway or Pickup orders.
+    /// This is a placeholder that logs the chat initialization. In production,
+    /// this would call a ChatService to create a conversation.
+    /// </summary>
+    private async Task InitializeChatForOrderAsync(Order order)
+    {
+        if (order.ChatInitialized)
+            return;
+
+        // TODO: Replace with actual ChatService integration
+        // var chatSession = await _chatService.CreateConversationAsync(
+        //     order.BuyerId, order.SellerId, order.Id, $"Order #{order.Id} - {order.Item?.Title}");
+
+        // For now, generate a placeholder session ID
+        order.ChatSessionId = $"chat_order_{order.Id}_{Guid.NewGuid():N}";
+        order.ChatInitialized = true;
+
+        _logger.LogInformation(
+            "Chat session initialized for Order {OrderId} between Buyer {BuyerId} and Seller {SellerId}. " +
+            "Fulfillment method: {FulfillmentMethod}. Session ID: {SessionId}",
+            order.Id, order.BuyerId, order.SellerId, order.FulfillmentMethod, order.ChatSessionId);
+    }
+
     // ── P2P CHECKOUT (GET) ─────────────────────────────────────────────────
 
     [HttpGet]
@@ -109,7 +134,7 @@ public class OrdersController : BaseController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ConfirmOrder(int itemId, PaymentMethod paymentMethod)
+    public async Task<IActionResult> ConfirmOrder(int itemId, PaymentMethod paymentMethod, FulfillmentMethod fulfillmentMethod)
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
@@ -137,14 +162,34 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
-        // Item price only (delivery fee stored separately on the Order row).
+        // Validate fulfillment method is allowed by seller
+        if (!IsFulfillmentMethodAllowed(item, fulfillmentMethod))
+        {
+            TempData["ErrorMessage"] = $"The seller does not allow {fulfillmentMethod} for this item.";
+            return RedirectToAction(nameof(Checkout), new { itemId });
+        }
+
         decimal itemPrice = item.Price;
-        decimal deliveryFee = ItemConstants.DeliveryFee;
+        // Delivery fee only applies to Delivery fulfillment method
+        decimal deliveryFee = fulfillmentMethod == FulfillmentMethod.Delivery
+            ? ItemConstants.DeliveryFee
+            : 0m;
         decimal finalPrice = itemPrice + deliveryFee;
 
-        // ── Wallet payment: hold full amount (item + delivery fee) in escrow ──
+        // Determine initial order status based on fulfillment method
+        OrderStatus initialStatus = fulfillmentMethod == FulfillmentMethod.Delivery
+            ? OrderStatus.Pending
+            : OrderStatus.AwaitingMeeting;
+
+        // ── Wallet payment: hold item price in escrow (delivery fee NOT deducted for Delivery method) ──
         if (paymentMethod == PaymentMethod.Wallet)
         {
+            // For Delivery method, only hold item price in escrow (buyer pays rider cash for delivery)
+            // For Halfway/Pickup, hold full finalPrice (no delivery fee, so just item price)
+            decimal escrowAmount = fulfillmentMethod == FulfillmentMethod.Delivery
+                ? itemPrice
+                : finalPrice;
+
             var tempOrder = new Order
             {
                 ItemId = item.Id,
@@ -153,46 +198,64 @@ public class OrdersController : BaseController
                 FinalPrice = finalPrice,
                 DeliveryFee = deliveryFee,
                 OrderDate = DateTime.UtcNow,
-                Status = OrderStatus.Pending,
-                PaymentMethod = PaymentMethod.Wallet
+                Status = initialStatus,
+                PaymentMethod = PaymentMethod.Wallet,
+                FulfillmentMethod = fulfillmentMethod
             };
             await _orderRepository.AddAsync(tempOrder);
 
-            bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, finalPrice);
+            bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, escrowAmount);
             if (!held)
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
                 TempData["ErrorMessage"] =
-                    $"Insufficient wallet balance. You need ₱{finalPrice:N2} (item ₱{itemPrice:N2} + delivery ₱{deliveryFee:N2}) " +
-                    "but your available balance is too low. Please add funds or choose Cash on Delivery.";
+                    $"Insufficient wallet balance. You need ₱{escrowAmount:N2} " +
+                    $"but your available balance is too low. Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(Checkout), new { itemId });
             }
 
-            // Create delivery record
-            await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+            // Only create delivery record for Delivery fulfillment method
+            if (fulfillmentMethod == FulfillmentMethod.Delivery)
+            {
+                await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+            }
+            else
+            {
+                // Initialize chat for Halfway/Pickup orders
+                await InitializeChatForOrderAsync(tempOrder);
+                await _orderRepository.UpdateAsync(tempOrder);
+            }
 
             item.Status = ItemStatus.Sold;
             await _itemRepository.UpdateAsync(item);
 
             _logger.LogInformation(
                 "Order {OrderId} created (Wallet) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, " +
-                "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
-                tempOrder.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
+                "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}, " +
+                "Fulfillment: {FulfillmentMethod}, Escrow: ₱{EscrowAmount}.",
+                tempOrder.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice,
+                fulfillmentMethod, escrowAmount);
 
-            TempData["SuccessMessage"] =
-                $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} (includes ₱{deliveryFee:N2} delivery fee). " +
-                $"₱{finalPrice:N2} is held in escrow and will be released once you confirm delivery. " +
-                "A delivery job has been created and is waiting for a rider to accept.";
+            string successMessage = fulfillmentMethod switch
+            {
+                FulfillmentMethod.Delivery => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow and will be released once you confirm delivery. " +
+                    $"You will pay the ₱{deliveryFee:N2} delivery fee directly to the rider in cash. " +
+                    "A delivery job has been created and is waiting for a rider to accept.",
+                FulfillmentMethod.Halfway => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow. A chat has been opened for you to coordinate a meeting point with the seller. " +
+                    "Funds will be released once you confirm receipt.",
+                FulfillmentMethod.Pickup => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow. A chat has been opened for you to arrange pickup with the seller. " +
+                    "Funds will be released once you confirm receipt.",
+                _ => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2}. ₱{escrowAmount:N2} is held in escrow."
+            };
 
+            TempData["SuccessMessage"] = successMessage;
             return RedirectToAction(nameof(MyPurchases));
         }
 
         // ── Cash on Delivery ───────────────────────────────────────────────
-        // For COD the buyer pays everything in cash on delivery.
-        // FinalPrice stored on the order = itemPrice + deliveryFee, so the view
-        // can display the full amount the buyer will hand over. At delivery
-        // confirmation the seller receives itemPrice and the rider receives
-        // deliveryFee via separate wallet credits.
         var order = new Order
         {
             ItemId = item.Id,
@@ -201,29 +264,49 @@ public class OrdersController : BaseController
             FinalPrice = finalPrice,
             DeliveryFee = deliveryFee,
             OrderDate = DateTime.UtcNow,
-            Status = OrderStatus.Pending,
+            Status = initialStatus,
             PaymentMethod = PaymentMethod.Cash,
+            FulfillmentMethod = fulfillmentMethod,
             CashCollectedByRider = false
         };
 
         await _orderRepository.AddAsync(order);
 
-        // Create delivery record
-        await _deliveryRepository.CreateForOrderAsync(order.Id);
+        // Only create delivery record for Delivery fulfillment method
+        if (fulfillmentMethod == FulfillmentMethod.Delivery)
+        {
+            await _deliveryRepository.CreateForOrderAsync(order.Id);
+        }
+        else
+        {
+            // Initialize chat for Halfway/Pickup orders
+            await InitializeChatForOrderAsync(order);
+            await _orderRepository.UpdateAsync(order);
+        }
 
         item.Status = ItemStatus.Sold;
         await _itemRepository.UpdateAsync(item);
 
         _logger.LogInformation(
             "Order {OrderId} created (COD) — Item {ItemId}, Buyer {BuyerId}, Seller {SellerId}, " +
-            "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
-            order.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
+            "ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}, Fulfillment: {FulfillmentMethod}.",
+            order.Id, item.Id, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice, fulfillmentMethod);
 
-        TempData["SuccessMessage"] =
-            $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery " +
-            $"(₱{itemPrice:N2} for the item + ₱{deliveryFee:N2} delivery fee). " +
-            "A delivery job has been created and is waiting for a rider to accept.";
+        string codSuccessMessage = fulfillmentMethod switch
+        {
+            FulfillmentMethod.Delivery => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery. " +
+                $"You will pay ₱{itemPrice:N2} for the item plus ₱{deliveryFee:N2} delivery fee to the rider. " +
+                "A delivery job has been created and is waiting for a rider to accept.",
+            FulfillmentMethod.Halfway => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash. " +
+                "A chat has been opened for you to coordinate a meeting point with the seller. " +
+                "You will pay the seller in cash when you meet.",
+            FulfillmentMethod.Pickup => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash. " +
+                "A chat has been opened for you to arrange pickup with the seller. " +
+                "You will pay the seller in cash when you pick up the item.",
+            _ => $"Order confirmed for '{item.Title}' at ₱{finalPrice:N2} via Cash on Delivery."
+        };
 
+        TempData["SuccessMessage"] = codSuccessMessage;
         return RedirectToAction(nameof(MyPurchases));
     }
 
@@ -281,7 +364,7 @@ public class OrdersController : BaseController
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ConfirmShopOrder(int skuId, int quantity, PaymentMethod paymentMethod)
+    public async Task<IActionResult> ConfirmShopOrder(int skuId, int quantity, PaymentMethod paymentMethod, FulfillmentMethod fulfillmentMethod)
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
@@ -302,6 +385,13 @@ public class OrdersController : BaseController
 
         if (item.UserId == buyerId.Value) return Forbid();
 
+        // Validate fulfillment method is allowed by seller
+        if (!IsFulfillmentMethodAllowed(item, fulfillmentMethod))
+        {
+            TempData["ErrorMessage"] = $"The seller does not allow {fulfillmentMethod} for this item.";
+            return RedirectToAction(nameof(ShopCheckout), new { skuId, quantity });
+        }
+
         // ── First-come-first-served stock check ────────────────────────────
         if (sku.Status != SkuStatus.Available || sku.Quantity < quantity)
         {
@@ -315,12 +405,25 @@ public class OrdersController : BaseController
         }
 
         decimal itemPrice = sku.Price * quantity;
-        decimal deliveryFee = ItemConstants.DeliveryFee;
+        // Delivery fee only applies to Delivery fulfillment method
+        decimal deliveryFee = fulfillmentMethod == FulfillmentMethod.Delivery
+            ? ItemConstants.DeliveryFee
+            : 0m;
         decimal finalPrice = itemPrice + deliveryFee;
+
+        // Determine initial order status based on fulfillment method
+        OrderStatus initialStatus = fulfillmentMethod == FulfillmentMethod.Delivery
+            ? OrderStatus.Pending
+            : OrderStatus.AwaitingMeeting;
 
         // ── Wallet path: create order → hold escrow → decrement stock ──────
         if (paymentMethod == PaymentMethod.Wallet)
         {
+            // For Delivery method, only hold item price in escrow
+            decimal escrowAmount = fulfillmentMethod == FulfillmentMethod.Delivery
+                ? itemPrice
+                : finalPrice;
+
             var tempOrder = new Order
             {
                 ItemId = item.Id,
@@ -331,24 +434,33 @@ public class OrdersController : BaseController
                 DeliveryFee = deliveryFee,
                 Quantity = quantity,
                 OrderDate = DateTime.UtcNow,
-                Status = OrderStatus.Pending,
-                PaymentMethod = PaymentMethod.Wallet
+                Status = initialStatus,
+                PaymentMethod = PaymentMethod.Wallet,
+                FulfillmentMethod = fulfillmentMethod
             };
             await _orderRepository.AddAsync(tempOrder);
 
-            bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, finalPrice);
+            bool held = await _walletService.HoldEscrowAsync(tempOrder.Id, buyerId.Value, escrowAmount);
             if (!held)
             {
                 await _orderRepository.DeleteAsync(tempOrder.Id);
                 TempData["ErrorMessage"] =
-                    $"Insufficient wallet balance. You need ₱{finalPrice:N2} " +
-                    $"(item ₱{itemPrice:N2} + delivery ₱{deliveryFee:N2}). " +
-                    "Please add funds or choose Cash on Delivery.";
+                    $"Insufficient wallet balance. You need ₱{escrowAmount:N2} " +
+                    $"but your available balance is too low. Please add funds or choose Cash on Delivery.";
                 return RedirectToAction(nameof(ShopCheckout), new { skuId, quantity });
             }
 
-            // Create delivery record
-            await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+            // Only create delivery record for Delivery fulfillment method
+            if (fulfillmentMethod == FulfillmentMethod.Delivery)
+            {
+                await _deliveryRepository.CreateForOrderAsync(tempOrder.Id);
+            }
+            else
+            {
+                // Initialize chat for Halfway/Pickup orders
+                await InitializeChatForOrderAsync(tempOrder);
+                await _orderRepository.UpdateAsync(tempOrder);
+            }
 
             // Decrement stock — if it hits zero, mark the SKU sold
             sku.Quantity -= quantity;
@@ -357,15 +469,24 @@ public class OrdersController : BaseController
 
             _logger.LogInformation(
                 "Shop Order {OrderId} (Wallet) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
-                "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
-                tempOrder.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
+                "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}, " +
+                "Fulfillment: {FulfillmentMethod}, Escrow: ₱{EscrowAmount}.",
+                tempOrder.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice,
+                fulfillmentMethod, escrowAmount);
 
-            TempData["SuccessMessage"] =
-                $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} " +
-                $"(includes ₱{deliveryFee:N2} delivery fee). " +
-                "Funds are held in escrow and will be released once you confirm delivery. " +
-                "A delivery job has been created and is waiting for a rider to accept.";
+            string successMessage = fulfillmentMethod switch
+            {
+                FulfillmentMethod.Delivery => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow. You will pay the ₱{deliveryFee:N2} delivery fee to the rider in cash. " +
+                    "A delivery job has been created and is waiting for a rider to accept.",
+                FulfillmentMethod.Halfway => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow. A chat has been opened to coordinate a meeting point.",
+                FulfillmentMethod.Pickup => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}. " +
+                    $"₱{itemPrice:N2} is held in escrow. A chat has been opened to arrange pickup.",
+                _ => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2}."
+            };
 
+            TempData["SuccessMessage"] = successMessage;
             return RedirectToAction(nameof(MyPurchases));
         }
 
@@ -380,27 +501,47 @@ public class OrdersController : BaseController
             DeliveryFee = deliveryFee,
             Quantity = quantity,
             OrderDate = DateTime.UtcNow,
-            Status = OrderStatus.Pending,
+            Status = initialStatus,
             PaymentMethod = PaymentMethod.Cash,
+            FulfillmentMethod = fulfillmentMethod,
             CashCollectedByRider = false
         };
         await _orderRepository.AddAsync(order);
 
-        // Create delivery record
-        await _deliveryRepository.CreateForOrderAsync(order.Id);
+        // Only create delivery record for Delivery fulfillment method
+        if (fulfillmentMethod == FulfillmentMethod.Delivery)
+        {
+            await _deliveryRepository.CreateForOrderAsync(order.Id);
+        }
+        else
+        {
+            // Initialize chat for Halfway/Pickup orders
+            await InitializeChatForOrderAsync(order);
+            await _orderRepository.UpdateAsync(order);
+        }
+
         sku.Quantity -= quantity;
         if (sku.Quantity == 0) sku.Status = SkuStatus.Sold;
         await _context.SaveChangesAsync();
 
         _logger.LogInformation(
             "Shop Order {OrderId} (COD) — SKU {SkuId} ×{Qty}, Buyer {BuyerId}, " +
-            "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}.",
-            order.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice);
+            "Seller {SellerId}, ItemPrice ₱{ItemPrice}, DeliveryFee ₱{DeliveryFee}, Total ₱{FinalPrice}, " +
+            "Fulfillment: {FulfillmentMethod}.",
+            order.Id, sku.Id, quantity, buyerId.Value, item.UserId, itemPrice, deliveryFee, finalPrice, fulfillmentMethod);
 
-        TempData["SuccessMessage"] =
-            $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
-            "A delivery job has been created and is waiting for a rider to accept.";
+        string codSuccessMessage = fulfillmentMethod switch
+        {
+            FulfillmentMethod.Delivery => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery. " +
+                "A delivery job has been created and is waiting for a rider to accept.",
+            FulfillmentMethod.Halfway => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash. " +
+                "A chat has been opened to coordinate a meeting point. You will pay the seller in cash when you meet.",
+            FulfillmentMethod.Pickup => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash. " +
+                "A chat has been opened to arrange pickup. You will pay the seller in cash when you pick up the item.",
+            _ => $"Order confirmed for '{item.Title}' ×{quantity} at ₱{finalPrice:N2} via Cash on Delivery."
+        };
 
+        TempData["SuccessMessage"] = codSuccessMessage;
         return RedirectToAction(nameof(MyPurchases));
     }
 
@@ -483,7 +624,7 @@ public class OrdersController : BaseController
         // Group items by seller (each seller gets one order with all their items)
         var groupedBySeller = cartItems.GroupBy(ci => ci.Item!.UserId).ToList();
 
-        // Calculate total cost
+        // Calculate total cost - delivery fee only for sellers that allow delivery (simplified: assume delivery)
         decimal subtotal = cartItems.Sum(ci => ci.ItemVariantSku!.Price * ci.Quantity);
         decimal totalDeliveryFee = groupedBySeller.Count * ItemConstants.DeliveryFee;
         decimal grandTotal = subtotal + totalDeliveryFee;
@@ -524,6 +665,7 @@ public class OrdersController : BaseController
                         OrderDate = DateTime.UtcNow,
                         Status = OrderStatus.Pending,
                         PaymentMethod = isWalletPayment ? PaymentMethod.Wallet : PaymentMethod.Cash,
+                        FulfillmentMethod = FulfillmentMethod.Delivery, // Cart checkout always uses Delivery for now
                         CashCollectedByRider = false
                     };
 
@@ -567,6 +709,7 @@ public class OrdersController : BaseController
                     // Handle wallet payment escrow
                     if (isWalletPayment)
                     {
+                        // For cart checkout, hold full amount in escrow
                         bool held = await _walletService.HoldEscrowAsync(order.Id, buyerId.Value, sellerFinalPrice);
                         if (!held)
                         {
@@ -630,9 +773,13 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
+        // Handle non-delivery orders (Halfway/Pickup) differently
+        if (order.FulfillmentMethod != FulfillmentMethod.Delivery)
+        {
+            return await MarkNonDeliveryOrderCompleted(order, buyerId.Value);
+        }
+
         // Confirm delivery through the delivery system.
-        // NOTE: Ensure GetByOrderIdAsync (or your repository) eagerly loads
-        // delivery.Rider so that Rider.UserId is available below.
         var delivery = await _deliveryRepository.GetByOrderIdAsync(orderId);
         if (delivery == null)
         {
@@ -646,8 +793,6 @@ public class OrdersController : BaseController
             return RedirectToAction(nameof(MyPurchases));
         }
 
-        // Rider.Id == UserId in this system, so RiderId on the Delivery row
-        // is directly usable as the wallet owner ID — no Rider navigation needed.
         int? riderUserId = delivery.RiderId;
         if (riderUserId is null)
         {
@@ -701,6 +846,44 @@ public class OrdersController : BaseController
         return RedirectToAction(nameof(MyPurchases));
     }
 
+    // ── MARK NON-DELIVERY ORDER COMPLETED ───────────────────────────────────
+
+    /// <summary>
+    /// Marks a Halfway or Pickup order as completed.
+    /// Releases escrow or processes cash payment without rider involvement.
+    /// </summary>
+    private async Task<IActionResult> MarkNonDeliveryOrderCompleted(Order order, int buyerId)
+    {
+        decimal itemPrice = order.FinalPrice - order.DeliveryFee; // DeliveryFee is 0 for non-delivery
+
+        if (order.PaymentMethod == PaymentMethod.Wallet)
+        {
+            // Release item price from escrow → seller
+            await _walletService.ReleaseEscrowAsync(
+                order.Id, order.BuyerId, order.SellerId, itemPrice);
+        }
+        else if (order.PaymentMethod == PaymentMethod.Cash && !order.CashCollectedByRider)
+        {
+            // Credit the seller their item price (buyer paid cash)
+            await _walletService.RecordCashCollectionAsync(
+                order.Id, order.BuyerId, order.SellerId, itemPrice);
+            order.CashCollectedByRider = true;
+        }
+
+        order.Status = OrderStatus.Completed;
+        await _orderRepository.UpdateAsync(order);
+
+        _logger.LogInformation(
+            "Non-delivery Order {OrderId} marked Completed by Buyer {BuyerId}. " +
+            "Fulfillment: {FulfillmentMethod}. Seller received ₱{ItemPrice}.",
+            order.Id, buyerId, order.FulfillmentMethod, itemPrice);
+
+        TempData["SuccessMessage"] =
+            $"Order confirmed! The seller has been paid ₱{itemPrice:N2}. Thank you for using ThriftLoop!";
+
+        return RedirectToAction(nameof(MyPurchases));
+    }
+
     // ── MY PURCHASES ───────────────────────────────────────────────────────
 
     [HttpGet]
@@ -718,6 +901,20 @@ public class OrdersController : BaseController
     }
 
     // ── Private helpers ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Checks if the selected fulfillment method is allowed by the seller for this item.
+    /// </summary>
+    private static bool IsFulfillmentMethodAllowed(Item item, FulfillmentMethod method)
+    {
+        return method switch
+        {
+            FulfillmentMethod.Delivery => item.AllowDelivery,
+            FulfillmentMethod.Halfway => item.AllowHalfway,
+            FulfillmentMethod.Pickup => item.AllowPickup,
+            _ => false
+        };
+    }
 
     /// <summary>Builds the CheckoutViewModel for a P2P / Stealable item.</summary>
     private static CheckoutViewModel BuildCheckoutViewModel(Item item, int buyerId, decimal buyerBalance)
@@ -748,8 +945,10 @@ public class OrdersController : BaseController
             BasePrice = basePrice,
             WasStolen = wasStolen,
             IsStealable = item.ListingType == ListingType.Stealable,
-            BuyerBalance = buyerBalance
-            // IsShopOrder defaults to false; SkuId / Quantity / MaxQuantity keep their defaults
+            BuyerBalance = buyerBalance,
+            AllowDelivery = item.AllowDelivery,
+            AllowHalfway = item.AllowHalfway,
+            AllowPickup = item.AllowPickup
         };
     }
 
@@ -775,12 +974,15 @@ public class OrdersController : BaseController
             IsShopOrder = true,
             SkuId = sku.Id,
             Quantity = quantity,
-            MaxQuantity = sku.Quantity, // stock at GET time — used to cap the stepper
+            MaxQuantity = sku.Quantity,
             SelectedVariantName = sku.Variant?.Name ?? string.Empty,
             SelectedSize = sku.Size,
             BuyerBalance = buyerBalance,
             WasStolen = false,
-            IsStealable = false
+            IsStealable = false,
+            AllowDelivery = item.AllowDelivery,
+            AllowHalfway = item.AllowHalfway,
+            AllowPickup = item.AllowPickup
         };
     }
 

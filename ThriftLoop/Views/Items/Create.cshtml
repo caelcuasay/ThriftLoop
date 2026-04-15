@@ -1,7 +1,7 @@
-﻿@model ThriftLoop.ViewModels.ItemCreateViewModel
-@using ThriftLoop.Models
+﻿@using ThriftLoop.ViewModels
+@model ItemCreateViewModel
 @{
-    ViewData["Title"] = "List an Item";
+    ViewData["Title"] = "Create Listing";
     Layout = null;
 }
 
@@ -14,625 +14,1192 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Items.css" asp-append-version="true" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/ItemCreate.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
-    <div class="container">
-        <div class="create-page">
+    <div class="create-page">
 
-            <div class="create-header">
-                <a asp-controller="Home" asp-action="Index" class="create-header__back">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="16" height="16">
-                        <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    Back
-                </a>
-                <div>
-                    <h1 class="create-header__title">List a new item</h1>
-                    <p class="create-header__subtitle">Fill in the details below</p>
-                </div>
+        <!-- Header -->
+        <div class="create-header">
+            <a asp-action="Index" class="back-btn">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                My Listings
+            </a>
+            <div>
+                <h1 class="create-header__title">Create new listing</h1>
+                <p class="create-header__sub">Fill in each field to unlock the next</p>
             </div>
+        </div>
 
-            @if (TempData["SuccessMessage"] is string successMsg)
+        <form asp-action="Create" asp-controller="Items" method="post" enctype="multipart/form-data" id="createItemForm">
+            @Html.AntiForgeryToken()
+
+            @if (!ViewData.ModelState.IsValid)
             {
-                <div class="create-toast">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                <div class="error-toast" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" style="flex-shrink:0">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                     </svg>
-                    @successMsg
+                    <span>Please fix the errors below before publishing.</span>
                 </div>
             }
 
-            <!-- Client-side validation error banner (hidden until JS shows it) -->
-            <div class="create-error-banner" id="validationBanner" style="display:none">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-                </svg>
-                <span id="validationBannerText">Please fix the highlighted fields before posting.</span>
-            </div>
+            <div class="create-body">
 
-            <form asp-action="Create" method="post" enctype="multipart/form-data" id="createForm" novalidate>
-                @Html.AntiForgeryToken()
-
-                <div class="create-grid">
-
-                    @* ── Photo Column ─────────────────────────────────────────── *@
-                    <div class="create-photo-col">
-                        <p class="create-section-label">
-                            Photos <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.6rem">(up to 5)</span>
-                        </p>
-
-                        <!-- Thumbnail grid - populated by JS -->
-                        <div id="photoThumbs" class="photo-thumbs"></div>
-
-                        <!-- Compact add zone -->
-                        <div class="photo-add-zone" id="photoAddZone">
-                            <input type="file" id="photosInput" name="Images" multiple
-                                   accept="image/jpeg,image/png,image/webp" style="display:none" />
-                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" width="18" height="18" style="opacity:.5">
-                                <path d="M3 16.5v-9A1.5 1.5 0 014.5 6h1l1-2h7l1 2h1A1.5 1.5 0 0117 7.5v9A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5z" stroke-linecap="round" stroke-linejoin="round" />
-                                <circle cx="10" cy="12" r="2.5" stroke-linecap="round" />
-                            </svg>
-                            <span class="photo-add-zone__cta">Click or drag to add photos</span>
-                            <span class="photo-add-zone__hint">JPEG · PNG · max 5 MB each</span>
+                <!-- LEFT — Photos (always visible) -->
+                <aside class="create-col--media">
+                    <div class="media-card">
+                        <div class="media-card__header">
+                            <span class="section-label">Photos</span>
+                            <span class="photo-count" id="photoCounter">0 / 5</span>
                         </div>
-                        <span class="field__error" id="photoErr"></span>
 
-                        <div class="create-tips">
-                            <p class="create-tips__heading">Quick tips</p>
-                            <ul class="create-tips__list">
-                                <li>First photo is the cover shown on cards</li>
-                                <li>Use natural light for best results</li>
-                                <li>Show any wear honestly</li>
-                            </ul>
+                        <div class="photo-main" id="photoMain" tabindex="0" aria-label="Upload photos — click or drag & drop">
+                            <input type="file"
+                                   name="Images"
+                                   id="photoInput"
+                                   multiple
+                                   accept="image/jpeg,image/png,image/webp"
+                                   class="photo-file-input" />
+
+                            <div class="photo-main__empty" id="photoEmpty">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" width="44" height="44">
+                                    <rect x="4" y="8" width="40" height="32" rx="4" />
+                                    <circle cx="16" cy="20" r="4" />
+                                    <path d="M4 34l10-10 8 8 6-6 12 12" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <span class="photo-main__headline">Add photos</span>
+                                <span class="photo-main__sub">Drag & drop or click to browse</span>
+                                <span class="photo-main__limit">JPEG · PNG · WebP<br>Up to 5 photos · Max 5 MB each</span>
+                            </div>
+
+                            <div class="photo-main__preview" id="photoPreview" style="display:none">
+                                <img id="photoMainImg" alt="Cover photo" />
+                                <span class="photo-main__cover-badge">Cover</span>
+                            </div>
+
+                            <div class="photo-main__overlay">
+                                <span>Click to add more</span>
+                            </div>
+                        </div>
+
+                        <div class="photo-strip" id="photoStrip"></div>
+                        <span asp-validation-for="Images" class="field__error"></span>
+                    </div>
+                </aside>
+
+                <!-- RIGHT — Progressive Form -->
+                <main class="create-col--form">
+
+                    <!-- Progress Indicator -->
+                    <div class="progressive-progress">
+                        <div class="progressive-progress__bar">
+                            <div class="progressive-progress__fill" id="progressiveFill"></div>
+                        </div>
+                        <span class="progressive-progress__text" id="progressText">0/8 fields complete</span>
+                    </div>
+
+                    <!-- Field 1: Title -->
+                    <div class="progressive-field" data-field="title" id="fieldTitle">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">📝</span>
+                            <div>
+                                <h3 class="progressive-field__title">What are you selling?</h3>
+                                <p class="progressive-field__hint">A clear title helps buyers find your item</p>
+                            </div>
+                        </div>
+                        <div class="progressive-field__body">
+                            <div class="field">
+                                <div class="field__input-wrap">
+                                    <input asp-for="Title"
+                                           class="field__input field__input--title"
+                                           id="titleInput"
+                                           placeholder="e.g., Vintage Levi's 501 Jeans"
+                                           maxlength="100"
+                                           autocomplete="off" />
+                                    <span class="field__counter" id="titleCounter">0/100</span>
+                                </div>
+                                <span asp-validation-for="Title" class="field__error"></span>
+                            </div>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="price">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                                <span class="hint-text">Press Enter ↵</span>
+                            </div>
                         </div>
                     </div>
 
-                    @* ── Form Column ──────────────────────────────────────────── *@
-                    <div class="create-form-col">
-
-                        @* Title *@
-                        <div class="create-field">
-                            <div class="create-field__top">
-                                <label asp-for="Title" class="create-field__label">Title</label>
-                                <span class="create-field__counter" id="titleCounter">0/100</span>
+                    <!-- Field 2: Price -->
+                    <div class="progressive-field progressive-field--locked" data-field="price" id="fieldPrice">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">💰</span>
+                            <div>
+                                <h3 class="progressive-field__title">Set your price</h3>
+                                <p class="progressive-field__hint">Price it fairly to sell faster</p>
                             </div>
-                            <input asp-for="Title" class="create-field__input" id="titleInput"
-                                   placeholder="e.g. Vintage Levi's 501" maxlength="100" />
-                            <span class="field__error" id="titleErr"></span>
+                            <span class="progressive-field__status">🔒</span>
                         </div>
-
-                        @* Description *@
-                        <div class="create-field">
-                            <div class="create-field__top">
-                                <label asp-for="Description" class="create-field__label">Description</label>
-                                <span class="create-field__counter" id="descCounter">0/1000</span>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="field">
+                                <div class="price-wrap">
+                                    <span class="price-symbol">&#8369;</span>
+                                    <input asp-for="Price"
+                                           class="field__input"
+                                           id="priceInput"
+                                           type="number"
+                                           step="0.01"
+                                           min="0.01"
+                                           max="99999.99"
+                                           placeholder="0.00"
+                                           value="" />
+                                </div>
+                                <span asp-validation-for="Price" class="field__error"></span>
                             </div>
-                            <textarea asp-for="Description" class="create-field__input create-field__input--textarea"
-                                      id="descInput" rows="3" maxlength="1000"
-                                      placeholder="Describe the item — colour, fit, any flaws…"></textarea>
-                            <span class="field__error" id="descErr"></span>
-                        </div>
-
-                        @* Price *@
-                        <div class="create-field">
-                            <label asp-for="Price" class="create-field__label">Price</label>
-                            <div class="create-price-wrap" id="priceWrap">
-                                <span class="create-price-wrap__symbol">₱</span>
-                                <input asp-for="Price" id="priceInput"
-                                       class="create-field__input create-price-wrap__input"
-                                       type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
-                            </div>
-                            <span class="field__error" id="priceErr"></span>
-                        </div>
-
-                        @* Category *@
-                        <div class="create-field">
-                            <label class="create-field__label">Category</label>
-                            <select asp-for="Category" class="create-hidden-select" id="categorySelect">
-                                <option value=""></option>
-                                @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
-                                {
-                                    <option value="@cat">@cat</option>
-                                }
-                            </select>
-                            <div class="create-chips" id="categoryChips">
-                                @foreach (var cat in ThriftLoop.ViewModels.ItemCreateViewModel.Categories)
-                                {
-                                    <button type="button" class="create-chip @(Model.Category == cat ? "create-chip--active" : "")"
-                                            data-value="@cat" data-target="categorySelect">
-                                        @cat
-                                    </button>
-                                }
-                            </div>
-                            <span class="field__error" id="categoryErr"></span>
-                        </div>
-
-                        @* Condition *@
-                        <div class="create-field">
-                            <label class="create-field__label">Condition</label>
-                            <select asp-for="Condition" class="create-hidden-select" id="conditionSelect">
-                                <option value=""></option>
-                                @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
-                                {
-                                    <option value="@cond">@cond</option>
-                                }
-                            </select>
-                            <div class="create-condition" id="conditionPills">
-                                @{
-                                    var icons = new[] { "✦", "★", "◆", "▲", "●" };
-                                    var idx = 0;
-                                }
-                                @foreach (var cond in ThriftLoop.ViewModels.ItemCreateViewModel.Conditions)
-                                {
-                                    <button type="button"
-                                            class="create-condition__pill @(Model.Condition == cond ? "create-condition__pill--active" : "")"
-                                            data-value="@cond" data-target="conditionSelect">
-                                        <span>@icons[idx]</span> <span>@cond</span>
-                                    </button>
-                                    idx++;
-                                }
-                            </div>
-                            <span class="field__error" id="conditionErr"></span>
-                        </div>
-
-                        @* Size — optional *@
-                        <div class="create-field">
-                            <div class="create-field__top">
-                                <label class="create-field__label">Size</label>
-                                <span class="create-field__optional">optional</span>
-                            </div>
-                            <select asp-for="Size" class="create-hidden-select" id="sizeSelect">
-                                <option value=""></option>
-                                @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
-                                {
-                                    <option value="@size">@size</option>
-                                }
-                            </select>
-                            <div class="create-chips" id="sizeChips">
-                                @foreach (var size in ThriftLoop.ViewModels.ItemCreateViewModel.Sizes)
-                                {
-                                    <button type="button"
-                                            class="create-chip @(Model.Size == size ? "create-chip--active" : "")"
-                                            data-value="@size" data-target="sizeSelect">
-                                        @size
-                                    </button>
-                                }
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="category">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
+                    </div>
 
-                        @* ── Stealable Listing Section ─────────────────────────── *@
-                        <div class="create-field create-field--stealable">
-                            <div class="create-stealable-header">
-                                <div>
-                                    <p class="create-field__label">Listing Type</p>
-                                    <p class="create-stealable-header__sub">
-                                        Stealable listings let buyers compete — one claims it, another can steal it.
-                                    </p>
+                    <!-- Field 3: Category -->
+                    <div class="progressive-field progressive-field--locked" data-field="category" id="fieldCategory">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">📂</span>
+                            <div>
+                                <h3 class="progressive-field__title">Choose a category</h3>
+                                <p class="progressive-field__hint">Help buyers find your listing</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="field">
+                                <input type="hidden" asp-for="Category" id="categoryHidden" />
+                                <div class="chip-row" id="categoryChips">
+                                    @foreach (var cat in ItemCreateViewModel.Categories)
+                                    {
+                                        <button type="button" class="chip" data-value="@cat">@cat</button>
+                                    }
+                                </div>
+                                <span asp-validation-for="Category" class="field__error"></span>
+                            </div>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="condition">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Field 4: Condition -->
+                    <div class="progressive-field progressive-field--locked" data-field="condition" id="fieldCondition">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">✨</span>
+                            <div>
+                                <h3 class="progressive-field__title">What's the condition?</h3>
+                                <p class="progressive-field__hint">Be honest about wear and tear</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="field">
+                                <input type="hidden" asp-for="Condition" id="conditionHidden" />
+                                <div class="pill-group" id="conditionPills">
+                                    @foreach (var cond in ItemCreateViewModel.Conditions)
+                                    {
+                                        <button type="button" class="pill" data-value="@cond">@cond</button>
+                                    }
+                                </div>
+                                <span asp-validation-for="Condition" class="field__error"></span>
+                            </div>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="size">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Field 5: Size -->
+                    <div class="progressive-field progressive-field--locked" data-field="size" id="fieldSize">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">📏</span>
+                            <div>
+                                <h3 class="progressive-field__title">Select size (optional)</h3>
+                                <p class="progressive-field__hint">Skip if not applicable</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="field">
+                                <div class="select-wrap">
+                                    <select asp-for="Size" class="field__select" id="sizeSelect">
+                                        <option value="">Select size</option>
+                                        @foreach (var size in ItemCreateViewModel.Sizes)
+                                        {
+                                            <option value="@size">@size</option>
+                                        }
+                                    </select>
                                 </div>
                             </div>
-
-                            <label class="stealable-toggle" for="IsStealable">
-                                <span class="stealable-toggle__track">
-                                    <input asp-for="IsStealable" id="IsStealable" type="checkbox"
-                                           class="stealable-toggle__input" />
-                                    <span class="stealable-toggle__thumb" aria-hidden="true"></span>
-                                </span>
-                                <span class="stealable-toggle__label-group">
-                                    <span class="stealable-toggle__name">Make this a Stealable listing</span>
-                                    <span class="stealable-toggle__badge" aria-hidden="true">
-                                        <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
-                                            <path d="M8.75 3.75a.75.75 0 00-1.5 0v3.5h-3.5a.75.75 0 000 1.5h3.5v3.5a.75.75 0 001.5 0v-3.5h3.5a.75.75 0 000-1.5h-3.5v-3.5z" />
-                                        </svg>
-                                        NEW
-                                    </span>
-                                </span>
-                            </label>
-
-                            <div class="stealable-duration-panel" id="stealDurationPanel"
-                                 @(Model.IsStealable ? "" : "hidden") aria-live="polite">
-                                <div class="stealable-duration-inner">
-                                    <svg class="stealable-duration-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--ghost btn--skip" data-next="description">Skip</button>
+                                <button type="button" class="btn btn--primary btn--continue" data-next="description">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
-                                    <div class="stealable-duration-body">
-                                        <label asp-for="StealDurationHours" class="create-field__label">Steal Window Duration</label>
-                                        <p class="stealable-duration-body__hint">
-                                            How long a buyer has before another can steal the item.
-                                            After the window closes, the original buyer gets a 2-hour grace period.
-                                        </p>
-                                        <select asp-for="StealDurationHours" class="create-hidden-select" id="stealDurationSelect">
-                                            <option value=""></option>
-                                            @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Field 6: Description -->
+                    <div class="progressive-field progressive-field--locked" data-field="description" id="fieldDescription">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">📋</span>
+                            <div>
+                                <h3 class="progressive-field__title">Describe your item</h3>
+                                <p class="progressive-field__hint">Include details, measurements, and flaws</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="field">
+                                <div class="field__input-wrap">
+                                    <textarea asp-for="Description"
+                                              class="field__textarea"
+                                              id="descInput"
+                                              rows="4"
+                                              placeholder="Describe your item — condition, brand, measurements, any flaws..."
+                                              maxlength="1000"></textarea>
+                                    <span class="field__counter field__counter--bottom" id="descCounter">0/1000</span>
+                                </div>
+                                <span asp-validation-for="Description" class="field__error"></span>
+                            </div>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="delivery">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Field 7: Delivery -->
+                    <div class="progressive-field progressive-field--locked" data-field="delivery" id="fieldDelivery">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">🚚</span>
+                            <div>
+                                <h3 class="progressive-field__title">Delivery options</h3>
+                                <p class="progressive-field__hint">Choose at least one</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="delivery-grid" id="deliveryGrid">
+                                <label class="delivery-card">
+                                    <input type="checkbox"
+                                           name="AllowDelivery"
+                                           value="true"
+                                           class="delivery-input"
+                                           id="optDelivery" />
+                                    <div class="delivery-card__body">
+                                        <div class="delivery-card__check">
+                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span class="delivery-card__icon">🚚</span>
+                                        <div>
+                                            <span class="delivery-card__title">Delivery</span>
+                                            <span class="delivery-card__desc">Ship directly to buyer</span>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label class="delivery-card">
+                                    <input type="checkbox"
+                                           name="AllowHalfway"
+                                           value="true"
+                                           class="delivery-input"
+                                           id="optMeetup" />
+                                    <div class="delivery-card__body">
+                                        <div class="delivery-card__check">
+                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span class="delivery-card__icon">🤝</span>
+                                        <div>
+                                            <span class="delivery-card__title">Pickup Halfway</span>
+                                            <span class="delivery-card__desc">Meet at agreed spot</span>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label class="delivery-card">
+                                    <input type="checkbox"
+                                           name="AllowPickup"
+                                           value="true"
+                                           class="delivery-input"
+                                           id="optPickup" />
+                                    <div class="delivery-card__body">
+                                        <div class="delivery-card__check">
+                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span class="delivery-card__icon">🏠</span>
+                                        <div>
+                                            <span class="delivery-card__title">Pickup</span>
+                                            <span class="delivery-card__desc">Buyer comes to you</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <span class="fulfillment-err" id="fulfillmentError"></span>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--primary btn--continue" data-next="stealable">
+                                    Continue
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Field 8: Stealable -->
+                    <div class="progressive-field progressive-field--locked" data-field="stealable" id="fieldStealable">
+                        <div class="progressive-field__header">
+                            <span class="progressive-field__icon">⚡</span>
+                            <div>
+                                <h3 class="progressive-field__title">Make it Stealable?</h3>
+                                <p class="progressive-field__hint">Sell faster with a limited-time discount (optional)</p>
+                            </div>
+                            <span class="progressive-field__status">🔒</span>
+                        </div>
+                        <div class="progressive-field__body" style="display: none;">
+                            <div class="stealable-card">
+                                <label class="stealable-toggle-row" for="stealableToggle">
+                                    <div class="stealable-toggle-row__left">
+                                        <span class="stealable-icon">⚡</span>
+                                        <div>
+                                            <span class="stealable-toggle-row__title">Make this Stealable</span>
+                                            <span class="stealable-toggle-row__desc">Buyers can claim it instantly at a discounted price</span>
+                                        </div>
+                                    </div>
+                                    <div class="toggle-switch">
+                                        <input type="checkbox"
+                                               name="IsStealable"
+                                               value="true"
+                                               id="stealableToggle" />
+                                        <span class="toggle-switch__track"></span>
+                                    </div>
+                                </label>
+
+                                <div class="steal-duration" id="stealDurationPanel">
+                                    <label class="field__label" for="stealDurationSelect">Steal window duration</label>
+                                    <div class="select-wrap">
+                                        <select name="StealDurationHours"
+                                                class="field__select field__select--sm"
+                                                id="stealDurationSelect">
+                                            <option value="">Select duration</option>
+                                            @foreach (var dur in ItemCreateViewModel.StealDurations)
                                             {
-                                                <option value="@hours">@hours hours</option>
+                                                <option value="@dur">@dur hours</option>
                                             }
                                         </select>
-                                        <div class="create-chips" id="durationChips">
-                                            @foreach (var hours in ThriftLoop.ViewModels.ItemCreateViewModel.StealDurations)
-                                            {
-                                                <button type="button"
-                                                        class="create-chip @(Model.StealDurationHours == hours ? "create-chip--active" : "")"
-                                                        data-value="@hours" data-target="stealDurationSelect">
-                                                    @hours hr
-                                                </button>
-                                            }
-                                        </div>
-                                        <span class="field__error" id="durationErr"></span>
                                     </div>
                                 </div>
                             </div>
+                            <div class="progressive-field__actions">
+                                <button type="button" class="btn btn--ghost btn--skip">Skip</button>
+                                <button type="button" class="btn btn--primary btn--continue">
+                                    Complete
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                                        <path d="M5 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
-
-                        @* Actions *@
-                        <div class="create-actions">
-                            <button type="submit" class="btn btn--primary" id="submitBtn">
-                                <svg viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm4.53 6.03l-5 5a.75.75 0 01-1.06 0l-2-2a.75.75 0 111.06-1.06l1.47 1.47 4.47-4.47a.75.75 0 111.06 1.06z" />
-                                </svg>
-                                Post Listing
-                            </button>
-                            <a asp-action="Index" asp-controller="Home" class="btn btn--ghost">Cancel</a>
-                        </div>
-
                     </div>
-                </div>
-            </form>
-        </div>
+
+                    <!-- Publish Button (hidden until all fields complete) -->
+                    <div class="publish-section" id="publishSection" style="display: none;">
+                        <div class="publish-card">
+                            <div class="publish-card__check">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="32" height="32">
+                                    <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <h3>Ready to publish!</h3>
+                            <p>Your listing looks great. Review it one more time or publish now.</p>
+                            <div class="publish-card__actions">
+                                <button type="button" class="btn btn--outline btn--review" id="reviewBtn">
+                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+                                        <path d="M2.5 10a7.5 7.5 0 1115 0 7.5 7.5 0 01-15 0z" stroke-linecap="round" />
+                                        <path d="M10 6v4l2.5 2.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    Review Listing
+                                </button>
+                                <button type="submit" class="btn btn--primary btn--publish" id="submitBtn">
+                                    <span>Publish Listing</span>
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15">
+                                        <path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-4.392l1.657-.348a6.449 6.449 0 014.271.572 8.973 8.973 0 003.965.972 6.7 6.7 0 002.341-.428 2.25 2.25 0 001.266-2.117V3.75a.75.75 0 00-1.125-.649 5.2 5.2 0 01-2.482.66c-1.788 0-3.318-.506-4.507-1.2a6.407 6.407 0 00-3.686-.956L3.5 2.75z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="create-footer">
+                        <a asp-action="Index" class="btn btn--ghost">Cancel</a>
+                        <span class="footer-hint" id="footerHint">Complete all fields to publish</span>
+                    </div>s
+
+        </form>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     <script>
-        (function () {
-            'use strict';
+            (function () {
+                'use strict';
 
-            var MAX_PHOTOS = 5;
-            var fileList   = new DataTransfer(); // virtual file list maintained by JS
+                // =========================================================
+                // PROGRESSIVE FIELD UNLOCKING
+                // =========================================================
+        
+                const fields = [
+                    { id: 'title', element: document.getElementById('fieldTitle'), validate: validateTitle },
+                    { id: 'price', element: document.getElementById('fieldPrice'), validate: validatePrice },
+                    { id: 'category', element: document.getElementById('fieldCategory'), validate: validateCategory },
+                    { id: 'condition', element: document.getElementById('fieldCondition'), validate: validateCondition },
+                    { id: 'size', element: document.getElementById('fieldSize'), validate: validateSize, optional: true },
+                    { id: 'description', element: document.getElementById('fieldDescription'), validate: validateDescription },
+                    { id: 'delivery', element: document.getElementById('fieldDelivery'), validate: validateDelivery },
+                    { id: 'stealable', element: document.getElementById('fieldStealable'), validate: validateStealable, optional: true }
+                ];
 
-            // ── DOM refs ─────────────────────────────────────────────────────────
-            var addZone    = document.getElementById('photoAddZone');
-            var photosInput = document.getElementById('photosInput');
-            var thumbsEl   = document.getElementById('photoThumbs');
-            var photoErr   = document.getElementById('photoErr');
-            var form       = document.getElementById('createForm');
-            var submitBtn  = document.getElementById('submitBtn');
-            var banner     = document.getElementById('validationBanner');
-            var bannerText = document.getElementById('validationBannerText');
+                let completedFields = new Set(['title']); // Title is open by default
+                const progressFill = document.getElementById('progressiveFill');
+                const progressText = document.getElementById('progressText');
+                const publishSection = document.getElementById('publishSection');
+                const footerHint = document.getElementById('footerHint');
 
-            // ── Photo: add zone click / drag ──────────────────────────────────────
-            addZone.addEventListener('click', function () { photosInput.click(); });
-
-            addZone.addEventListener('dragover', function (e) {
-                e.preventDefault();
-                addZone.classList.add('photo-add-zone--drag');
-            });
-            addZone.addEventListener('dragleave', function () {
-                addZone.classList.remove('photo-add-zone--drag');
-            });
-            addZone.addEventListener('drop', function (e) {
-                e.preventDefault();
-                addZone.classList.remove('photo-add-zone--drag');
-                addFiles(Array.from(e.dataTransfer.files));
-            });
-
-            photosInput.addEventListener('change', function () {
-                var selectedFiles = Array.from(photosInput.files); // capture BEFORE clearing
-                photosInput.value = '';                            // reset native picker
-                addFiles(selectedFiles);                           // syncInput runs last → files stay
-            });
-
-            function addFiles(files) {
-                var errors = [];
-                for (var i = 0; i < files.length; i++) {
-                    if (fileList.files.length >= MAX_PHOTOS) break;
-                    var f = files[i];
-                    if (!['image/jpeg','image/png','image/webp'].includes(f.type)) {
-                        errors.push('Only JPEG, PNG, or WebP images are accepted.');
-                        continue;
-                    }
-                    if (f.size > 5 * 1024 * 1024) {
-                        errors.push(f.name + ' exceeds 5 MB.');
-                        continue;
-                    }
-                    fileList.items.add(f);
-                }
-                if (errors.length) photoErr.textContent = errors[0];
-                syncInput();
-                renderThumbs();
-            }
-
-            function removeFile(idx) {
-                var newDt = new DataTransfer();
-                Array.from(fileList.files).forEach(function (f, i) {
-                    if (i !== idx) newDt.items.add(f);
-                });
-                fileList = newDt;
-                syncInput();
-                renderThumbs();
-            }
-
-            function syncInput() {
-                photosInput.files = fileList.files;
-            }
-
-            function renderThumbs() {
-                thumbsEl.innerHTML = '';
-                var files = Array.from(fileList.files);
-                files.forEach(function (file, i) {
-                    var div = document.createElement('div');
-                    div.className = 'photo-thumb';
-
-                    var img = document.createElement('img');
-                    img.alt = 'Photo ' + (i + 1);
-                    var reader = new FileReader();
-                    reader.onload = function (e) { img.src = e.target.result; };
-                    reader.readAsDataURL(file);
-                    div.appendChild(img);
-
-                    if (i === 0) {
-                        var badge = document.createElement('span');
-                        badge.className = 'photo-thumb__badge';
-                        badge.textContent = 'Cover';
-                        div.appendChild(badge);
-                    }
-
-                    var rm = document.createElement('button');
-                    rm.type = 'button';
-                    rm.className = 'photo-thumb__remove';
-                    rm.innerHTML = '×';
-                    rm.setAttribute('aria-label', 'Remove photo');
-                    (function (idx) {
-                        rm.addEventListener('click', function () { removeFile(idx); });
-                    }(i));
-                    div.appendChild(rm);
-
-                    thumbsEl.appendChild(div);
-                });
-
-                // Show/hide add zone
-                if (files.length >= MAX_PHOTOS) {
-                    addZone.classList.add('photo-add-zone--hidden');
-                } else {
-                    addZone.classList.remove('photo-add-zone--hidden');
+                // Clear the default value on price input to avoid validation issues
+                const priceInput = document.getElementById('priceInput');
+                if (priceInput && priceInput.value === '0') {
+                    priceInput.value = '';
                 }
 
-                // Clear photo error when thumbs are present
-                if (files.length > 0) photoErr.textContent = '';
-            }
+                // Validation functions
+                function validateTitle() {
+                    const title = document.getElementById('titleInput');
+                    return title && title.value.trim().length > 0;
+                }
 
-            // ── Character counters ────────────────────────────────────────────────
-            function initCounter(inputId, counterId, max) {
-                var input   = document.getElementById(inputId);
-                var counter = document.getElementById(counterId);
-                if (!input || !counter) return;
-                var update = function () {
-                    var len = input.value.length;
-                    counter.textContent = len + '/' + max;
-                    counter.classList.toggle('create-field__counter--warn', len > max * 0.9);
-                };
-                input.addEventListener('input', update);
-                update();
-            }
-            initCounter('titleInput', 'titleCounter', 100);
-            initCounter('descInput',  'descCounter',  1000);
+                function validatePrice() {
+                    const price = document.getElementById('priceInput');
+                    return price && price.value && price.value.trim() !== '' && parseFloat(price.value) > 0;
+                }
 
-            // ── Required chips (category, condition) ──────────────────────────────
-            function initChips(containerId) {
-                var container = document.getElementById(containerId);
-                if (!container) return;
-                container.addEventListener('click', function (e) {
-                    var btn = e.target.closest('[data-value]');
-                    if (!btn) return;
-                    var select = document.getElementById(btn.dataset.target);
-                    if (!select) return;
-                    container.querySelectorAll('[data-value]').forEach(function (b) {
-                        b.classList.remove('create-chip--active','create-condition__pill--active');
-                    });
-                    btn.classList.add(containerId === 'categoryChips' ? 'create-chip--active' : 'create-condition__pill--active');
-                    select.value = btn.dataset.value;
-                    // Clear the error for this field
-                    var errId = containerId === 'categoryChips' ? 'categoryErr' : 'conditionErr';
-                    var errEl = document.getElementById(errId);
-                    if (errEl) errEl.textContent = '';
-                    container.classList.remove('chips-error');
-                });
-            }
-            initChips('categoryChips');
-            initChips('conditionPills');
+                function validateCategory() {
+                    const category = document.getElementById('categoryHidden');
+                    return category && category.value !== '';
+                }
 
-            // ── Optional chips (size) — second click deselects ────────────────────
-            (function () {
-                var container = document.getElementById('sizeChips');
-                var select    = document.getElementById('sizeSelect');
-                if (!container || !select) return;
-                container.addEventListener('click', function (e) {
-                    var btn = e.target.closest('[data-value]');
-                    if (!btn) return;
-                    var already = btn.classList.contains('create-chip--active');
-                    container.querySelectorAll('[data-value]').forEach(function (b) {
-                        b.classList.remove('create-chip--active');
-                    });
-                    if (already) { select.value = ''; }
-                    else { btn.classList.add('create-chip--active'); select.value = btn.dataset.value; }
-                });
-            }());
+                function validateCondition() {
+                    const condition = document.getElementById('conditionHidden');
+                    return condition && condition.value !== '';
+                }
 
-            // ── Duration chips ────────────────────────────────────────────────────
-            (function () {
-                var container = document.getElementById('durationChips');
-                var select    = document.getElementById('stealDurationSelect');
-                if (!container || !select) return;
-                container.addEventListener('click', function (e) {
-                    var btn = e.target.closest('[data-value]');
-                    if (!btn) return;
-                    container.querySelectorAll('[data-value]').forEach(function (b) {
-                        b.classList.remove('create-chip--active');
-                    });
-                    btn.classList.add('create-chip--active');
-                    select.value = btn.dataset.value;
-                    var errEl = document.getElementById('durationErr');
-                    if (errEl) errEl.textContent = '';
-                    container.classList.remove('chips-error');
-                });
-            }());
+                function validateSize() {
+                    return true; // Optional field always "valid"
+                }
 
-            // ── Stealable toggle ──────────────────────────────────────────────────
-            (function () {
-                var checkbox = document.getElementById('IsStealable');
-                var panel    = document.getElementById('stealDurationPanel');
-                var durSel   = document.getElementById('stealDurationSelect');
-                if (!checkbox || !panel) return;
-                function sync() {
-                    if (checkbox.checked) {
-                        panel.removeAttribute('hidden');
+                function validateDescription() {
+                    const desc = document.getElementById('descInput');
+                    return desc && desc.value.trim().length > 0;
+                }
+
+                function validateDelivery() {
+                    const optDelivery = document.getElementById('optDelivery');
+                    const optMeetup = document.getElementById('optMeetup');
+                    const optPickup = document.getElementById('optPickup');
+                    return (optDelivery && optDelivery.checked) ||
+                           (optMeetup && optMeetup.checked) ||
+                           (optPickup && optPickup.checked);
+                }
+
+                function validateStealable() {
+                    const stealableToggle = document.getElementById('stealableToggle');
+                    const stealDurationSelect = document.getElementById('stealDurationSelect');
+                    // If stealable is checked, duration is required. Otherwise, it's valid.
+                    if (stealableToggle && stealableToggle.checked) {
+                        return stealDurationSelect && stealDurationSelect.value !== '';
+                    }
+                    return true; // Optional - can skip
+                }
+
+                function updateProgress() {
+                    const total = fields.length;
+                    const completed = completedFields.size;
+                    const percent = (completed / total) * 100;
+            
+                    if (progressFill) {
+                        progressFill.style.width = percent + '%';
+                    }
+                    if (progressText) {
+                        progressText.textContent = completed + '/' + total + ' fields complete';
+                    }
+
+                    // Show/hide publish section when ALL fields are completed
+                    if (completed === total) {
+                        if (publishSection) publishSection.style.display = 'block';
+                        if (footerHint) footerHint.textContent = 'Ready to publish!';
                     } else {
-                        panel.setAttribute('hidden', '');
-                        if (durSel) { durSel.value = ''; }
-                        document.querySelectorAll('#durationChips [data-value]').forEach(function (b) {
-                            b.classList.remove('create-chip--active');
+                        if (publishSection) publishSection.style.display = 'none';
+                        if (footerHint) {
+                            const remaining = total - completed;
+                            footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
+                        }
+                    }
+                }
+
+                function unlockField(fieldId) {
+                    const field = fields.find(f => f.id === fieldId);
+                    if (!field || !field.element) return;
+
+                    const element = field.element;
+                    const body = element.querySelector('.progressive-field__body');
+                    const status = element.querySelector('.progressive-field__status');
+            
+                    element.classList.remove('progressive-field--locked');
+                    element.classList.add('progressive-field--active');
+                    if (body) body.style.display = 'block';
+                    if (status) {
+                        status.textContent = '🔓';
+                        status.style.opacity = '1';
+                    }
+
+                    // Focus the first input in the field
+                    setTimeout(() => {
+                        const firstInput = element.querySelector('input, textarea, select, .chip, .pill');
+                        if (firstInput) {
+                            if (firstInput.classList.contains('chip') || firstInput.classList.contains('pill')) {
+                                // For chips/pills, just scroll into view
+                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            } else {
+                                firstInput.focus();
+                            }
+                        }
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+
+                function completeField(fieldId) {
+                    const field = fields.find(f => f.id === fieldId);
+                    if (!field || !field.element) return;
+
+                    const element = field.element;
+                    const status = element.querySelector('.progressive-field__status');
+            
+                    element.classList.remove('progressive-field--active');
+                    element.classList.add('progressive-field--completed');
+                    if (status) status.textContent = '✅';
+            
+                    completedFields.add(fieldId);
+                    updateProgress();
+                }
+
+                function tryContinue(currentFieldId, nextFieldId) {
+                    const field = fields.find(f => f.id === currentFieldId);
+                    if (!field) return false;
+
+                    if (field.validate()) {
+                        completeField(currentFieldId);
+                
+                        // Unlock next field if it exists
+                        if (nextFieldId) {
+                            unlockField(nextFieldId);
+                        }
+                
+                        return true;
+                    } else {
+                        showToast('Please complete this field before continuing.', 'error');
+                        return false;
+                    }
+                }
+
+                // Continue button handlers
+                document.querySelectorAll('.btn--continue').forEach(btn => {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const fieldElement = this.closest('.progressive-field');
+                        if (!fieldElement) return;
+                
+                        const currentFieldId = fieldElement.dataset.field;
+                        const nextFieldId = this.dataset.next;
+                
+                        tryContinue(currentFieldId, nextFieldId);
+                    });
+                });
+
+                // Skip button handlers
+                document.querySelectorAll('.btn--skip').forEach(btn => {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const fieldElement = this.closest('.progressive-field');
+                        if (!fieldElement) return;
+                
+                        const currentFieldId = fieldElement.dataset.field;
+                        const nextFieldId = this.dataset.next;
+                
+                        completeField(currentFieldId);
+                        if (nextFieldId) {
+                            unlockField(nextFieldId);
+                        }
+                    });
+                });
+
+                // Enter key support
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        const activeField = document.querySelector('.progressive-field--active');
+                        if (activeField) {
+                            const continueBtn = activeField.querySelector('.btn--continue');
+                            if (continueBtn) {
+                                e.preventDefault();
+                                continueBtn.click();
+                            }
+                        }
+                    }
+                });
+
+                // Auto-continue on category/condition selection
+                document.addEventListener('click', function (e) {
+                    const chip = e.target.closest('.chip');
+                    if (chip) {
+                        const field = document.getElementById('fieldCategory');
+                        if (field && field.classList.contains('progressive-field--active')) {
+                            setTimeout(() => {
+                                const continueBtn = field.querySelector('.btn--continue');
+                                if (continueBtn && validateCategory()) {
+                                    continueBtn.click();
+                                }
+                            }, 150);
+                        }
+                    }
+
+                    const pill = e.target.closest('.pill');
+                    if (pill) {
+                        const field = document.getElementById('fieldCondition');
+                        if (field && field.classList.contains('progressive-field--active')) {
+                            setTimeout(() => {
+                                const continueBtn = field.querySelector('.btn--continue');
+                                if (continueBtn && validateCondition()) {
+                                    continueBtn.click();
+                                }
+                            }, 150);
+                        }
+                    }
+                });
+
+                // Click on locked field headers to show hint
+                document.querySelectorAll('.progressive-field--locked .progressive-field__header').forEach(header => {
+                    header.addEventListener('click', function () {
+                        showToast('Complete the previous fields first!', 'info');
+                    });
+                });
+
+                // =========================================================
+                // PHOTO UPLOAD
+                // =========================================================
+
+                const photoMain = document.getElementById('photoMain');
+                let photoInput = document.getElementById('photoInput');
+                const photoEmpty = document.getElementById('photoEmpty');
+                const photoPreview = document.getElementById('photoPreview');
+                const photoMainImg = document.getElementById('photoMainImg');
+                const photoStrip = document.getElementById('photoStrip');
+                const photoCounter = document.getElementById('photoCounter');
+
+                let selectedFiles = [];
+                let objectUrls = [];
+
+                function revokeAll() {
+                    objectUrls.forEach(url => URL.revokeObjectURL(url));
+                    objectUrls = [];
+                }
+
+                function createUrl(file) {
+                    const url = URL.createObjectURL(file);
+                    objectUrls.push(url);
+                    return url;
+                }
+
+                function renderPreviews() {
+                    revokeAll();
+
+                    if (selectedFiles.length > 0) {
+                        photoMainImg.src = createUrl(selectedFiles[0]);
+                        if (photoPreview) photoPreview.style.display = 'block';
+                        if (photoEmpty) photoEmpty.style.display = 'none';
+                        if (photoMain) photoMain.classList.add('has-photo');
+                    } else {
+                        if (photoPreview) photoPreview.style.display = 'none';
+                        if (photoEmpty) photoEmpty.style.display = 'flex';
+                        if (photoMain) photoMain.classList.remove('has-photo');
+                        if (photoMainImg) photoMainImg.src = '';
+                    }
+
+                    if (photoStrip) photoStrip.innerHTML = '';
+
+                    selectedFiles.forEach(function (file, i) {
+                        const thumb = document.createElement('div');
+                        thumb.className = 'strip-thumb' + (i === 0 ? ' strip-thumb--cover' : '');
+
+                        const img = document.createElement('img');
+                        img.src = createUrl(file);
+                        img.alt = 'Photo ' + (i + 1);
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'strip-thumb__remove';
+                        removeBtn.dataset.index = String(i);
+                        removeBtn.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+                        removeBtn.textContent = '×';
+
+                        thumb.appendChild(img);
+                        thumb.appendChild(removeBtn);
+                        if (photoStrip) photoStrip.appendChild(thumb);
+                    });
+
+                    if (selectedFiles.length < 5 && photoStrip) {
+                        const addSlot = document.createElement('div');
+                        addSlot.className = 'strip-add';
+                        addSlot.setAttribute('role', 'button');
+                        addSlot.setAttribute('tabindex', '0');
+                        addSlot.setAttribute('aria-label', 'Add another photo');
+                        addSlot.textContent = '+';
+                        addSlot.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            if (photoInput) photoInput.click();
+                        });
+                        addSlot.addEventListener('keydown', function (e) {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                if (photoInput) photoInput.click();
+                            }
+                        });
+                        photoStrip.appendChild(addSlot);
+                    }
+
+                    const oldInput = photoInput;
+                    const newInput = document.createElement('input');
+                    newInput.type = 'file';
+                    newInput.id = 'photoInput';
+                    newInput.name = 'Images';
+                    newInput.multiple = true;
+                    newInput.accept = 'image/jpeg,image/png,image/webp';
+                    newInput.className = 'photo-file-input';
+            
+                    const dt = new DataTransfer();
+                    selectedFiles.forEach(f => dt.items.add(f));
+                    newInput.files = dt.files;
+            
+                    newInput.addEventListener('change', function (e) {
+                        if (e.target.files.length > 0) {
+                            addFiles(e.target.files);
+                        }
+                        e.target.value = '';
+                    });
+            
+                    if (oldInput && oldInput.parentNode) {
+                        oldInput.parentNode.replaceChild(newInput, oldInput);
+                    }
+                    photoInput = newInput;
+
+                    if (photoCounter) {
+                        photoCounter.textContent = selectedFiles.length + ' / 5';
+                    }
+                }
+
+                function addFiles(files) {
+                    const remaining = 5 - selectedFiles.length;
+                    const toAdd = Array.from(files).slice(0, remaining);
+
+                    toAdd.forEach(function (file) {
+                        if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+                            showToast((file.name || 'File') + ' is not a supported format.', 'error');
+                            return;
+                        }
+                        if (file.size > 5 * 1024 * 1024) {
+                            showToast((file.name || 'File') + ' exceeds 5 MB.', 'error');
+                            return;
+                        }
+                        selectedFiles.push(file);
+                    });
+
+                    renderPreviews();
+                }
+
+                function removeFile(index) {
+                    selectedFiles.splice(index, 1);
+                    renderPreviews();
+                }
+
+                if (photoMain) {
+                    photoMain.addEventListener('dragover', function (e) {
+                        e.preventDefault();
+                        photoMain.classList.add('is-dragging');
+                    });
+
+                    photoMain.addEventListener('dragleave', function (e) {
+                        if (!photoMain.contains(e.relatedTarget)) {
+                            photoMain.classList.remove('is-dragging');
+                        }
+                    });
+
+                    photoMain.addEventListener('drop', function (e) {
+                        e.preventDefault();
+                        photoMain.classList.remove('is-dragging');
+                        if (e.dataTransfer.files.length > 0) {
+                            addFiles(e.dataTransfer.files);
+                        }
+                    });
+
+                    photoMain.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (photoInput) photoInput.click();
+                        }
+                    });
+                }
+
+                if (photoInput) {
+                    photoInput.addEventListener('change', function (e) {
+                        if (e.target.files.length > 0) {
+                            addFiles(e.target.files);
+                        }
+                        photoInput.value = '';
+                    });
+                }
+
+                    if (photoStrip) {
+                        photoStrip.addEventListener('click', function (e) {
+                            // Handle remove button
+                            const btn = e.target.closest('.strip-thumb__remove');
+                            if (btn) {
+                                e.stopPropagation();
+                                removeFile(parseInt(btn.dataset.index, 10));
+                                return;
+                            }
+        
+                            // Handle thumbnail click to set as cover
+                            const thumb = e.target.closest('.strip-thumb');
+                            if (thumb) {
+                                const index = Array.from(photoStrip.children).indexOf(thumb);
+                                if (index >= 0 && index < selectedFiles.length) {
+                                    // Move selected file to front
+                                    const file = selectedFiles.splice(index, 1)[0];
+                                    selectedFiles.unshift(file);
+                                    renderPreviews();
+                                }
+                            }
                         });
                     }
-                }
-                checkbox.addEventListener('change', sync);
-                sync();
-            }());
 
-            // ── Auto-clear input errors on change ────────────────────────────────
-            function bindClearError(inputId, errId, wrapId) {
-                var el = document.getElementById(inputId);
-                if (!el) return;
-                el.addEventListener('input', function () {
-                    el.classList.remove('input-error');
-                    if (wrapId) document.getElementById(wrapId) && document.getElementById(wrapId).classList.remove('input-error');
-                    var errEl = document.getElementById(errId);
-                    if (errEl) errEl.textContent = '';
-                    if (banner.style.display !== 'none') {
-                        // Re-check if any errors remain
-                        var anyErr = document.querySelectorAll('.input-error, .chips-error, .field__error:not(:empty)').length;
-                        if (!anyErr) banner.style.display = 'none';
+                renderPreviews();
+
+                // =========================================================
+                // CHARACTER COUNTERS
+                // =========================================================
+
+                function bindCounter(inputId, counterId, max) {
+                    const input = document.getElementById(inputId);
+                    const counter = document.getElementById(counterId);
+                    if (!input || !counter) return;
+                    function update() {
+                        const len = input.value.length;
+                        counter.textContent = len + '/' + max;
+                        counter.classList.toggle('field__counter--warn', len > max * 0.9);
                     }
+                    input.addEventListener('input', update);
+                    update();
+                }
+
+                bindCounter('titleInput', 'titleCounter', 100);
+                bindCounter('descInput', 'descCounter', 1000);
+
+                // =========================================================
+                // CATEGORY CHIPS
+                // =========================================================
+
+                const categoryChips = document.getElementById('categoryChips');
+                const categoryHidden = document.getElementById('categoryHidden');
+
+                if (categoryChips && categoryHidden) {
+                    categoryChips.querySelectorAll('.chip').forEach(function (chip) {
+                        chip.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            categoryChips.querySelectorAll('.chip').forEach(c => c.classList.remove('chip--active'));
+                            chip.classList.add('chip--active');
+                            categoryHidden.value = chip.dataset.value;
+                        });
+                    });
+                }
+
+                // =========================================================
+                // CONDITION PILLS
+                // =========================================================
+
+                const conditionPills = document.getElementById('conditionPills');
+                const conditionHidden = document.getElementById('conditionHidden');
+
+                if (conditionPills && conditionHidden) {
+                    conditionPills.querySelectorAll('.pill').forEach(function (pill) {
+                        pill.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            conditionPills.querySelectorAll('.pill').forEach(p => p.classList.remove('pill--active'));
+                            pill.classList.add('pill--active');
+                            conditionHidden.value = pill.dataset.value;
+                        });
+                    });
+                }
+
+                // =========================================================
+                // DELIVERY OPTIONS
+                // =========================================================
+
+                document.querySelectorAll('.delivery-input').forEach(function (checkbox) {
+                    checkbox.addEventListener('change', function () {
+                        const err = document.getElementById('fulfillmentError');
+                        if (err) err.textContent = '';
+                        const grid = document.getElementById('deliveryGrid');
+                        if (grid) grid.classList.remove('delivery-error-flash');
+                    });
                 });
-            }
-            bindClearError('titleInput', 'titleErr');
-            bindClearError('descInput',  'descErr');
-            bindClearError('priceInput', 'priceErr', 'priceWrap');
 
-            // ── Client-side form validation ───────────────────────────────────────
-            function showErr(errId, msg) {
-                var el = document.getElementById(errId);
-                if (el) el.textContent = msg;
-            }
-            function markInputErr(inputId, wrapId) {
-                var el = document.getElementById(inputId);
-                if (el) el.classList.add('input-error');
-                if (wrapId) { var w = document.getElementById(wrapId); if (w) w.classList.add('input-error'); }
-                return el;
-            }
-            function markChipsErr(containerId) {
-                var el = document.getElementById(containerId);
-                if (el) el.classList.add('chips-error');
-                return el;
-            }
+                // =========================================================
+                // STEALABLE TOGGLE
+                // =========================================================
 
-            function validate() {
-                var firstErrEl = null;
-                var ok = true;
+                const stealableToggle = document.getElementById('stealableToggle');
+                const stealDurationPanel = document.getElementById('stealDurationPanel');
+                const stealDurationSelect = document.getElementById('stealDurationSelect');
 
-                // Clear previous
-                ['titleErr','descErr','priceErr','categoryErr','conditionErr','durationErr','photoErr'].forEach(function (id) {
-                    var el = document.getElementById(id); if (el) el.textContent = '';
-                });
-                document.querySelectorAll('.input-error').forEach(function (el) { el.classList.remove('input-error'); });
-                document.querySelectorAll('.chips-error').forEach(function (el) { el.classList.remove('chips-error'); });
-
-                // Title
-                var titleEl = document.getElementById('titleInput');
-                var titleLen = titleEl ? titleEl.value.trim().length : 0;
-                if (titleLen < 3 || titleLen > 100) {
-                    showErr('titleErr', 'Title must be between 3 and 100 characters.');
-                    firstErrEl = firstErrEl || markInputErr('titleInput');
-                    ok = false;
-                }
-
-                // Description
-                var descEl = document.getElementById('descInput');
-                var descLen = descEl ? descEl.value.trim().length : 0;
-                if (descLen < 10 || descLen > 1000) {
-                    showErr('descErr', 'Description must be between 10 and 1 000 characters.');
-                    firstErrEl = firstErrEl || markInputErr('descInput');
-                    ok = false;
-                }
-
-                // Price
-                var priceEl = document.getElementById('priceInput');
-                var priceVal = priceEl ? parseFloat(priceEl.value) : NaN;
-                if (!priceEl || !priceEl.value || isNaN(priceVal) || priceVal < 0.01 || priceVal > 99999.99) {
-                    showErr('priceErr', 'Price must be between ₱0.01 and ₱99,999.99.');
-                    firstErrEl = firstErrEl || markInputErr('priceInput', 'priceWrap');
-                    ok = false;
-                }
-
-                // Category
-                var catSel = document.getElementById('categorySelect');
-                if (!catSel || !catSel.value) {
-                    showErr('categoryErr', 'Please select a category.');
-                    firstErrEl = firstErrEl || markChipsErr('categoryChips');
-                    ok = false;
-                }
-
-                // Condition
-                var condSel = document.getElementById('conditionSelect');
-                if (!condSel || !condSel.value) {
-                    showErr('conditionErr', 'Please select a condition.');
-                    firstErrEl = firstErrEl || markChipsErr('conditionPills');
-                    ok = false;
-                }
-
-                // Steal duration
-                var stealChk = document.getElementById('IsStealable');
-                if (stealChk && stealChk.checked) {
-                    var durSel = document.getElementById('stealDurationSelect');
-                    if (!durSel || !durSel.value) {
-                        showErr('durationErr', 'Please select a Steal window duration.');
-                        firstErrEl = firstErrEl || markChipsErr('durationChips');
-                        ok = false;
+                if (stealableToggle && stealDurationPanel) {
+                    function syncStealPanel() {
+                        if (stealableToggle.checked) {
+                            stealDurationPanel.classList.add('is-visible');
+                        } else {
+                            stealDurationPanel.classList.remove('is-visible');
+                            if (stealDurationSelect) stealDurationSelect.value = '';
+                        }
                     }
+                    stealableToggle.addEventListener('change', syncStealPanel);
+                    syncStealPanel();
                 }
 
-                if (!ok) {
-                    banner.style.display = 'flex';
-                    if (firstErrEl) firstErrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    banner.style.display = 'none';
+                // =========================================================
+                // FORM SUBMIT
+                // =========================================================
+
+                const form = document.getElementById('createItemForm');
+                const submitBtn = document.getElementById('submitBtn');
+
+                if (form) {
+                    form.addEventListener('submit', function (e) {
+                        // Final validation
+                        let hasError = false;
+                
+                        if (!validateTitle()) {
+                            showToast('Please enter a title.', 'error');
+                            hasError = true;
+                        } else if (!validatePrice()) {
+                            showToast('Please enter a valid price.', 'error');
+                            hasError = true;
+                        } else if (!validateCategory()) {
+                            showToast('Please select a category.', 'error');
+                            hasError = true;
+                        } else if (!validateCondition()) {
+                            showToast('Please select the condition.', 'error');
+                            hasError = true;
+                        } else if (!validateDescription()) {
+                            showToast('Please enter a description.', 'error');
+                            hasError = true;
+                        } else if (!validateDelivery()) {
+                            showToast('Please select at least one delivery option.', 'error');
+                            hasError = true;
+                        }
+
+                        if (hasError) {
+                            e.preventDefault();
+                            return false;
+                        }
+
+                        if (stealableToggle && stealableToggle.checked &&
+                            stealDurationSelect && !stealDurationSelect.value) {
+                            e.preventDefault();
+                            showToast('Please select a steal window duration.', 'error');
+                            return false;
+                        }
+
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            const span = submitBtn.querySelector('span');
+                            if (span) span.textContent = 'Publishing...';
+                        }
+                    });
                 }
 
-                return ok;
-            }
+                // =========================================================
+                // TOAST HELPER
+                // =========================================================
 
-            // ── Submit handler ────────────────────────────────────────────────────
-            form.addEventListener('submit', function (e) {
-                e.preventDefault(); // Always prevent — let our validate() decide
-                if (!validate()) return;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<svg class="spin" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" opacity=".25"/></svg> Posting…';
-                form.submit(); // Programmatic submit bypasses event listeners
-            });
+                function showToast(message, type) {
+                    type = type || 'info';
+                    const toast = document.createElement('div');
+                    toast.className = 'app-toast app-toast--' + type;
+                    toast.textContent = message;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3200);
+                }
 
-            // ── Auto-dismiss toast ────────────────────────────────────────────────
-            var toast = document.querySelector('.create-toast');
-            if (toast) {
-                setTimeout(function () {
-                    toast.style.opacity = '0';
-                    setTimeout(function () { toast.remove(); }, 400);
-                }, 4000);
-            }
+                // Initialize progress
+                updateProgress();
+        
+                // Ensure title field is active on page load
+                const titleField = document.getElementById('fieldTitle');
+                if (titleField) {
+                    titleField.classList.add('progressive-field--active');
+                }
 
-        }());
+                                    // =========================================================
+                    // REVIEW BUTTON & SCROLL TO TOP
+                    // =========================================================
+        
+                    const reviewBtn = document.getElementById('reviewBtn');
+                    let scrollTopBtn = document.getElementById('scrollTopBtn');
+        
+                    // Create scroll to top button if it doesn't exist
+                    if (!scrollTopBtn) {
+                        scrollTopBtn = document.createElement('button');
+                        scrollTopBtn.id = 'scrollTopBtn';
+                        scrollTopBtn.className = 'scroll-top-btn';
+                        scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
+                        scrollTopBtn.innerHTML = `
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        `;
+                        document.body.appendChild(scrollTopBtn);
+                    }
+        
+                    // Scroll to top functionality
+                    function scrollToTop() {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+        
+                    scrollTopBtn.addEventListener('click', scrollToTop);
+        
+                    // Show/hide scroll button based on scroll position
+                    window.addEventListener('scroll', function () {
+                        if (window.scrollY > 300) {
+                            scrollTopBtn.classList.add('visible');
+                        } else {
+                            scrollTopBtn.classList.remove('visible');
+                        }
+                    });
+        
+                    // Review button functionality
+                    if (reviewBtn) {
+                        reviewBtn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                
+                            // Scroll to top first
+                            scrollToTop();
+                
+                            // Add review mode class to body
+                            document.body.classList.add('review-mode');
+                
+                            // Pulse animation on all fields
+                            const allFields = document.querySelectorAll('.progressive-field');
+                            allFields.forEach((field, index) => {
+                                setTimeout(() => {
+                                    field.classList.add('review-pulse');
+                                    setTimeout(() => {
+                                        field.classList.remove('review-pulse');
+                                    }, 600);
+                                }, index * 80);
+                            });
+                
+                            // Expand all completed fields for review
+                            allFields.forEach(field => {
+                                if (field.classList.contains('progressive-field--completed')) {
+                                    const body = field.querySelector('.progressive-field__body');
+                                    if (body) body.style.display = 'block';
+                                }
+                            });
+               
+                            // Show toast
+                            showToast('Review your listing details below', 'info');
+                
+                            // Remove review mode after 5 seconds
+                            setTimeout(() => {
+                                document.body.classList.remove('review-mode');
+                                // Collapse completed fields back
+                                allFields.forEach(field => {
+                                    if (field.classList.contains('progressive-field--completed')) {
+                                        const body = field.querySelector('.progressive-field__body');
+                                        if (body) body.style.display = 'none';
+                                    }
+                                });
+                            }, 8000);
+                        });
+                    }
+        
+                    // Click on any field header in review mode to expand/collapse
+                    document.addEventListener('click', function (e) {
+                        const header = e.target.closest('.progressive-field__header');
+                        if (header && document.body.classList.contains('review-mode')) {
+                            const field = header.closest('.progressive-field');
+                            const body = field.querySelector('.progressive-field__body');
+                            if (body) {
+                                if (body.style.display === 'none') {
+                                    body.style.display = 'block';
+                                } else {
+                                    body.style.display = 'none';
+                                }
+                            }
+                        }
+                    });
+            })();
     </script>
 </body>
 </html>

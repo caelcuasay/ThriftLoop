@@ -49,6 +49,17 @@ public class ItemCreateViewModel : IValidatableObject
     [DataType(DataType.Upload)]
     public List<IFormFile>? Images { get; set; }
 
+    // ── Fulfillment Options ───────────────────────────────────────────────────
+
+    [Display(Name = "Allow delivery via ThriftLoop rider")]
+    public bool AllowDelivery { get; set; } = true;
+
+    [Display(Name = "Allow meeting at a halfway point")]
+    public bool AllowHalfway { get; set; } = false;
+
+    [Display(Name = "Allow buyer to pick up directly")]
+    public bool AllowPickup { get; set; } = false;
+
     // ── Stealable Listing Fields ──────────────────────────────────────────────
 
     [Display(Name = "Make this a Stealable listing")]
@@ -75,6 +86,14 @@ public class ItemCreateViewModel : IValidatableObject
                     $"Steal window must be {string.Join(", ", ItemConstants.StealDurations)} hours.",
                     [nameof(StealDurationHours)]);
             }
+        }
+
+        // Ensure at least one fulfillment method is selected
+        if (!AllowDelivery && !AllowHalfway && !AllowPickup)
+        {
+            yield return new ValidationResult(
+                "Please select at least one fulfillment method (Delivery, Halfway, or Pickup).",
+                [nameof(AllowDelivery)]);
         }
     }
 

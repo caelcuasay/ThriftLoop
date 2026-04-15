@@ -86,6 +86,14 @@ public class Order
     /// <summary>Current lifecycle state of this order.</summary>
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
+    // ── Fulfillment ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How the item will be transferred from seller to buyer.
+    /// Selected by the buyer at checkout from the options the seller allows.
+    /// </summary>
+    public FulfillmentMethod FulfillmentMethod { get; set; } = FulfillmentMethod.Delivery;
+
     // ── Payment ───────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -103,6 +111,21 @@ public class Order
     /// rider's wallet.
     /// </summary>
     public bool CashCollectedByRider { get; set; } = false;
+
+    // ── Chat initialization ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Indicates whether a chat session has been initialized for this order.
+    /// Used for Halfway and Pickup fulfillments where buyer and seller need
+    /// to coordinate meeting details.
+    /// </summary>
+    public bool ChatInitialized { get; set; } = false;
+
+    /// <summary>
+    /// The ID of the chat session created for this order.
+    /// Null if no chat has been initialized yet.
+    /// </summary>
+    public string? ChatSessionId { get; set; }
 
     // ── Navigation properties ─────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import os
 import sys
 import argparse
 import subprocess
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -42,7 +43,7 @@ def should_exclude_file(file_path: Path, exclude_patterns: list) -> bool:
     rel_path = str(file_path).replace('\\', '/')
     
     # Always exclude .cshtml.cs files (designer files)
-    if file_path.suffix == '.cs' and file_path.stem.endswith('.cshtml'):
+    if file_path.name.endswith('.cshtml.cs'):
         return True
     
     # Always exclude wwwroot/lib contents
@@ -64,7 +65,7 @@ def should_exclude_file(file_path: Path, exclude_patterns: list) -> bool:
     return False
 
 def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
-    """Find all files related to given features."""
+    """Find all files related to given features by tracing dependencies."""
     cwd = Path.cwd()
     feature_files = set()
     exclude_patterns = exclude_patterns or []
@@ -77,39 +78,121 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
             if not should_exclude_file(file, exclude_patterns):
                 feature_files.add(file)
     
-    # Find files matching feature names
     for feature in feature_names:
-        # Look for Controllers, Views, Services, Repositories with this feature name
-        patterns = [
+        print(f"  🔍 Tracing feature: {feature}")
+        
+        # STEP 1: Find the controller(s) for this feature
+        controller_patterns = [
             f"*{feature}*Controller.cs",
-            f"*{feature}*.cshtml",
-            f"*{feature}*Service.cs",
-            f"*{feature}*Repository.cs",
-            f"*{feature}*.cs"
+            f"*{feature}s*Controller.cs",  # Plural variant
         ]
         
-        for pattern in patterns:
-            for file in cwd.rglob(pattern):
-                if any(ex in file.parts for ex in EXCLUDE_DIRS):
+        controllers_found = []
+        for pattern in controller_patterns:
+            for controller_file in cwd.rglob(pattern):
+                if any(ex in controller_file.parts for ex in EXCLUDE_DIRS):
                     continue
-                if should_exclude_file(file, exclude_patterns):
+                if should_exclude_file(controller_file, exclude_patterns):
                     continue
-                feature_files.add(file)
+                controllers_found.append(controller_file)
+                feature_files.add(controller_file)
+                print(f"     Found controller: {controller_file.relative_to(cwd)}")
+        
+        # STEP 2: For each controller found, find its corresponding Views folder
+        for controller in controllers_found:
+            controller_name = controller.stem.replace('Controller', '')
+            
+            # Try multiple view folder naming conventions
+            view_folders = [
+                cwd / 'Views' / controller_name,           # e.g., Views/Item
+                cwd / 'Views' / f"{controller_name}s",     # e.g., Views/Items
+            ]
+            
+            for view_folder in view_folders:
+                if view_folder.exists():
+                    print(f"     Found views folder: {view_folder.relative_to(cwd)}")
+                    for view in view_folder.rglob('*.cshtml'):
+                        if not should_exclude_file(view, exclude_patterns):
+                            feature_files.add(view)
+            
+            # Check Areas
+            areas_folder = cwd / 'Areas'
+            if areas_folder.exists():
+                for area in areas_folder.iterdir():
+                    if area.is_dir():
+                        area_views = area / 'Views' / controller_name
+                        if area_views.exists():
+                            for view in area_views.rglob('*.cshtml'):
+                                if not should_exclude_file(view, exclude_patterns):
+                                    feature_files.add(view)
+        
+        # STEP 3: Find services and repositories by parsing controller
+        for controller in controllers_found:
+            try:
+                content = controller.read_text(encoding='utf-8')
                 
-                # If it's a controller, also include its Views folder
-                if 'Controller.cs' in file.name:
-                    view_folder = cwd / 'Views' / file.stem.replace('Controller', '')
-                    if view_folder.exists():
-                        for view in view_folder.rglob('*.cshtml'):
-                            if not should_exclude_file(view, exclude_patterns):
-                                feature_files.add(view)
+                # Find injected interfaces in constructor
+                injection_pattern = r'(?:public|private|protected)\s+\w+Controller\s*\([^)]*\)'
+                constructor_match = re.search(injection_pattern, content)
+                
+                if constructor_match:
+                    constructor_text = constructor_match.group(0)
+                    interfaces = re.findall(r'I[A-Z][a-zA-Z0-9]+', constructor_text)
+                    
+                    for interface_name in interfaces:
+                        impl_name = interface_name[1:]  # Remove 'I'
+                        
+                        # Search for implementation files
+                        for file in cwd.rglob(f"*{impl_name}.cs"):
+                            if any(ex in file.parts for ex in EXCLUDE_DIRS):
+                                continue
+                            if should_exclude_file(file, exclude_patterns):
+                                continue
+                            feature_files.add(file)
+                            print(f"     Found dependency: {file.relative_to(cwd)}")
+                
+            except Exception as e:
+                pass  # Silently skip parsing errors
+        
+        # STEP 4: Find models
+        model_paths = [
+            cwd / 'Models' / f"{feature}.cs",
+            cwd / 'Models' / f"{feature}s.cs",
+            cwd / 'Models' / f"{feature}Model.cs",
+        ]
+        
+        for model_path in model_paths:
+            if model_path.exists():
+                if not should_exclude_file(model_path, exclude_patterns):
+                    feature_files.add(model_path)
+                    print(f"     Found model: {model_path.relative_to(cwd)}")
+        
+        # Search Models folder by pattern
+        for model_file in cwd.rglob(f"*{feature}*.cs"):
+            if 'Models' in model_file.parts:
+                if any(ex in model_file.parts for ex in EXCLUDE_DIRS):
+                    continue
+                if not should_exclude_file(model_file, exclude_patterns):
+                    feature_files.add(model_file)
+        
+        # STEP 5: Find DTOs/ViewModels
+        for dto_file in cwd.rglob(f"*{feature}*Dto*.cs"):
+            if any(ex in dto_file.parts for ex in EXCLUDE_DIRS):
+                continue
+            if not should_exclude_file(dto_file, exclude_patterns):
+                feature_files.add(dto_file)
+        
+        for vm_file in cwd.rglob(f"*{feature}*ViewModel*.cs"):
+            if any(ex in vm_file.parts for ex in EXCLUDE_DIRS):
+                continue
+            if not should_exclude_file(vm_file, exclude_patterns):
+                feature_files.add(vm_file)
     
     return feature_files
 
 def open_in_chrome(filepath: str):
     """Open the exported file in Chrome."""
     try:
-        # Try to find Chrome in common locations
         chrome_paths = [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -125,7 +208,6 @@ def open_in_chrome(filepath: str):
         if chrome_exe:
             subprocess.Popen([chrome_exe, os.path.abspath(filepath)])
         else:
-            # Fallback to default browser
             print("⚠️ Chrome not found, opening with default browser...")
             os.startfile(filepath)
             
@@ -141,10 +223,11 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
     exclude_patterns = exclude_patterns or []
     excluded_count = 0
     
-    # Collect files first to build content
+    # Collect files
     if feature_filter:
+        print()
         all_files = sorted(resolve_features(feature_filter, exclude_patterns))
-        print(f"🔍 Found {len(all_files)} files for feature(s): {', '.join(feature_filter)}")
+        print(f"\n🔍 Found {len(all_files)} files for feature(s): {', '.join(feature_filter)}")
     else:
         all_files = []
         for ext in INCLUDE_EXTS:
@@ -158,10 +241,10 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         all_files.sort()
         print(f"📁 Found {len(all_files)} files (full export)")
     
-    # Build content first to calculate token estimate
+    # Rest of the export function remains the same...
+    # (Content buffer building, tree generation, file writing)
     content_buffer = []
     
-    # Header
     content_buffer.append(f"Project: {cwd}\n")
     content_buffer.append(f"{cwd.name} Export\n")
     content_buffer.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -173,7 +256,6 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         content_buffer.append(f"User excluded: {', '.join(exclude_patterns)}\n")
     content_buffer.append("=" * 60 + "\n")
     
-    # Directory tree
     content_buffer.append("\n📂 DIRECTORY STRUCTURE\n")
     content_buffer.append("=" * 60 + "\n")
     
@@ -209,12 +291,10 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
     
     content_buffer.extend(build_tree(tree))
     
-    # File contents header
     content_buffer.append("\n" + "=" * 60 + "\n")
     content_buffer.append("📄 FILE CONTENTS\n")
     content_buffer.append("=" * 60 + "\n")
     
-    # Process files and collect content
     file_contents = []
     for file in all_files:
         try:
@@ -236,11 +316,9 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
             file_contents.append(error_msg)
             total_chars += len(error_msg)
     
-    # Calculate token estimate
     total_chars += sum(len(s) for s in content_buffer)
     token_estimate = estimate_tokens(''.join(content_buffer + file_contents))
     
-    # Insert token estimate at the top
     token_info = [
         f"{'=' * 60}\n",
         f"📊 ESTIMATED TOKEN CONSUMPTION\n",
@@ -251,7 +329,6 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         f"{'=' * 60}\n\n"
     ]
     
-    # Write everything to file
     with open(output_file, 'w', encoding='utf-8-sig') as out:
         out.write(''.join(token_info))
         out.write(''.join(content_buffer))
@@ -264,7 +341,6 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         print(f"🚫 User excluded patterns: {', '.join(exclude_patterns)}")
     print(f"🚫 Auto-excluded: .cshtml.cs files, wwwroot/lib/*")
     
-    # Open in Chrome (unless --no-open was specified)
     if not no_open:
         print("🌐 Opening in Chrome...")
         open_in_chrome(output_file)

@@ -198,12 +198,16 @@ public class ItemsController : Controller
             StealEndsAt = null,
             CurrentWinnerId = null,
             OriginalGetterUserId = null,
-            Status = ItemStatus.Available
+            Status = ItemStatus.Available,
+            // Fulfillment options from view model
+            AllowDelivery = viewModel.AllowDelivery,
+            AllowHalfway = viewModel.AllowHalfway,
+            AllowPickup = viewModel.AllowPickup
         };
 
         await _itemRepository.AddAsync(item);
-        _logger.LogInformation("User {UserId} created Item {ItemId} ({ListingType}).",
-            userId, item.Id, item.ListingType);
+        _logger.LogInformation("User {UserId} created Item {ItemId} ({ListingType}). Fulfillment: Delivery={AllowDelivery}, Halfway={AllowHalfway}, Pickup={AllowPickup}.",
+            userId, item.Id, item.ListingType, item.AllowDelivery, item.AllowHalfway, item.AllowPickup);
 
         TempData["SuccessMessage"] = $"'{item.Title}' was listed successfully!";
         return RedirectToAction(nameof(Index));
@@ -275,9 +279,14 @@ public class ItemsController : Controller
         item.Condition = viewModel.Condition;
         item.Size = string.IsNullOrWhiteSpace(viewModel.Size) ? null : viewModel.Size;
         item.ImageUrls = imageUrls;
+        // Update fulfillment options
+        item.AllowDelivery = viewModel.AllowDelivery;
+        item.AllowHalfway = viewModel.AllowHalfway;
+        item.AllowPickup = viewModel.AllowPickup;
 
         await _itemRepository.UpdateAsync(item);
-        _logger.LogInformation("User {UserId} updated Item {ItemId}.", item.UserId, item.Id);
+        _logger.LogInformation("User {UserId} updated Item {ItemId}. Fulfillment: Delivery={AllowDelivery}, Halfway={AllowHalfway}, Pickup={AllowPickup}.",
+            item.UserId, item.Id, item.AllowDelivery, item.AllowHalfway, item.AllowPickup);
 
         TempData["SuccessMessage"] = $"'{item.Title}' was updated successfully!";
         return RedirectToAction(nameof(Index));
@@ -930,6 +939,9 @@ public class ItemsController : Controller
         Category = item.Category,
         Condition = item.Condition,
         Size = item.Size,
-        ExistingImageUrls = item.ImageUrls.ToList()
+        ExistingImageUrls = item.ImageUrls.ToList(),
+        AllowDelivery = item.AllowDelivery,
+        AllowHalfway = item.AllowHalfway,
+        AllowPickup = item.AllowPickup
     };
 }
