@@ -134,9 +134,11 @@ body {
 .create-header__title {
     font-family: 'DM Serif Display', serif;
     font-size: 1.8rem;
+    font-weight: 400;
     color: var(--c-text);
     letter-spacing: -0.02em;
     line-height: 1.15;
+    margin: 0;
 }
 
 .create-header__sub {
@@ -533,6 +535,10 @@ body {
     font-size: 1.25rem;
     line-height: 1;
     flex-shrink: 0;
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .progressive-field__header > div {
@@ -905,9 +911,11 @@ body {
         }
 
 .delivery-card__icon {
-    font-size: 1.4rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin-top: 2px;
+    color: var(--c-primary);
 }
 
 .delivery-card__title {
@@ -1078,7 +1086,8 @@ body {
 
 .publish-card h3 {
     font-family: 'DM Serif Display', serif;
-    font-size: 1.25rem;
+    font-size: 1.4rem;
+    font-weight: 400;
     margin-bottom: 6px;
     color: var(--c-text);
 }
@@ -1382,4 +1391,345 @@ body {
 *:focus-visible {
     outline: 2px solid var(--c-primary);
     outline-offset: 2px;
+}
+
+/* ============================================================ */
+/* COLLAPSIBLE COMPLETED FIELDS STYLES                           */
+/* ============================================================ */
+
+/* Header layout for summary display */
+.progressive-field__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background var(--t-fast);
+}
+
+.progressive-field--completed .progressive-field__header {
+    cursor: pointer;
+}
+
+    .progressive-field--completed .progressive-field__header:hover {
+        background: var(--c-bg);
+    }
+
+.progressive-field__header-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.progressive-field__header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Summary text that appears when field is completed */
+.progressive-field__summary {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--c-text);
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hide hint when completed */
+.progressive-field--completed .progressive-field__hint {
+    display: none;
+}
+
+/* Completed field title gets slightly muted */
+.progressive-field--completed .progressive-field__title {
+    color: var(--c-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Status checkmark styling */
+.progressive-field--completed .progressive-field__status {
+    color: var(--c-success);
+    font-size: 1.1rem;
+    font-weight: 600;
+    opacity: 1;
+}
+
+/* Icon gets muted when completed */
+.progressive-field--completed .progressive-field__icon {
+    opacity: 0.6;
+    color: var(--c-muted);
+}
+
+/* Make locked fields not clickable for expansion (only show hint) */
+.progressive-field--locked .progressive-field__header {
+    cursor: pointer;
+}
+
+/* Active field has full opacity */
+.progressive-field--active .progressive-field__icon {
+    opacity: 1;
+    color: var(--c-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .progressive-field__summary {
+        max-width: 120px;
+        font-size: 0.75rem;
+    }
+
+    .progressive-field__header {
+        padding: 12px 12px;
+    }
+
+    .progressive-field__header-right {
+        gap: 6px;
+    }
+}
+
+/* Smooth transition for collapsing/expanding */
+.progressive-field__body {
+    transition: all var(--t-base);
+    overflow: hidden;
+}
+
+/* Completed field compact styling */
+.progressive-field--completed {
+    background: var(--c-surface);
+    border-left: 3px solid var(--c-success);
+}
+
+    /* Click hint on hover for completed fields */
+    .progressive-field--completed .progressive-field__header:hover .progressive-field__status {
+        content: '✎';
+    }
+
+    .progressive-field--completed .progressive-field__header:hover .progressive-field__status {
+        animation: wiggle 0.3s ease;
+    }
+
+@keyframes wiggle {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(-5deg);
+    }
+
+    75% {
+        transform: rotate(5deg);
+    }
+}
+
+/* ============================================================ */
+/* UNIFIED LISTING SUMMARY CARD                                  */
+/* ============================================================ */
+
+.listing-summary {
+    margin-top: 8px;
+    animation: slideUp 0.3s ease;
+}
+
+.summary-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-success-border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+
+.summary-card__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 18px;
+    background: var(--c-success-bg);
+    border-bottom: 1px solid var(--c-success-border);
+}
+
+.summary-card__check {
+    width: 28px;
+    height: 28px;
+    background: var(--c-success);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.summary-card__title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--c-text);
+    margin: 0;
+    flex: 1;
+}
+
+.summary-card__hint {
+    font-size: 0.65rem;
+    color: var(--c-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Summary Rows */
+.summary-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--c-border-light);
+    cursor: pointer;
+    transition: background var(--t-fast);
+}
+
+    .summary-row:hover {
+        background: var(--c-bg);
+    }
+
+.summary-row--main {
+    justify-content: space-between;
+    padding: 16px 18px;
+}
+
+.summary-row--meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    padding: 14px 18px;
+}
+
+.summary-row--description {
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: none;
+}
+
+.summary-row__left,
+.summary-row__right {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    border-radius: var(--r-sm);
+    transition: background var(--t-fast);
+}
+
+    .summary-item:hover {
+        background: var(--c-border-light);
+    }
+
+.summary-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--c-muted);
+}
+
+    .summary-label svg {
+        opacity: 0.6;
+    }
+
+.summary-value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--c-text);
+}
+
+.summary-value--title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.summary-value--price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--c-primary);
+}
+
+.summary-value--desc {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--c-text-secondary);
+    font-weight: 400;
+}
+
+/* Summary Card Actions */
+.summary-card__actions {
+    padding: 18px;
+    background: var(--c-bg);
+    border-top: 1px solid var(--c-border);
+}
+
+    .summary-card__actions .btn--publish {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 24px;
+        font-size: 0.9rem;
+    }
+
+/* Edit hint on hover */
+.summary-row:hover::after {
+    content: '✎';
+    position: absolute;
+    right: 18px;
+    font-size: 0.9rem;
+    color: var(--c-primary);
+    opacity: 0;
+    transition: opacity var(--t-fast);
+}
+
+.summary-row:hover::after {
+    opacity: 1;
+}
+
+.summary-row {
+    position: relative;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .summary-row--meta {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .summary-row--main {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .summary-card__header {
+        padding: 12px 14px;
+    }
+
+    .summary-row {
+        padding: 10px 14px;
+    }
+
+    .summary-value--title {
+        font-size: 0.9rem;
+    }
+
+    .summary-value--price {
+        font-size: 1rem;
+    }
 }

@@ -1,16 +1,16 @@
 ﻿============================================================
 📊 ESTIMATED TOKEN CONSUMPTION
 ============================================================
-Characters: 469,335
-Estimated Tokens: ~117,333 (1 token ≈ 4 chars)
-Files: 47
+Characters: 460,263
+Estimated Tokens: ~115,065 (1 token ≈ 4 chars)
+Files: 40
 ============================================================
 
 Project: C:\Users\LENOVO\source\repos\ThriftLoop\ThriftLoop
 ThriftLoop Export
-Generated: 2026-04-15 15:43:59
-Features: Item, Orders, Cart
-Files: 47
+Generated: 2026-04-16 11:00:04
+Features: Item, Order
+Files: 40
 Auto-excluded: .cshtml.cs files, wwwroot/lib/*
 ============================================================
 
@@ -18,7 +18,6 @@ Auto-excluded: .cshtml.cs files, wwwroot/lib/*
 ============================================================
 ├── Controllers/
 │   ├── BaseController.cs
-│   ├── CartController.cs
 │   ├── ItemController.cs
 │   └── OrdersController.cs
 ├── Data/
@@ -29,18 +28,15 @@ Auto-excluded: .cshtml.cs files, wwwroot/lib/*
 │   ├── ItemLike.cs
 │   ├── ItemVariant.cs
 │   ├── ItemVariantSku.cs
+│   ├── Order.cs
 │   └── OrderItem.cs
 ├── Repositories/
 │   ├── Implementation/
-│   │   ├── CartRepository.cs
 │   │   ├── DeliveryRepository.cs
-│   │   ├── ItemLikeRepository.cs
 │   │   ├── ItemRepository.cs
 │   │   └── OrderRepository.cs
 │   └── Interface/
-│       ├── ICartRepository.cs
 │       ├── IDeliveryRepository.cs
-│       ├── IItemLikeRepository.cs
 │       ├── IItemRepository.cs
 │       └── IOrderRepository.cs
 ├── Services/
@@ -51,8 +47,6 @@ Auto-excluded: .cshtml.cs files, wwwroot/lib/*
 │       ├── IOrderService.cs
 │       └── IWalletService.cs
 ├── ViewModels/
-│   ├── CartCheckoutViewModel.cs
-│   ├── CartViewModel.cs
 │   ├── ItemCreateViewModel.cs
 │   ├── ItemDetailsViewModel.cs
 │   ├── ItemDiscountViewModel.cs
@@ -60,8 +54,6 @@ Auto-excluded: .cshtml.cs files, wwwroot/lib/*
 │   ├── ItemLikeViewModel.cs
 │   └── ShopItemViewModels.cs
 └── Views/
-    ├── Cart/
-    │   └── Index.cshtml
     ├── Items/
     │   ├── Create.cshtml
     │   ├── Delete.cshtml
@@ -121,270 +113,6 @@ public abstract class BaseController : Controller
     /// </summary>
     protected bool IsRider()
         => User.FindFirstValue("IsRider") == "true";
-}
-
---- Controllers\CartController.cs ---
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Constants;
-using ThriftLoop.Data;
-using ThriftLoop.Enums;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-using ThriftLoop.ViewModels;
-
-namespace ThriftLoop.Controllers;
-
-[Authorize]
-public class CartController : BaseController
-{
-    private readonly ICartRepository _cartRepository;
-    private readonly IItemRepository _itemRepository;
-    private readonly IItemLikeRepository _likeRepository;
-    private readonly ApplicationDbContext _context;
-    private readonly ILogger<CartController> _logger;
-
-    public CartController(
-        ICartRepository cartRepository,
-        IItemRepository itemRepository,
-        IItemLikeRepository likeRepository,
-        ApplicationDbContext context,
-        ILogger<CartController> logger)
-    {
-        _cartRepository = cartRepository;
-        _itemRepository = itemRepository;
-        _likeRepository = likeRepository;
-        _context = context;
-        _logger = logger;
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  CART INDEX
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpGet]
-    public async Task<IActionResult> Index()
-    {
-        var userId = ResolveUserId();
-        if (userId is null) return Unauthorized();
-
-        var cartItems = await _cartRepository.GetByUserIdAsync(userId.Value);
-        var viewModel = BuildCartViewModel(cartItems);
-
-        return View(viewModel);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  ADD TO CART (AJAX)
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Add([FromBody] AddToCartDto dto)
-    {
-        var userId = ResolveUserId();
-        if (userId is null)
-            return Json(new { success = false, error = "Not authenticated." });
-
-        // Validate: Only shop items can be added to cart
-        var item = await _itemRepository.GetByIdAsync(dto.ItemId);
-        if (item is null)
-            return Json(new { success = false, error = "Item not found." });
-
-        if (item.ShopId is null)
-            return Json(new { success = false, error = "P2P items cannot be added to cart." });
-
-        if (item.Status == ItemStatus.Disabled)
-            return Json(new { success = false, error = "This listing is currently unavailable." });
-
-        if (item.UserId == userId.Value)
-            return Json(new { success = false, error = "You cannot add your own items to cart." });
-
-        // Validate SKU exists and is available
-        var sku = await _context.ItemVariantSkus.FindAsync(dto.SkuId);
-        if (sku is null)
-            return Json(new { success = false, error = "Invalid variant/size selection." });
-
-        if (sku.Status != SkuStatus.Available || sku.Quantity < dto.Quantity)
-            return Json(new { success = false, error = "Item is out of stock." });
-
-        // Add to cart
-        var cartItem = await _cartRepository.AddAsync(userId.Value, dto.ItemId, dto.SkuId, dto.Quantity);
-        var cartCount = await _cartRepository.GetCountByUserIdAsync(userId.Value);
-
-        _logger.LogInformation(
-            "User {UserId} added Item {ItemId} SKU {SkuId} ×{Qty} to cart. Cart total: {CartCount}",
-            userId.Value, dto.ItemId, dto.SkuId, dto.Quantity, cartCount);
-
-        return Json(new { success = true, cartCount, cartItemId = cartItem.Id });
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  UPDATE QUANTITY (AJAX)
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateQuantity([FromBody] UpdateCartQuantityDto dto)
-    {
-        var userId = ResolveUserId();
-        if (userId is null)
-            return Json(new CartOperationResponse { Success = false, Error = "Not authenticated." });
-
-        // Verify ownership
-        var cartItem = await _cartRepository.GetByIdAsync(dto.CartItemId);
-        if (cartItem is null || cartItem.UserId != userId.Value)
-            return Json(new CartOperationResponse { Success = false, Error = "Cart item not found." });
-
-        // Validate stock availability
-        var sku = await _context.ItemVariantSkus
-            .Include(s => s.Variant)
-                .ThenInclude(v => v.Item)
-            .FirstOrDefaultAsync(s => s.Id == cartItem.ItemVariantSkuId);
-
-        if (sku is null)
-            return Json(new CartOperationResponse { Success = false, Error = "Item variant not found." });
-
-        // Check if item is disabled
-        if (sku.Variant?.Item?.Status == ItemStatus.Disabled)
-            return Json(new CartOperationResponse { Success = false, Error = "This listing is no longer available." });
-
-        var quantity = Math.Max(1, Math.Min(dto.Quantity, sku.Quantity));
-
-        await _cartRepository.UpdateQuantityAsync(dto.CartItemId, quantity);
-
-        // Reload cart items to get accurate totals
-        var cartItems = await _cartRepository.GetByUserIdAsync(userId.Value);
-        var viewModel = BuildCartViewModel(cartItems);
-
-        // Calculate the line total for this specific item
-        var updatedItem = viewModel.Items.FirstOrDefault(i => i.CartItemId == dto.CartItemId);
-        var lineTotal = updatedItem?.LineTotal ?? (sku.Price * quantity);
-
-        return Json(new CartOperationResponse
-        {
-            Success = true,
-            Quantity = quantity,
-            LineTotal = lineTotal.ToString("N2"),
-            Subtotal = viewModel.Subtotal.ToString("N2"),
-            TotalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
-            GrandTotal = viewModel.GrandTotal.ToString("N2"),
-            CartCount = viewModel.TotalItems,
-            IsEmpty = viewModel.IsEmpty,
-            UniqueShopCount = viewModel.UniqueShopCount
-        });
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  REMOVE FROM CART (AJAX)
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Remove(int cartItemId)
-    {
-        var userId = ResolveUserId();
-        if (userId is null)
-            return Json(new CartOperationResponse { Success = false, Error = "Not authenticated." });
-
-        // Verify ownership
-        var cartItem = await _cartRepository.GetByIdAsync(cartItemId);
-        if (cartItem is null || cartItem.UserId != userId.Value)
-            return Json(new CartOperationResponse { Success = false, Error = "Cart item not found." });
-
-        await _cartRepository.RemoveAsync(cartItemId);
-
-        var cartItems = await _cartRepository.GetByUserIdAsync(userId.Value);
-        var viewModel = BuildCartViewModel(cartItems);
-
-        return Json(new CartOperationResponse
-        {
-            Success = true,
-            Subtotal = viewModel.Subtotal.ToString("N2"),
-            TotalDeliveryFee = viewModel.TotalDeliveryFee.ToString("N2"),
-            GrandTotal = viewModel.GrandTotal.ToString("N2"),
-            CartCount = viewModel.TotalItems,
-            IsEmpty = viewModel.IsEmpty,
-            UniqueShopCount = viewModel.UniqueShopCount
-        });
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  GET CART COUNT (AJAX - for navbar updates)
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpGet]
-    public async Task<IActionResult> GetCartCount()
-    {
-        var userId = ResolveUserId();
-        if (userId is null)
-            return Json(new { count = 0 });
-
-        var count = await _cartRepository.GetCountByUserIdAsync(userId.Value);
-        return Json(new { count });
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  CLEAR CART
-    // ══════════════════════════════════════════════════════════════════════
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Clear()
-    {
-        var userId = ResolveUserId();
-        if (userId is null)
-            return Unauthorized();
-
-        await _cartRepository.ClearByUserIdAsync(userId.Value);
-
-        _logger.LogInformation("User {UserId} cleared their cart.", userId.Value);
-
-        TempData["InfoMessage"] = "Your cart has been cleared.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  PRIVATE HELPERS
-    // ══════════════════════════════════════════════════════════════════════
-
-    private static CartIndexViewModel BuildCartViewModel(IReadOnlyList<CartItem> cartItems)
-    {
-        var items = cartItems.Select(ci =>
-        {
-            var item = ci.Item;
-            var sku = ci.ItemVariantSku;
-            var isItemDisabled = item?.Status == ItemStatus.Disabled;
-
-            return new CartItemViewModel
-            {
-                CartItemId = ci.Id,
-                ItemId = ci.ItemId,
-                ItemVariantSkuId = ci.ItemVariantSkuId,
-                ItemTitle = item?.Title ?? "Unknown Item",
-                ItemImageUrl = item?.ImageUrl,
-                Category = item?.Category ?? "",
-                Condition = item?.Condition ?? "",
-                ShopId = item?.ShopId,
-                ShopName = item?.Shop?.ShopName,
-                SellerId = item?.UserId ?? 0,
-                VariantName = sku?.Variant?.Name ?? "",
-                Size = sku?.Size,
-                Price = sku?.Price ?? 0,
-                AvailableStock = sku?.Quantity ?? 0,
-                Quantity = ci.Quantity,
-                AddedAt = ci.AddedAt,
-                IsItemDisabled = isItemDisabled
-            };
-        }).ToList();
-
-        return new CartIndexViewModel
-        {
-            Items = items,
-            DeliveryFeePerShop = ItemConstants.DeliveryFee
-        };
-    }
 }
 
 --- Controllers\ItemController.cs ---
@@ -3312,6 +3040,148 @@ public class ItemVariantSku
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }
 
+--- Models\Order.cs ---
+﻿using ThriftLoop.Enums;
+using ThriftLoop.Constants;
+
+namespace ThriftLoop.Models;
+
+// ── Domain model ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Represents a confirmed purchase intent between a buyer and a seller.
+/// Created when a buyer clicks "Confirm Purchase" on the Checkout page.
+///
+/// ItemId is kept as a direct FK for convenience (quick joins to item title,
+/// images, and steal logic) even though the same item is reachable via
+/// ItemVariantSku → ItemVariant → Item. Having both avoids multi-hop joins
+/// on the most common read paths (order history, admin views).
+///
+/// ItemVariantSkuId is the authoritative reference for what was purchased —
+/// it captures the exact size, variant, and price the buyer chose at checkout.
+/// For P2P items this points to the auto-generated default SKU.
+///
+/// FinalPrice captures the exact total at the moment of confirmation, including
+/// the delivery fee. This preserves the ₱50 steal premium and ₱50 delivery fee
+/// permanently even if the Item row is later modified.
+/// </summary>
+public class Order
+{
+    public int Id { get; set; }
+
+    // ── Foreign keys ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// FK → Items.Id — the parent listing.
+    /// Retained for direct access to item-level data (title, steal status, etc.)
+    /// without traversing the Variant → SKU chain.
+    /// </summary>
+    public int ItemId { get; set; }
+
+    /// <summary>
+    /// FK → ItemVariantSkus.Id — the specific size/variant the buyer purchased.
+    /// Nullable for backward compatibility with orders created before the variant
+    /// system existed. All new orders must populate this field at checkout time.
+    /// For P2P items this points to the auto-generated default SKU.
+    /// For shop items this is the seller-defined SKU (e.g. Red / Size M).
+    /// </summary>
+    public int? ItemVariantSkuId { get; set; }
+
+    /// <summary>FK → Users.Id — the user who is buying.</summary>
+    public int BuyerId { get; set; }
+
+    /// <summary>FK → Users.Id — the user who listed the item (the seller).</summary>
+    public int SellerId { get; set; }
+
+    // ── Order data ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The total price the buyer agreed to pay, locked at confirmation time.
+    /// This includes the item price (+ steal premium if applicable) AND the
+    /// flat delivery fee (<see cref="DeliveryFee"/>).
+    ///   Wallet orders: full amount is held in escrow; released to seller and
+    ///                  rider separately on delivery confirmation.
+    ///   COD orders:    buyer pays in cash; seller receives item price,
+    ///                  rider receives the delivery fee.
+    /// </summary>
+    public decimal FinalPrice { get; set; }
+
+    /// <summary>
+    /// Flat delivery fee locked at confirmation time. Always ₱50 (sourced from
+    /// <see cref="ItemConstants.DeliveryFee"/>).
+    /// For Wallet orders this portion is released from escrow directly to the
+    /// rider's wallet after delivery confirmation.
+    /// For COD orders the buyer pays the rider in cash; this field records the
+    /// expected amount so the rider's wallet credit can be calculated correctly.
+    /// </summary>
+    public decimal DeliveryFee { get; set; } = ItemConstants.DeliveryFee;
+
+    /// <summary>
+    /// How many units the buyer is purchasing.
+    /// Always 1 for P2P items.
+    /// For shop SKUs this can be > 1 up to the available Quantity at checkout time.
+    /// </summary>
+    public int Quantity { get; set; } = 1;
+
+    /// <summary>UTC timestamp of when the buyer confirmed the purchase.</summary>
+    public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Current lifecycle state of this order.</summary>
+    public OrderStatus Status { get; set; } = OrderStatus.Pending;
+
+    // ── Fulfillment ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How the item will be transferred from seller to buyer.
+    /// Selected by the buyer at checkout from the options the seller allows.
+    /// </summary>
+    public FulfillmentMethod FulfillmentMethod { get; set; } = FulfillmentMethod.Delivery;
+
+    // ── Payment ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How the buyer is paying. Defaults to Wallet.
+    /// For Wallet orders, funds are held in escrow until MarkDelivered is called.
+    /// For Cash orders, no escrow is created — CashCollectedByRider tracks
+    /// whether the physical payment has been collected.
+    /// </summary>
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Wallet;
+
+    /// <summary>
+    /// For Cash orders only. Set to true when the rider (or buyer) confirms
+    /// that cash has been collected, triggering a CashCollection transaction
+    /// to credit the seller's wallet and a DeliveryFeePayment to credit the
+    /// rider's wallet.
+    /// </summary>
+    public bool CashCollectedByRider { get; set; } = false;
+
+    // ── Chat initialization ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Indicates whether a chat session has been initialized for this order.
+    /// Used for Halfway and Pickup fulfillments where buyer and seller need
+    /// to coordinate meeting details.
+    /// </summary>
+    public bool ChatInitialized { get; set; } = false;
+
+    /// <summary>
+    /// The ID of the chat session created for this order.
+    /// Null if no chat has been initialized yet.
+    /// </summary>
+    public string? ChatSessionId { get; set; }
+
+    // ── Navigation properties ─────────────────────────────────────────────────
+
+    public Item? Item { get; set; }
+    public ItemVariantSku? ItemVariantSku { get; set; }
+    public User? Buyer { get; set; }
+    public User? Seller { get; set; }
+
+    /// <summary>The delivery associated with this order (one-to-one).</summary>
+    public Delivery? Delivery { get; set; }
+    public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+}
+
 --- Models\OrderItem.cs ---
 ﻿namespace ThriftLoop.Models;
 
@@ -3480,110 +3350,6 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
-
---- Repositories\Implementation\CartRepository.cs ---
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-
-namespace ThriftLoop.Repositories.Implementation;
-
-public class CartRepository : ICartRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public CartRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<CartItem> AddAsync(int userId, int itemId, int itemVariantSkuId, int quantity)
-    {
-        quantity = Math.Max(1, quantity);
-
-        // Check if this SKU is already in the cart
-        var existing = await _context.CartItems
-            .FirstOrDefaultAsync(ci => ci.UserId == userId && ci.ItemVariantSkuId == itemVariantSkuId);
-
-        if (existing != null)
-        {
-            // Update quantity
-            existing.Quantity += quantity;
-            await _context.SaveChangesAsync();
-            return existing;
-        }
-
-        // Create new cart item
-        var cartItem = new CartItem
-        {
-            UserId = userId,
-            ItemId = itemId,
-            ItemVariantSkuId = itemVariantSkuId,
-            Quantity = quantity,
-            AddedAt = DateTime.UtcNow
-        };
-
-        await _context.CartItems.AddAsync(cartItem);
-        await _context.SaveChangesAsync();
-        return cartItem;
-    }
-
-    public async Task<CartItem?> GetByIdAsync(int cartItemId)
-        => await _context.CartItems
-            .AsNoTracking()
-            .FirstOrDefaultAsync(ci => ci.Id == cartItemId);
-
-    public async Task<IReadOnlyList<CartItem>> GetByUserIdAsync(int userId)
-        => await _context.CartItems
-            .AsNoTracking()
-            .Where(ci => ci.UserId == userId)
-            .Include(ci => ci.Item)
-                .ThenInclude(i => i!.Shop)
-            .Include(ci => ci.ItemVariantSku)
-                .ThenInclude(s => s!.Variant)
-            .OrderByDescending(ci => ci.AddedAt)
-            .ToListAsync();
-
-    public async Task<int> GetCountByUserIdAsync(int userId)
-        => await _context.CartItems
-            .Where(ci => ci.UserId == userId)
-            .SumAsync(ci => ci.Quantity);
-
-    public async Task UpdateQuantityAsync(int cartItemId, int quantity)
-    {
-        quantity = Math.Max(1, quantity);
-
-        var cartItem = await _context.CartItems.FindAsync(cartItemId);
-        if (cartItem is null) return;
-
-        cartItem.Quantity = quantity;
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task RemoveAsync(int cartItemId)
-    {
-        var cartItem = await _context.CartItems.FindAsync(cartItemId);
-        if (cartItem is null) return;
-
-        _context.CartItems.Remove(cartItem);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task ClearByUserIdAsync(int userId)
-    {
-        var items = await _context.CartItems
-            .Where(ci => ci.UserId == userId)
-            .ToListAsync();
-
-        _context.CartItems.RemoveRange(items);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task<bool> HasItemAsync(int userId, int itemVariantSkuId)
-        => await _context.CartItems
-            .AnyAsync(ci => ci.UserId == userId && ci.ItemVariantSkuId == itemVariantSkuId);
-}
 
 --- Repositories\Implementation\DeliveryRepository.cs ---
 ﻿// Repositories/Implementation/DeliveryRepository.cs
@@ -3850,137 +3616,6 @@ public class DeliveryRepository : IDeliveryRepository
     }
 }
 
---- Repositories\Implementation\ItemLikeRepository.cs ---
-using Microsoft.EntityFrameworkCore;
-using ThriftLoop.Data;
-using ThriftLoop.Models;
-using ThriftLoop.Repositories.Interface;
-
-namespace ThriftLoop.Repositories.Implementation;
-
-public class ItemLikeRepository : IItemLikeRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public ItemLikeRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<ItemLike?> AddAsync(int userId, int itemId)
-    {
-        // Check if already liked
-        var existing = await _context.ItemLikes
-            .FirstOrDefaultAsync(il => il.UserId == userId && il.ItemId == itemId);
-
-        if (existing != null) return null; // Already liked
-
-        var like = new ItemLike
-        {
-            UserId = userId,
-            ItemId = itemId,
-            LikedAt = DateTime.UtcNow
-        };
-
-        await _context.ItemLikes.AddAsync(like);
-        await _context.SaveChangesAsync();
-        return like;
-    }
-
-    public async Task RemoveAsync(int userId, int itemId)
-    {
-        var like = await _context.ItemLikes
-            .FirstOrDefaultAsync(il => il.UserId == userId && il.ItemId == itemId);
-
-        if (like is null) return;
-
-        _context.ItemLikes.Remove(like);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task<IReadOnlyList<ItemLike>> GetByUserIdAsync(int userId)
-        => await _context.ItemLikes
-            .AsNoTracking()
-            .Where(il => il.UserId == userId)
-            .Include(il => il.Item)
-                .ThenInclude(i => i!.User)
-            .Include(il => il.Item)
-                .ThenInclude(i => i!.Shop)
-            .OrderByDescending(il => il.LikedAt)
-            .ToListAsync();
-
-    public async Task<int> GetCountByItemIdAsync(int itemId)
-        => await _context.ItemLikes
-            .CountAsync(il => il.ItemId == itemId);
-
-    public async Task<bool> HasLikedAsync(int userId, int itemId)
-        => await _context.ItemLikes
-            .AnyAsync(il => il.UserId == userId && il.ItemId == itemId);
-
-    public async Task<IReadOnlyList<(Item Item, int LikeCount)>> GetMostLikedAsync(int count = 10, bool? p2pOnly = null)
-    {
-        var query = _context.ItemLikes
-            .AsNoTracking()
-            .Include(il => il.Item)
-            .Where(il => il.Item != null);
-
-        // Filter by P2P or Shop items if specified
-        if (p2pOnly.HasValue)
-        {
-            if (p2pOnly.Value)
-            {
-                query = query.Where(il => il.Item!.ShopId == null);
-            }
-            else
-            {
-                query = query.Where(il => il.Item!.ShopId != null);
-            }
-        }
-
-        var grouped = await query
-            .GroupBy(il => il.ItemId)
-            .Select(g => new
-            {
-                ItemId = g.Key,
-                LikeCount = g.Count()
-            })
-            .OrderByDescending(x => x.LikeCount)
-            .Take(count)
-            .ToListAsync();
-
-        // Load the actual items
-        var itemIds = grouped.Select(x => x.ItemId).ToList();
-        var items = await _context.Items
-            .AsNoTracking()
-            .Where(i => itemIds.Contains(i.Id))
-            .Include(i => i.User)
-            .Include(i => i.Shop)
-            .ToListAsync();
-
-        var itemDict = items.ToDictionary(i => i.Id);
-
-        return grouped
-            .Where(x => itemDict.ContainsKey(x.ItemId))
-            .Select(x => (itemDict[x.ItemId], x.LikeCount))
-            .ToList();
-    }
-
-    public async Task<Dictionary<int, int>> GetLikeCountsAsync(IEnumerable<int> itemIds)
-    {
-        var ids = itemIds.ToList();
-        if (!ids.Any()) return new Dictionary<int, int>();
-
-        var counts = await _context.ItemLikes
-            .AsNoTracking()
-            .Where(il => ids.Contains(il.ItemId))
-            .GroupBy(il => il.ItemId)
-            .Select(g => new { ItemId = g.Key, Count = g.Count() })
-            .ToListAsync();
-
-        return counts.ToDictionary(x => x.ItemId, x => x.Count);
-    }
-}
-
 --- Repositories\Implementation\ItemRepository.cs ---
 ﻿using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
@@ -4153,54 +3788,6 @@ public class OrderRepository : IOrderRepository
     }
 }
 
---- Repositories\Interface\ICartRepository.cs ---
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Repositories.Interface;
-
-public interface ICartRepository
-{
-    /// <summary>
-    /// Adds an item to the user's cart. If the SKU already exists, updates the quantity.
-    /// </summary>
-    Task<CartItem> AddAsync(int userId, int itemId, int itemVariantSkuId, int quantity);
-
-    /// <summary>
-    /// Gets a single cart item by its ID.
-    /// </summary>
-    Task<CartItem?> GetByIdAsync(int cartItemId);
-
-    /// <summary>
-    /// Gets all cart items for a user, with Item, Variant, and SKU eagerly loaded.
-    /// </summary>
-    Task<IReadOnlyList<CartItem>> GetByUserIdAsync(int userId);
-
-    /// <summary>
-    /// Gets the count of items in the user's cart.
-    /// </summary>
-    Task<int> GetCountByUserIdAsync(int userId);
-
-    /// <summary>
-    /// Updates the quantity of a cart item.
-    /// </summary>
-    Task UpdateQuantityAsync(int cartItemId, int quantity);
-
-    /// <summary>
-    /// Removes a specific item from the cart.
-    /// </summary>
-    Task RemoveAsync(int cartItemId);
-
-    /// <summary>
-    /// Clears all items from the user's cart.
-    /// </summary>
-    Task ClearByUserIdAsync(int userId);
-
-    /// <summary>
-    /// Checks if a specific SKU is already in the user's cart.
-    /// </summary>
-    Task<bool> HasItemAsync(int userId, int itemVariantSkuId);
-}
-
 --- Repositories\Interface\IDeliveryRepository.cs ---
 ﻿using ThriftLoop.Models;
 using ThriftLoop.Enums;
@@ -4241,49 +3828,6 @@ public interface IDeliveryRepository
 
     /// <summary>Marks a delivery as completed by buyer (status → Completed).</summary>
     Task<bool> ConfirmByBuyerAsync(int deliveryId, int buyerId);
-}
-
---- Repositories\Interface\IItemLikeRepository.cs ---
-using ThriftLoop.Models;
-
-namespace ThriftLoop.Repositories.Interface;
-
-public interface IItemLikeRepository
-{
-    /// <summary>
-    /// Adds a like for an item by a user. Returns the created like or null if already exists.
-    /// </summary>
-    Task<ItemLike?> AddAsync(int userId, int itemId);
-
-    /// <summary>
-    /// Removes a like for an item by a user.
-    /// </summary>
-    Task RemoveAsync(int userId, int itemId);
-
-    /// <summary>
-    /// Gets all liked items for a user, with Item eagerly loaded.
-    /// </summary>
-    Task<IReadOnlyList<ItemLike>> GetByUserIdAsync(int userId);
-
-    /// <summary>
-    /// Gets the count of likes for a specific item.
-    /// </summary>
-    Task<int> GetCountByItemIdAsync(int itemId);
-
-    /// <summary>
-    /// Checks if a user has liked a specific item.
-    /// </summary>
-    Task<bool> HasLikedAsync(int userId, int itemId);
-
-    /// <summary>
-    /// Gets the most liked items, optionally filtered by P2P or Shop items.
-    /// </summary>
-    Task<IReadOnlyList<(Item Item, int LikeCount)>> GetMostLikedAsync(int count = 10, bool? p2pOnly = null);
-
-    /// <summary>
-    /// Gets all like counts for a list of item IDs.
-    /// </summary>
-    Task<Dictionary<int, int>> GetLikeCountsAsync(IEnumerable<int> itemIds);
 }
 
 --- Repositories\Interface\IItemRepository.cs ---
@@ -4887,186 +4431,6 @@ public interface IWalletService
     /// </summary>
     Task<bool> RequestWithdrawalAsync(
         int userId, decimal amount, WithdrawalMethod method, string? reference);
-}
-
---- ViewModels\CartCheckoutViewModel.cs ---
-namespace ThriftLoop.ViewModels;
-
-/// <summary>
-/// ViewModel for a single cart item during checkout.
-/// </summary>
-public class CartCheckoutItemViewModel
-{
-    public int CartItemId { get; set; }
-    public int ItemId { get; set; }
-    public string ItemTitle { get; set; } = string.Empty;
-    public string? ItemImageUrl { get; set; }
-    public int? ShopId { get; set; }
-    public string? ShopName { get; set; }
-    public string VariantName { get; set; } = string.Empty;
-    public string? Size { get; set; }
-    public decimal Price { get; set; }
-    public int Quantity { get; set; }
-    public decimal LineTotal { get; set; }
-    public int AvailableStock { get; set; }
-}
-
-/// <summary>
-/// ViewModel for cart-based multi-item checkout.
-/// </summary>
-public class CartCheckoutViewModel
-{
-    public List<CartCheckoutItemViewModel> Items { get; set; } = new();
-    public decimal BuyerBalance { get; set; }
-
-    // Computed totals
-    public decimal Subtotal { get; set; }
-    public decimal DeliveryFeePerShop { get; set; } = 50m;
-    public int ShopCount { get; set; }
-    public decimal TotalDeliveryFee { get; set; }
-    public decimal GrandTotal { get; set; }
-
-    // Validation
-    public bool HasSufficientBalance => BuyerBalance >= GrandTotal;
-}
-
---- ViewModels\CartViewModel.cs ---
-using ThriftLoop.Models;
-using ThriftLoop.Enums;
-
-namespace ThriftLoop.ViewModels;
-
-/// <summary>
-/// ViewModel for displaying a single cart item in the cart page.
-/// </summary>
-public class CartItemViewModel
-{
-    public int CartItemId { get; set; }
-    public int ItemId { get; set; }
-    public int ItemVariantSkuId { get; set; }
-
-    // Item details
-    public string ItemTitle { get; set; } = string.Empty;
-    public string? ItemImageUrl { get; set; }
-    public string Category { get; set; } = string.Empty;
-    public string Condition { get; set; } = string.Empty;
-
-    // Shop info (null for P2P items, but cart only allows Shop items)
-    public int? ShopId { get; set; }
-    public string? ShopName { get; set; }
-
-    // Seller info (for delivery fee grouping)
-    public int SellerId { get; set; }
-
-    // Variant and SKU details
-    public string VariantName { get; set; } = string.Empty;
-    public string? Size { get; set; }
-    public decimal Price { get; set; }
-    public int AvailableStock { get; set; }
-
-    // Cart-specific
-    public int Quantity { get; set; }
-    public DateTime AddedAt { get; set; }
-
-    /// <summary>
-    /// True if the parent item has been disabled by the seller.
-    /// Disabled items cannot be purchased.
-    /// </summary>
-    public bool IsItemDisabled { get; set; }
-
-    /// <summary>
-    /// True if the SKU has sufficient stock AND the item is not disabled.
-    /// </summary>
-    public bool IsValid => AvailableStock >= Quantity && !IsItemDisabled;
-
-    // Computed
-    public decimal LineTotal => Price * Quantity;
-
-    /// <summary>
-    /// Human-readable reason why this item cannot be purchased.
-    /// </summary>
-    public string? InvalidReason
-    {
-        get
-        {
-            if (IsItemDisabled)
-                return "Item Unavailable";
-            if (AvailableStock < Quantity)
-                return $"Only {AvailableStock} available";
-            return null;
-        }
-    }
-}
-
-/// <summary>
-/// ViewModel for the cart index page.
-/// </summary>
-public class CartIndexViewModel
-{
-    public List<CartItemViewModel> Items { get; set; } = new();
-
-    // Computed totals - based on selected items only
-    public int TotalItems => Items.Where(i => i.IsValid).Sum(i => i.Quantity);
-    public decimal Subtotal => Items.Where(i => i.IsValid).Sum(i => i.LineTotal);
-    public decimal DeliveryFeePerShop { get; set; } = 50m; // From ItemConstants.DeliveryFee
-
-    /// <summary>
-    /// Returns the number of unique shops among valid items.
-    /// Used for calculating total delivery fee.
-    /// </summary>
-    public int UniqueShopCount => Items
-        .Where(i => i.IsValid)
-        .Select(i => i.ShopId)
-        .Distinct()
-        .Count();
-
-    public decimal TotalDeliveryFee => DeliveryFeePerShop * UniqueShopCount;
-    public decimal GrandTotal => Subtotal + TotalDeliveryFee;
-
-    // Validation
-    public bool HasValidItems => Items.All(i => i.IsValid);
-    public bool IsEmpty => Items.Count == 0;
-
-    /// <summary>
-    /// Count of items that are disabled or out of stock.
-    /// </summary>
-    public int InvalidItemCount => Items.Count(i => !i.IsValid);
-}
-
-/// <summary>
-/// DTO for adding an item to cart via AJAX.
-/// </summary>
-public class AddToCartDto
-{
-    public int ItemId { get; set; }
-    public int SkuId { get; set; }
-    public int Quantity { get; set; } = 1;
-}
-
-/// <summary>
-/// DTO for updating cart item quantity via AJAX.
-/// </summary>
-public class UpdateCartQuantityDto
-{
-    public int CartItemId { get; set; }
-    public int Quantity { get; set; }
-}
-
-/// <summary>
-/// Response DTO for cart operations (update quantity, remove, etc.)
-/// </summary>
-public class CartOperationResponse
-{
-    public bool Success { get; set; }
-    public string? Error { get; set; }
-    public int Quantity { get; set; }
-    public string LineTotal { get; set; } = string.Empty;
-    public string Subtotal { get; set; } = string.Empty;
-    public string TotalDeliveryFee { get; set; } = string.Empty;
-    public string GrandTotal { get; set; } = string.Empty;
-    public int CartCount { get; set; }
-    public bool IsEmpty { get; set; }
-    public int UniqueShopCount { get; set; }
 }
 
 --- ViewModels\ItemCreateViewModel.cs ---
@@ -5701,945 +5065,8 @@ public class ShopSkuEditDto
     Layout = "_Layout";
 }
 
---- Views\Cart\Index.cshtml ---
-@using ThriftLoop.ViewModels
-@model CartIndexViewModel
-@{
-    ViewData["Title"] = "Shopping Cart";
-
-    // Group items by shop
-    var groupedByShop = Model.Items
-        .GroupBy(i => new { i.ShopId, i.ShopName, i.SellerId })
-        .Select(g => new
-        {
-            ShopId = g.Key.ShopId,
-            ShopName = g.Key.ShopName ?? "Unknown Shop",
-            SellerId = g.Key.SellerId,
-            Items = g.ToList()
-        })
-        .ToList();
-}
-
-<div class="cart-page">
-    <h1 class="cart-page__title">Shopping Cart</h1>
-
-    @if (Model.IsEmpty)
-    {
-        <div class="cart-page__empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
-                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
-            </svg>
-            <p>Your cart is empty</p>
-            <a asp-controller="Sellers" asp-action="Index" class="btn btn-primary">Browse Sellers</a>
-        </div>
-    }
-    else
-    {
-        @if (Model.InvalidItemCount > 0)
-        {
-            <div class="cart-warning-banner">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-                <span>@Model.InvalidItemCount item@(Model.InvalidItemCount > 1 ? "s are" : " is") no longer available and cannot be purchased.</span>
-                <form asp-controller="Cart" asp-action="Clear" method="post" style="margin-left: auto;">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="cart-warning-banner__clear">Remove unavailable items</button>
-                </form>
-            </div>
-        }
-
-        <div class="cart-page__content">
-            <div class="cart-page__items">
-                @foreach (var shopGroup in groupedByShop)
-                {
-                    var hasValidItems = shopGroup.Items.Any(i => i.IsValid);
-                    <div class="cart-shop-group" data-shop-id="@shopGroup.ShopId" data-seller-id="@shopGroup.SellerId">
-                        <div class="cart-shop-header">
-                            <div class="cart-shop-header__left">
-                                <label class="cart-shop-checkbox">
-                                    <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" @(hasValidItems ? "checked" : "disabled") />
-                                    <span class="checkmark"></span>
-                                </label>
-                                <span class="cart-shop-name">
-                                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
-                                        <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5z" clip-rule="evenodd" />
-                                    </svg>
-                                    @shopGroup.ShopName
-                                </span>
-                            </div>
-                            <a asp-controller="Shop" asp-action="Index" asp-route-id="@shopGroup.ShopId" class="cart-shop-visit">Visit Shop →</a>
-                        </div>
-
-                        <div class="cart-shop-items">
-                            @foreach (var item in shopGroup.Items)
-                            {
-                                <div class="cart-item @(item.IsValid ? "" : "cart-item--invalid")"
-                                     data-cart-item-id="@item.CartItemId"
-                                     data-shop-id="@item.ShopId"
-                                     data-seller-id="@item.SellerId">
-                                    <label class="cart-item-checkbox">
-                                        <input type="checkbox" name="selectedItems" value="@item.CartItemId"
-                                               class="item-checkbox"
-                                               data-cart-item-id="@item.CartItemId"
-                                               data-shop-id="@item.ShopId"
-                                               data-seller-id="@item.SellerId"
-                                               data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
-                                               data-quantity="@item.Quantity"
-                                        @(item.IsValid ? "checked" : "disabled") />
-                                        <span class="checkmark"></span>
-                                    </label>
-
-                                    <div class="cart-item__image">
-                                        @if (!string.IsNullOrEmpty(item.ItemImageUrl))
-                                        {
-                                            <img src="@item.ItemImageUrl" alt="@item.ItemTitle" />
-                                        }
-                                        else
-                                        {
-                                            <div class="cart-item__placeholder">No Image</div>
-                                        }
-                                    </div>
-
-                                    <div class="cart-item__details">
-                                        <div class="cart-item__header">
-                                            <h3 class="cart-item__title">
-                                                <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.ItemId">@item.ItemTitle</a>
-                                            </h3>
-                                        </div>
-
-                                        <div class="cart-item__variant">
-                                            <span class="cart-item__variant-name">@item.VariantName</span>
-                                            @if (!string.IsNullOrEmpty(item.Size))
-                                            {
-                                                <span class="cart-item__size">Size: @item.Size</span>
-                                            }
-                                        </div>
-
-                                        <div class="cart-item__meta">
-                                            <span class="cart-item__condition">@item.Condition</span>
-                                            <span class="cart-item__category">@item.Category</span>
-                                        </div>
-
-                                        @if (!item.IsValid && !string.IsNullOrEmpty(item.InvalidReason))
-                                        {
-                                            <div class="cart-item__error">
-                                                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
-                                                    <path fill-rule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm-.75-9.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                                                </svg>
-                                                @item.InvalidReason
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <div class="cart-item__actions">
-                                        <div class="cart-item__quantity">
-                                            <button type="button" class="btn-quantity" data-action="decrease" @(item.Quantity <= 1 || !item.IsValid ? "disabled" : "")>-</button>
-                                            <input type="number" value="@item.Quantity" min="1" max="@item.AvailableStock" readonly />
-                                            <button type="button" class="btn-quantity" data-action="increase" @(item.Quantity >= item.AvailableStock || !item.IsValid ? "disabled" : "")>+</button>
-                                        </div>
-
-                                        <div class="cart-item__price">
-                                            <span class="cart-item__unit-price">₱@item.Price.ToString("N2") each</span>
-                                            <span class="cart-item__line-total" data-line-total="@item.LineTotal.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">₱@item.LineTotal.ToString("N2")</span>
-                                        </div>
-
-                                        <button type="button" class="cart-item__remove" data-action="remove" title="Remove from cart">
-                                            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-                                                <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z" />
-                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1zM4.118 4L4 4.059V13a1 1 0 001 1h6a1 1 0 001-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-
-            <div class="cart-page__summary">
-                <h2>Order Summary</h2>
-
-                <div class="summary-row">
-                    <span>Subtotal (<span id="selectedItemCount">0</span> items)</span>
-                    <span id="cart-subtotal">₱0.00</span>
-                </div>
-
-                <div class="summary-row">
-                    <span>Delivery Fee (<span id="selectedShopCount">0</span> shop<span id="shopPlural">s</span> × ₱@Model.DeliveryFeePerShop.ToString("N2"))</span>
-                    <span id="cart-delivery">₱0.00</span>
-                </div>
-
-                <div class="summary-row summary-row--total">
-                    <span>Total</span>
-                    <span id="cart-total">₱0.00</span>
-                </div>
-
-                @if (!Model.HasValidItems)
-                {
-                    <div class="alert alert-warning">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
-                        <span>Some items are unavailable. Please remove them to proceed.</span>
-                    </div>
-                }
-
-                <button type="button" id="checkoutBtn" class="btn btn-primary btn-checkout" disabled>
-                    Proceed to Checkout (<span id="selectedCount">0</span> items)
-                </button>
-
-                <form asp-controller="Cart" asp-action="Clear" method="post" class="mt-2">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-outline-danger btn-sm">Clear Cart</button>
-                </form>
-            </div>
-        </div>
-    }
-</div>
-
-@section Scripts {
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const DELIVERY_FEE_PER_SHOP = @Model.DeliveryFeePerShop;
-            
-            // Store all cart items data for calculations
-            const cartItemsData = new Map();
-            
-            // Initialize cart items data from server-rendered values
-            document.querySelectorAll('.cart-item').forEach(item => {
-                const cartItemId = parseInt(item.dataset.cartItemId);
-                const shopId = item.dataset.shopId;
-                const sellerId = item.dataset.sellerId;
-                const checkbox = item.querySelector('.item-checkbox');
-                const lineTotalEl = item.querySelector('.cart-item__line-total');
-                
-                cartItemsData.set(cartItemId, {
-                    cartItemId: cartItemId,
-                    shopId: shopId,
-                    sellerId: sellerId,
-                    price: parseFloat(checkbox?.dataset.price || '0'),
-                    quantity: parseInt(checkbox?.dataset.quantity || '1'),
-                    lineTotal: parseFloat(lineTotalEl?.dataset.lineTotal || '0'),
-                    isValid: !checkbox?.disabled,
-                    element: item,
-                    checkbox: checkbox
-                });
-            });
-
-            // Function to recalculate and update the order summary based on checked items
-            function updateOrderSummary() {
-                let selectedSubtotal = 0;
-                let selectedItemCount = 0;
-                const selectedShops = new Set();
-                const selectedSellers = new Set();
-                let checkedCount = 0;
-
-                cartItemsData.forEach((data, cartItemId) => {
-                    const checkbox = data.checkbox;
-                    if (checkbox && checkbox.checked && !checkbox.disabled) {
-                        selectedSubtotal += data.lineTotal;
-                        selectedItemCount += data.quantity;
-                        checkedCount++;
-                        if (data.shopId) {
-                            selectedShops.add(data.shopId);
-                        }
-                        if (data.sellerId) {
-                            selectedSellers.add(data.sellerId);
-                        }
-                    }
-                });
-
-                // Delivery fee is per SHOP (or per seller if shopId is null)
-                const uniqueDeliveryGroups = selectedShops.size > 0 ? selectedShops.size : selectedSellers.size;
-                const selectedDelivery = uniqueDeliveryGroups * DELIVERY_FEE_PER_SHOP;
-                const selectedTotal = selectedSubtotal + selectedDelivery;
-
-                // Update UI
-                document.getElementById('cart-subtotal').textContent = '₱' + selectedSubtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                document.getElementById('cart-delivery').textContent = '₱' + selectedDelivery.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                document.getElementById('cart-total').textContent = '₱' + selectedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                document.getElementById('selectedItemCount').textContent = selectedItemCount;
-                document.getElementById('selectedShopCount').textContent = uniqueDeliveryGroups;
-                document.getElementById('shopPlural').textContent = uniqueDeliveryGroups === 1 ? '' : 's';
-                document.getElementById('selectedCount').textContent = checkedCount;
-                
-                const checkoutBtn = document.getElementById('checkoutBtn');
-                checkoutBtn.disabled = checkedCount === 0;
-            }
-
-            // Function to update shop "select all" checkbox state
-            function updateShopSelectAll(shopId) {
-                const shopCb = document.querySelector(`.shop-select-all[data-shop-id="${shopId}"]`);
-                if (!shopCb) return;
-                
-                const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
-                const allChecked = Array.from(shopItems).every(cb => cb.checked);
-                shopCb.checked = allChecked && shopItems.length > 0;
-            }
-
-            // Quantity update function
-            async function updateQuantity(cartItemId, newQuantity) {
-                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                
-                try {
-                    const response = await fetch('/Cart/UpdateQuantity', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': token
-                        },
-                        body: JSON.stringify({
-                            cartItemId: cartItemId,
-                            quantity: newQuantity
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Update the stored data
-                        const itemData = cartItemsData.get(cartItemId);
-                        if (itemData) {
-                            itemData.quantity = data.quantity;
-                            itemData.lineTotal = parseFloat(data.lineTotal.replace(/,/g, ''));
-                            
-                            // Update UI elements
-                            const itemEl = itemData.element;
-                            const quantityInput = itemEl.querySelector('input[type="number"]');
-                            const lineTotalEl = itemEl.querySelector('.cart-item__line-total');
-                            const decreaseBtn = itemEl.querySelector('[data-action="decrease"]');
-                            const increaseBtn = itemEl.querySelector('[data-action="increase"]');
-                            const checkbox = itemEl.querySelector('.item-checkbox');
-                            
-                            if (quantityInput) quantityInput.value = data.quantity;
-                            if (lineTotalEl) {
-                                lineTotalEl.textContent = '₱' + data.lineTotal;
-                                lineTotalEl.dataset.lineTotal = data.lineTotal;
-                            }
-                            if (checkbox) {
-                                checkbox.dataset.quantity = data.quantity;
-                            }
-                            if (decreaseBtn) decreaseBtn.disabled = data.quantity <= 1;
-                            
-                            const maxQty = parseInt(quantityInput?.max || '1');
-                            if (increaseBtn) increaseBtn.disabled = data.quantity >= maxQty;
-                            
-                            // Update navbar cart count
-                            updateNavbarCartCount(data.cartCount);
-                        }
-                        
-                        // Recalculate summary
-                        updateOrderSummary();
-                        
-                        // Update shop select all for this item's shop
-                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
-                        if (itemEl) {
-                            updateShopSelectAll(itemEl.dataset.shopId);
-                        }
-                    } else {
-                        // Show error in the item row
-                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
-                        const errorEl = itemEl?.querySelector('.cart-item__error');
-                        if (errorEl) {
-                            errorEl.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 15A7 7 0 108 1a7 7 0 000 14zm-.75-9.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>${data.error}`;
-                            errorEl.style.display = 'flex';
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to update quantity:', error);
-                }
-            }
-
-            // Remove item function
-            async function removeItem(cartItemId) {
-                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                
-                try {
-                    const response = await fetch('/Cart/Remove', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'RequestVerificationToken': token
-                        },
-                        body: `cartItemId=${cartItemId}`
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Remove from data map
-                        cartItemsData.delete(cartItemId);
-                        
-                        // Remove element
-                        const itemEl = document.querySelector(`.cart-item[data-cart-item-id="${cartItemId}"]`);
-                        const shopGroup = itemEl?.closest('.cart-shop-group');
-                        const shopId = itemEl?.dataset.shopId;
-                        
-                        itemEl?.remove();
-                        
-                        // If shop group is empty, remove it
-                        if (shopGroup && shopGroup.querySelectorAll('.cart-item').length === 0) {
-                            shopGroup.remove();
-                        }
-                        
-                        // Update navbar cart count
-                        updateNavbarCartCount(data.cartCount);
-                        
-                        // Recalculate summary
-                        updateOrderSummary();
-                        
-                        // Update shop select all
-                        if (shopId) {
-                            updateShopSelectAll(shopId);
-                        }
-                        
-                        // If cart is empty, reload page
-                        if (data.isEmpty) {
-                            location.reload();
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to remove item:', error);
-                }
-            }
-
-            function updateNavbarCartCount(count) {
-                const cartBadge = document.querySelector('.cart-badge');
-                if (cartBadge) {
-                    cartBadge.textContent = count;
-                    cartBadge.style.display = count > 0 ? 'flex' : 'none';
-                }
-            }
-
-            // Event delegation for cart item actions
-            document.querySelector('.cart-page__items')?.addEventListener('click', async (e) => {
-                const target = e.target;
-                
-                // Quantity decrease
-                if (target.matches('[data-action="decrease"]') || target.closest('[data-action="decrease"]')) {
-                    const btn = target.closest('[data-action="decrease"]');
-                    if (btn.disabled) return;
-                    
-                    const itemEl = btn.closest('.cart-item');
-                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
-                    const quantityInput = itemEl.querySelector('input[type="number"]');
-                    const currentQty = parseInt(quantityInput.value);
-                    
-                    if (currentQty > 1) {
-                        await updateQuantity(cartItemId, currentQty - 1);
-                    }
-                }
-                
-                // Quantity increase
-                if (target.matches('[data-action="increase"]') || target.closest('[data-action="increase"]')) {
-                    const btn = target.closest('[data-action="increase"]');
-                    if (btn.disabled) return;
-                    
-                    const itemEl = btn.closest('.cart-item');
-                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
-                    const quantityInput = itemEl.querySelector('input[type="number"]');
-                    const currentQty = parseInt(quantityInput.value);
-                    const maxQty = parseInt(quantityInput.max);
-                    
-                    if (currentQty < maxQty) {
-                        await updateQuantity(cartItemId, currentQty + 1);
-                    }
-                }
-                
-                // Remove item
-                if (target.matches('[data-action="remove"]') || target.closest('[data-action="remove"]')) {
-                    const btn = target.closest('[data-action="remove"]');
-                    const itemEl = btn.closest('.cart-item');
-                    const cartItemId = parseInt(itemEl.dataset.cartItemId);
-                    
-                    if (confirm('Remove this item from your cart?')) {
-                        await removeItem(cartItemId);
-                    }
-                }
-            });
-
-            // Shop "select all" checkbox
-            document.querySelectorAll('.shop-select-all').forEach(shopCb => {
-                shopCb.addEventListener('change', () => {
-                    const shopId = shopCb.dataset.shopId;
-                    const shopItems = document.querySelectorAll(`.item-checkbox[data-shop-id="${shopId}"]:not(:disabled)`);
-                    shopItems.forEach(itemCb => {
-                        itemCb.checked = shopCb.checked;
-                    });
-                    updateOrderSummary();
-                });
-            });
-
-            // Individual item checkbox
-            document.querySelectorAll('.item-checkbox').forEach(itemCb => {
-                itemCb.addEventListener('change', () => {
-                    const shopId = itemCb.dataset.shopId;
-                    updateShopSelectAll(shopId);
-                    updateOrderSummary();
-                });
-            });
-
-            // Checkout button
-            document.getElementById('checkoutBtn')?.addEventListener('click', () => {
-                const selected = document.querySelectorAll('.item-checkbox:checked:not(:disabled)');
-                if (selected.length === 0) return;
-
-                const params = new URLSearchParams();
-                selected.forEach(cb => {
-                    params.append('cartItemIds', cb.value);
-                });
-
-                window.location.href = '/Orders/CartCheckout?' + params.toString();
-            });
-
-            // Initial summary calculation
-            updateOrderSummary();
-            
-            // Initialize shop select all states
-            document.querySelectorAll('.cart-shop-group').forEach(group => {
-                const shopId = group.dataset.shopId;
-                if (shopId) {
-                    updateShopSelectAll(shopId);
-                }
-            });
-        });
-    </script>
-}
-
-@section Styles {
-    <style>
-        .cart-page {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        .cart-page__title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 2rem;
-            margin-bottom: 1.5rem;
-            color: var(--color-text, #1a1814);
-        }
-
-        .cart-page__empty {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--color-muted, #6b6560);
-        }
-
-            .cart-page__empty svg {
-                margin-bottom: 1rem;
-                opacity: 0.5;
-            }
-
-            .cart-page__empty p {
-                font-size: 1.125rem;
-                margin-bottom: 1.5rem;
-            }
-
-        /* Warning banner for unavailable items */
-        .cart-warning-banner {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.875rem 1.25rem;
-            background: #fef3c7;
-            border: 1px solid #fde68a;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
-            color: #92400e;
-            font-size: 0.9rem;
-        }
-
-        .cart-warning-banner__clear {
-            background: transparent;
-            border: 1px solid #d97706;
-            color: #d97706;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-            .cart-warning-banner__clear:hover {
-                background: #d97706;
-                color: white;
-            }
-
-        .cart-page__content {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 2rem;
-        }
-
-        @@media (max-width: 991px) {
-            .cart-page__content {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .cart-page__items {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .cart-shop-group {
-            border: 1px solid var(--color-border, #e2ddd6);
-            border-radius: 12px;
-            background: #fff;
-            overflow: hidden;
-        }
-
-        .cart-shop-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.875rem 1rem;
-            background: #f8f7f5;
-            border-bottom: 1px solid var(--color-border, #e2ddd6);
-        }
-
-        .cart-shop-header__left {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .cart-shop-name {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 600;
-            color: var(--color-text, #1a1814);
-        }
-
-        .cart-shop-visit {
-            font-size: 0.8125rem;
-            color: var(--color-primary, #2d5a27);
-            text-decoration: none;
-        }
-
-            .cart-shop-visit:hover {
-                text-decoration: underline;
-            }
-
-        .cart-shop-items {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .cart-item {
-            display: flex;
-            gap: 1rem;
-            padding: 1rem;
-            border-bottom: 1px solid var(--color-border, #e2ddd6);
-            background: #fff;
-            align-items: center;
-        }
-
-            .cart-item:last-child {
-                border-bottom: none;
-            }
-
-        .cart-item--invalid {
-            background: #fef2f2;
-            opacity: 0.85;
-        }
-
-            .cart-item--invalid .cart-item__image img {
-                filter: grayscale(0.5);
-            }
-
-        /* Custom Checkbox Styles */
-        .cart-shop-checkbox,
-        .cart-item-checkbox {
-            position: relative;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-        }
-
-            .cart-shop-checkbox input,
-            .cart-item-checkbox input {
-                position: absolute;
-                opacity: 0;
-                cursor: pointer;
-                width: 0;
-                height: 0;
-            }
-
-        .checkmark {
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--color-border, #e2ddd6);
-            border-radius: 4px;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s ease;
-            flex-shrink: 0;
-        }
-
-        .cart-shop-checkbox:hover .checkmark,
-        .cart-item-checkbox:hover .checkmark {
-            border-color: var(--color-primary, #2d5a27);
-        }
-
-        .cart-shop-checkbox input:checked ~ .checkmark,
-        .cart-item-checkbox input:checked ~ .checkmark {
-            background: var(--color-primary, #2d5a27);
-            border-color: var(--color-primary, #2d5a27);
-        }
-
-        .checkmark::after {
-            content: '';
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg) scale(0);
-            transition: transform 0.15s ease;
-            margin-bottom: 2px;
-        }
-
-        .cart-shop-checkbox input:checked ~ .checkmark::after,
-        .cart-item-checkbox input:checked ~ .checkmark::after {
-            transform: rotate(45deg) scale(1);
-        }
-
-        .cart-shop-checkbox input:disabled ~ .checkmark,
-        .cart-item-checkbox input:disabled ~ .checkmark {
-            background: #f0f0f0;
-            border-color: #d0d0d0;
-            cursor: not-allowed;
-        }
-
-        .cart-item__image {
-            width: 100px;
-            height: 100px;
-            flex-shrink: 0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #f5f3f0;
-        }
-
-            .cart-item__image img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-
-        .cart-item__placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--color-muted, #6b6560);
-            font-size: 0.75rem;
-        }
-
-        .cart-item__details {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .cart-item__header {
-            margin-bottom: 0.5rem;
-        }
-
-        .cart-item__title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin: 0 0 0.25rem;
-        }
-
-            .cart-item__title a {
-                color: var(--color-text, #1a1814);
-                text-decoration: none;
-            }
-
-                .cart-item__title a:hover {
-                    color: var(--color-primary, #2d5a27);
-                }
-
-        .cart-item__variant {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .cart-item__variant-name {
-            font-weight: 500;
-            color: var(--color-primary, #2d5a27);
-        }
-
-        .cart-item__size {
-            color: var(--color-muted, #6b6560);
-        }
-
-        .cart-item__meta {
-            display: flex;
-            gap: 0.75rem;
-            font-size: 0.75rem;
-            color: var(--color-muted, #6b6560);
-        }
-
-        .cart-item__error {
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            color: #dc2626;
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
-            padding: 0.375rem 0;
-            font-weight: 500;
-        }
-
-        .cart-item__actions {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.75rem;
-            min-width: 140px;
-        }
-
-        .cart-item__quantity {
-            display: flex;
-            align-items: center;
-            border: 1px solid var(--color-border, #e2ddd6);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .btn-quantity {
-            width: 32px;
-            height: 32px;
-            border: none;
-            background: #fff;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-            .btn-quantity:hover:not(:disabled) {
-                background: #f5f3f0;
-            }
-
-            .btn-quantity:disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-            }
-
-        .cart-item__quantity input {
-            width: 40px;
-            height: 32px;
-            border: none;
-            text-align: center;
-            font-weight: 500;
-            -moz-appearance: textfield;
-        }
-
-            .cart-item__quantity input::-webkit-outer-spin-button,
-            .cart-item__quantity input::-webkit-inner-spin-button {
-                -webkit-appearance: none;
-                margin: 0;
-            }
-
-        .cart-item__price {
-            text-align: right;
-        }
-
-        .cart-item__unit-price {
-            display: block;
-            font-size: 0.75rem;
-            color: var(--color-muted, #6b6560);
-        }
-
-        .cart-item__line-total {
-            display: block;
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: var(--color-text, #1a1814);
-        }
-
-        .cart-item__remove {
-            padding: 0.5rem;
-            border: none;
-            background: transparent;
-            color: var(--color-muted, #6b6560);
-            cursor: pointer;
-            border-radius: 6px;
-        }
-
-            .cart-item__remove:hover {
-                background: #fff5f5;
-                color: #dc3545;
-            }
-
-        .cart-page__summary {
-            padding: 1.5rem;
-            border: 1px solid var(--color-border, #e2ddd6);
-            border-radius: 12px;
-            background: #fff;
-            height: fit-content;
-            position: sticky;
-            top: 1rem;
-        }
-
-            .cart-page__summary h2 {
-                font-family: 'DM Serif Display', serif;
-                font-size: 1.25rem;
-                margin-bottom: 1rem;
-            }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.75rem;
-            color: var(--color-muted, #6b6560);
-        }
-
-        .summary-row--total {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--color-text, #1a1814);
-            border-top: 1px solid var(--color-border, #e2ddd6);
-            padding-top: 0.75rem;
-            margin-top: 0.75rem;
-        }
-
-        .btn-checkout {
-            width: 100%;
-            padding: 0.875rem;
-            margin-top: 1rem;
-        }
-        
-        .alert-warning {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: #fef3c7;
-            border: 1px solid #fde68a;
-            color: #92400e;
-            padding: 0.75rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            font-size: 0.85rem;
-        }
-    </style>
-}
-
 --- Views\Items\Create.cshtml ---
-﻿@using ThriftLoop.ViewModels
+﻿﻿@using ThriftLoop.ViewModels
 @model ItemCreateViewModel
 @{
     ViewData["Title"] = "Create Listing";
@@ -6749,7 +5176,13 @@ public class ShopSkuEditDto
                     <!-- Field 1: Title -->
                     <div class="progressive-field" data-field="title" id="fieldTitle">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📝</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M3.5 5.5L6 2.5L16.5 13L14 16L3.5 5.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M6 2.5L8.5 5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M2.5 14.5L5.5 17.5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">What are you selling?</h3>
                                 <p class="progressive-field__hint">A clear title helps buyers find your item</p>
@@ -6783,7 +5216,13 @@ public class ShopSkuEditDto
                     <!-- Field 2: Price -->
                     <div class="progressive-field progressive-field--locked" data-field="price" id="fieldPrice">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">💰</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <circle cx="10" cy="10" r="7.5" stroke-linecap="round" />
+                                    <path d="M7.5 7.5C7.5 6.5 8.5 6 10 6C11.5 6 12.5 6.5 12.5 7.5C12.5 9 10.5 9.5 10 11.5" stroke-linecap="round" />
+                                    <circle cx="10" cy="14" r="0.75" fill="currentColor" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Set your price</h3>
                                 <p class="progressive-field__hint">Price it fairly to sell faster</p>
@@ -6820,7 +5259,14 @@ public class ShopSkuEditDto
                     <!-- Field 3: Category -->
                     <div class="progressive-field progressive-field--locked" data-field="category" id="fieldCategory">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📂</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Choose a category</h3>
                                 <p class="progressive-field__hint">Help buyers find your listing</p>
@@ -6852,7 +5298,11 @@ public class ShopSkuEditDto
                     <!-- Field 4: Condition -->
                     <div class="progressive-field progressive-field--locked" data-field="condition" id="fieldCondition">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">✨</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M10 2.5L12.5 7.5L18 8.5L14 12.5L15 18L10 15.5L5 18L6 12.5L2 8.5L7.5 7.5L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">What's the condition?</h3>
                                 <p class="progressive-field__hint">Be honest about wear and tear</p>
@@ -6884,7 +5334,14 @@ public class ShopSkuEditDto
                     <!-- Field 5: Size -->
                     <div class="progressive-field progressive-field--locked" data-field="size" id="fieldSize">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📏</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M3.5 6.5L6.5 3.5L16.5 13.5L13.5 16.5L3.5 6.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M6.5 3.5L9 6" stroke-linecap="round" />
+                                    <path d="M2.5 16.5L3.5 17.5" stroke-linecap="round" />
+                                    <path d="M14 11L17 14" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Select size (optional)</h3>
                                 <p class="progressive-field__hint">Skip if not applicable</p>
@@ -6918,7 +5375,14 @@ public class ShopSkuEditDto
                     <!-- Field 6: Description -->
                     <div class="progressive-field progressive-field--locked" data-field="description" id="fieldDescription">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📋</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="3.5" width="15" height="13" rx="1.5" stroke-linecap="round" />
+                                    <path d="M6 7.5H14" stroke-linecap="round" />
+                                    <path d="M6 10.5H12" stroke-linecap="round" />
+                                    <path d="M6 13.5H10" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Describe your item</h3>
                                 <p class="progressive-field__hint">Include details, measurements, and flaws</p>
@@ -6952,7 +5416,14 @@ public class ShopSkuEditDto
                     <!-- Field 7: Delivery -->
                     <div class="progressive-field progressive-field--locked" data-field="delivery" id="fieldDelivery">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">🚚</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="9.5" width="15" height="7" rx="1" stroke-linecap="round" />
+                                    <circle cx="6" cy="16.5" r="1.5" stroke-linecap="round" />
+                                    <circle cx="14" cy="16.5" r="1.5" stroke-linecap="round" />
+                                    <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Delivery options</h3>
                                 <p class="progressive-field__hint">Choose at least one</p>
@@ -6973,7 +5444,14 @@ public class ShopSkuEditDto
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🚚</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
+                                                <circle cx="6" cy="16.5" r="1.5" />
+                                                <circle cx="14" cy="16.5" r="1.5" />
+                                                <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Delivery</span>
                                             <span class="delivery-card__desc">Ship directly to buyer</span>
@@ -6993,7 +5471,13 @@ public class ShopSkuEditDto
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🤝</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <circle cx="10" cy="10" r="7.5" />
+                                                <path d="M10 5V10L13 13" stroke-linecap="round" />
+                                                <circle cx="10" cy="10" r="2" fill="currentColor" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Pickup Halfway</span>
                                             <span class="delivery-card__desc">Meet at agreed spot</span>
@@ -7013,7 +5497,12 @@ public class ShopSkuEditDto
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🏠</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                                <rect x="8" y="11" width="4" height="5.5" stroke-linecap="round" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Pickup</span>
                                             <span class="delivery-card__desc">Buyer comes to you</span>
@@ -7036,7 +5525,11 @@ public class ShopSkuEditDto
                     <!-- Field 8: Stealable -->
                     <div class="progressive-field progressive-field--locked" data-field="stealable" id="fieldStealable">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">⚡</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Make it Stealable?</h3>
                                 <p class="progressive-field__hint">Sell faster with a limited-time discount (optional)</p>
@@ -7047,7 +5540,11 @@ public class ShopSkuEditDto
                             <div class="stealable-card">
                                 <label class="stealable-toggle-row" for="stealableToggle">
                                     <div class="stealable-toggle-row__left">
-                                        <span class="stealable-icon">⚡</span>
+                                        <span class="stealable-icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                                <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="stealable-toggle-row__title">Make this Stealable</span>
                                             <span class="stealable-toggle-row__desc">Buyers can claim it instantly at a discounted price</span>
@@ -7078,8 +5575,8 @@ public class ShopSkuEditDto
                                 </div>
                             </div>
                             <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--ghost btn--skip">Skip</button>
-                                <button type="button" class="btn btn--primary btn--continue">
+                                <button type="button" class="btn btn--ghost btn--skip" data-next="summary">Skip</button>
+                                <button type="button" class="btn btn--primary btn--continue" data-next="summary">
                                     Complete
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
                                         <path d="M5 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
@@ -7089,24 +5586,97 @@ public class ShopSkuEditDto
                         </div>
                     </div>
 
-                    <!-- Publish Button (hidden until all fields complete) -->
-                    <div class="publish-section" id="publishSection" style="display: none;">
-                        <div class="publish-card">
-                            <div class="publish-card__check">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="32" height="32">
-                                    <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </div>
-                            <h3>Ready to publish!</h3>
-                            <p>Your listing looks great. Review it one more time or publish now.</p>
-                            <div class="publish-card__actions">
-                                <button type="button" class="btn btn--outline btn--review" id="reviewBtn">
-                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
-                                        <path d="M2.5 10a7.5 7.5 0 1115 0 7.5 7.5 0 01-15 0z" stroke-linecap="round" />
-                                        <path d="M10 6v4l2.5 2.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <!-- UNIFIED SUMMARY CARD (shown after all fields complete) -->
+                    <div class="listing-summary" id="listingSummary" style="display: none;">
+                        <div class="summary-card">
+                            <div class="summary-card__header">
+                                <div class="summary-card__check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                                        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
-                                    Review Listing
-                                </button>
+                                </div>
+                                <h3 class="summary-card__title">Listing Preview</h3>
+                                <span class="summary-card__hint">Click any row to edit</span>
+                            </div>
+
+                            <!-- Row 1: Title & Price -->
+                            <div class="summary-row summary-row--main" data-edit-field="title">
+                                <div class="summary-row__left">
+                                    <span class="summary-label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <path d="M2 4L5 2L13 10L10 12L2 4Z" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                        Title
+                                    </span>
+                                    <span class="summary-value summary-value--title" id="summaryTitle">—</span>
+                                </div>
+                                <div class="summary-row__right" data-edit-field="price">
+                                    <span class="summary-label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <circle cx="8" cy="8" r="6" />
+                                            <path d="M6 6C6 5.5 7 5 8 5C9 5 10 5.5 10 6C10 7 8.5 7.5 8 9" stroke-linecap="round" />
+                                        </svg>
+                                        Price
+                                    </span>
+                                    <span class="summary-value summary-value--price" id="summaryPrice">—</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Category & Condition & Size -->
+                            <div class="summary-row summary-row--meta">
+                                <div class="summary-item" data-edit-field="category">
+                                    <span class="summary-label">Category</span>
+                                    <span class="summary-value" id="summaryCategory">—</span>
+                                </div>
+                                <div class="summary-item" data-edit-field="condition">
+                                    <span class="summary-label">Condition</span>
+                                    <span class="summary-value" id="summaryCondition">—</span>
+                                </div>
+                                <div class="summary-item" data-edit-field="size">
+                                    <span class="summary-label">Size</span>
+                                    <span class="summary-value" id="summarySize">—</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Delivery Options -->
+                            <div class="summary-row" data-edit-field="delivery">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <rect x="1.5" y="7.5" width="13" height="5.5" rx="1" />
+                                        <circle cx="5" cy="13" r="1" />
+                                        <circle cx="11" cy="13" r="1" />
+                                    </svg>
+                                    Delivery
+                                </span>
+                                <span class="summary-value" id="summaryDelivery">—</span>
+                            </div>
+
+                            <!-- Row 4: Stealable Status -->
+                            <div class="summary-row" data-edit-field="stealable">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <path d="M8 1.5L9.5 5.5L14 6L10.5 8.5L11.5 13L8 10.5L4.5 13L5.5 8.5L2 6L6.5 5.5L8 1.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    Listing Type
+                                </span>
+                                <span class="summary-value" id="summaryStealable">—</span>
+                            </div>
+
+                            <!-- Row 5: Description -->
+                            <div class="summary-row summary-row--description" data-edit-field="description">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+                                        <path d="M4.5 6H11.5" stroke-linecap="round" />
+                                        <path d="M4.5 8.5H9.5" stroke-linecap="round" />
+                                    </svg>
+                                    Description
+                                </span>
+                                <span class="summary-value summary-value--desc" id="summaryDescription">—</span>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="summary-card__actions">
                                 <button type="submit" class="btn btn--primary btn--publish" id="submitBtn">
                                     <span>Publish Listing</span>
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15">
@@ -7121,8 +5691,10 @@ public class ShopSkuEditDto
                     <div class="create-footer">
                         <a asp-action="Index" class="btn btn--ghost">Cancel</a>
                         <span class="footer-hint" id="footerHint">Complete all fields to publish</span>
-                    </div>s
+                    </div>
 
+                </main>
+            </div>
         </form>
     </div>
 
@@ -7131,7 +5703,7 @@ public class ShopSkuEditDto
                 'use strict';
 
                 // =========================================================
-                // PROGRESSIVE FIELD UNLOCKING
+                // PROGRESSIVE FIELD UNLOCKING WITH UNIFIED SUMMARY CARD
                 // =========================================================
         
                 const fields = [
@@ -7145,13 +5717,13 @@ public class ShopSkuEditDto
                     { id: 'stealable', element: document.getElementById('fieldStealable'), validate: validateStealable, optional: true }
                 ];
 
-                let completedFields = new Set(['title']); // Title is open by default
+                let completedFields = new Set(['title']);
+                let allFieldsCompleted = false;
                 const progressFill = document.getElementById('progressiveFill');
                 const progressText = document.getElementById('progressText');
-                const publishSection = document.getElementById('publishSection');
+                const listingSummary = document.getElementById('listingSummary');
                 const footerHint = document.getElementById('footerHint');
 
-                // Clear the default value on price input to avoid validation issues
                 const priceInput = document.getElementById('priceInput');
                 if (priceInput && priceInput.value === '0') {
                     priceInput.value = '';
@@ -7179,7 +5751,7 @@ public class ShopSkuEditDto
                 }
 
                 function validateSize() {
-                    return true; // Optional field always "valid"
+                    return true;
                 }
 
                 function validateDescription() {
@@ -7199,12 +5771,141 @@ public class ShopSkuEditDto
                 function validateStealable() {
                     const stealableToggle = document.getElementById('stealableToggle');
                     const stealDurationSelect = document.getElementById('stealDurationSelect');
-                    // If stealable is checked, duration is required. Otherwise, it's valid.
                     if (stealableToggle && stealableToggle.checked) {
                         return stealDurationSelect && stealDurationSelect.value !== '';
                     }
-                    return true; // Optional - can skip
+                    return true;
                 }
+
+                // Update the unified summary card
+                function updateSummaryCard() {
+                    // Title
+                    const titleVal = document.getElementById('titleInput').value.trim() || '—';
+                    document.getElementById('summaryTitle').textContent = titleVal;
+
+                    // Price
+                    const priceVal = document.getElementById('priceInput').value;
+                    document.getElementById('summaryPrice').textContent = priceVal ? '₱' + parseFloat(priceVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+                    // Category
+                    const categoryVal = document.getElementById('categoryHidden').value || '—';
+                    document.getElementById('summaryCategory').textContent = categoryVal;
+
+                    // Condition
+                    const conditionVal = document.getElementById('conditionHidden').value || '—';
+                    document.getElementById('summaryCondition').textContent = conditionVal;
+
+                    // Size
+                    const sizeVal = document.getElementById('sizeSelect').value || 'Not specified';
+                    document.getElementById('summarySize').textContent = sizeVal;
+
+                    // Delivery
+                    const opts = [];
+                    if (document.getElementById('optDelivery').checked) opts.push('Delivery');
+                    if (document.getElementById('optMeetup').checked) opts.push('Halfway');
+                    if (document.getElementById('optPickup').checked) opts.push('Pickup');
+                    document.getElementById('summaryDelivery').textContent = opts.length ? opts.join(' · ') : 'None selected';
+
+                    // Stealable
+                    const toggle = document.getElementById('stealableToggle');
+                    const duration = document.getElementById('stealDurationSelect');
+                    if (toggle && toggle.checked && duration && duration.value) {
+                        document.getElementById('summaryStealable').textContent = '⚡ Stealable · ' + duration.value + ' hours';
+                    } else {
+                        document.getElementById('summaryStealable').textContent = 'Standard listing';
+                    }
+
+                    // Description
+                    const descVal = document.getElementById('descInput').value.trim();
+                    if (descVal) {
+                        const truncated = descVal.length > 100 ? descVal.substring(0, 100) + '…' : descVal;
+                        document.getElementById('summaryDescription').textContent = truncated;
+                    } else {
+                        document.getElementById('summaryDescription').textContent = '—';
+                    }
+                }
+
+                // Show the unified summary and hide all individual fields
+                function showUnifiedSummary() {
+                    // Hide all field elements
+                    fields.forEach(f => {
+                        if (f.element) f.element.style.display = 'none';
+                    });
+                
+                    // Hide progress bar
+                    document.querySelector('.progressive-progress').style.display = 'none';
+                
+                    // Show summary card
+                    if (listingSummary) {
+                        listingSummary.style.display = 'block';
+                        updateSummaryCard();
+                    }
+                
+                    if (footerHint) footerHint.textContent = 'Click any row to edit';
+                    allFieldsCompleted = true;
+                }
+
+                // Hide summary and show fields (when editing)
+                function hideSummaryAndShowFields() {
+                    fields.forEach(f => {
+                        if (f.element) f.element.style.display = '';
+                    });
+                
+                    document.querySelector('.progressive-progress').style.display = '';
+                
+                    if (listingSummary) listingSummary.style.display = 'none';
+                    allFieldsCompleted = false;
+                }
+
+                // Edit a specific field from the summary
+                function editField(fieldId) {
+                    hideSummaryAndShowFields();
+                
+                    // Collapse all completed fields, expand the target field
+                    fields.forEach(f => {
+                        if (!f.element) return;
+                        const body = f.element.querySelector('.progressive-field__body');
+                        const status = f.element.querySelector('.progressive-field__status');
+                    
+                        f.element.classList.remove('progressive-field--active', 'progressive-field--completed', 'progressive-field--locked');
+                    
+                        if (completedFields.has(f.id)) {
+                            f.element.classList.add('progressive-field--completed');
+                            if (body) body.style.display = 'none';
+                            if (status) status.textContent = '✓';
+                        } else if (f.id === fieldId) {
+                            f.element.classList.add('progressive-field--active');
+                            if (body) body.style.display = 'block';
+                            if (status) status.textContent = '';
+                            completedFields.delete(f.id);
+                        } else {
+                            f.element.classList.add('progressive-field--locked');
+                            if (status) status.textContent = '🔒';
+                        }
+                    });
+                
+                    // Scroll to the field
+                    const targetField = fields.find(f => f.id === fieldId);
+                    if (targetField && targetField.element) {
+                        setTimeout(() => {
+                            targetField.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const firstInput = targetField.element.querySelector('input, textarea, select');
+                            if (firstInput) firstInput.focus();
+                        }, 100);
+                    }
+                
+                    updateProgress();
+                }
+
+                // Summary row click handlers
+                document.querySelectorAll('[data-edit-field]').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        const fieldId = this.dataset.editField;
+                        if (fieldId) {
+                            editField(fieldId);
+                        }
+                    });
+                });
 
                 function updateProgress() {
                     const total = fields.length;
@@ -7218,16 +5919,11 @@ public class ShopSkuEditDto
                         progressText.textContent = completed + '/' + total + ' fields complete';
                     }
 
-                    // Show/hide publish section when ALL fields are completed
-                    if (completed === total) {
-                        if (publishSection) publishSection.style.display = 'block';
-                        if (footerHint) footerHint.textContent = 'Ready to publish!';
-                    } else {
-                        if (publishSection) publishSection.style.display = 'none';
-                        if (footerHint) {
-                            const remaining = total - completed;
-                            footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
-                        }
+                    if (completed === total && !allFieldsCompleted) {
+                        if (footerHint) footerHint.textContent = 'All fields complete!';
+                    } else if (!allFieldsCompleted && footerHint) {
+                        const remaining = total - completed;
+                        footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
                     }
                 }
 
@@ -7239,20 +5935,18 @@ public class ShopSkuEditDto
                     const body = element.querySelector('.progressive-field__body');
                     const status = element.querySelector('.progressive-field__status');
             
-                    element.classList.remove('progressive-field--locked');
+                    element.classList.remove('progressive-field--locked', 'progressive-field--completed');
                     element.classList.add('progressive-field--active');
                     if (body) body.style.display = 'block';
                     if (status) {
-                        status.textContent = '🔓';
+                        status.textContent = '';
                         status.style.opacity = '1';
                     }
 
-                    // Focus the first input in the field
                     setTimeout(() => {
                         const firstInput = element.querySelector('input, textarea, select, .chip, .pill');
                         if (firstInput) {
                             if (firstInput.classList.contains('chip') || firstInput.classList.contains('pill')) {
-                                // For chips/pills, just scroll into view
                                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             } else {
                                 firstInput.focus();
@@ -7267,11 +5961,14 @@ public class ShopSkuEditDto
                     if (!field || !field.element) return;
 
                     const element = field.element;
+                    const body = element.querySelector('.progressive-field__body');
                     const status = element.querySelector('.progressive-field__status');
             
                     element.classList.remove('progressive-field--active');
                     element.classList.add('progressive-field--completed');
-                    if (status) status.textContent = '✅';
+                
+                    if (body) body.style.display = 'none';
+                    if (status) status.textContent = '✓';
             
                     completedFields.add(fieldId);
                     updateProgress();
@@ -7284,9 +5981,14 @@ public class ShopSkuEditDto
                     if (field.validate()) {
                         completeField(currentFieldId);
                 
-                        // Unlock next field if it exists
                         if (nextFieldId) {
-                            unlockField(nextFieldId);
+                            if (nextFieldId === 'summary') {
+                                // All fields done - show unified summary
+                                completeField(currentFieldId);
+                                showUnifiedSummary();
+                            } else {
+                                unlockField(nextFieldId);
+                            }
                         }
                 
                         return true;
@@ -7295,6 +5997,36 @@ public class ShopSkuEditDto
                         return false;
                     }
                 }
+
+                // Click on completed field headers to expand for editing
+                document.querySelectorAll('.progressive-field .progressive-field__header').forEach(header => {
+                    header.addEventListener('click', function(e) {
+                        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
+                    
+                        const field = this.closest('.progressive-field');
+                        if (!field) return;
+                    
+                        const fieldId = field.dataset.field;
+                    
+                        if (field.classList.contains('progressive-field--completed')) {
+                            const body = field.querySelector('.progressive-field__body');
+                            const status = field.querySelector('.progressive-field__status');
+                        
+                            field.classList.remove('progressive-field--completed');
+                            field.classList.add('progressive-field--active');
+                            if (body) body.style.display = 'block';
+                            if (status) status.textContent = '';
+                        
+                            completedFields.delete(fieldId);
+                            updateProgress();
+                        
+                            setTimeout(() => {
+                                const firstInput = field.querySelector('input, textarea, select');
+                                if (firstInput) firstInput.focus();
+                            }, 50);
+                        }
+                    });
+                });
 
                 // Continue button handlers
                 document.querySelectorAll('.btn--continue').forEach(btn => {
@@ -7322,7 +6054,11 @@ public class ShopSkuEditDto
                 
                         completeField(currentFieldId);
                         if (nextFieldId) {
-                            unlockField(nextFieldId);
+                            if (nextFieldId === 'summary') {
+                                showUnifiedSummary();
+                            } else {
+                                unlockField(nextFieldId);
+                            }
                         }
                     });
                 });
@@ -7551,29 +6287,26 @@ public class ShopSkuEditDto
                     });
                 }
 
-                    if (photoStrip) {
-                        photoStrip.addEventListener('click', function (e) {
-                            // Handle remove button
-                            const btn = e.target.closest('.strip-thumb__remove');
-                            if (btn) {
-                                e.stopPropagation();
-                                removeFile(parseInt(btn.dataset.index, 10));
-                                return;
-                            }
+                if (photoStrip) {
+                    photoStrip.addEventListener('click', function (e) {
+                        const btn = e.target.closest('.strip-thumb__remove');
+                        if (btn) {
+                            e.stopPropagation();
+                            removeFile(parseInt(btn.dataset.index, 10));
+                            return;
+                        }
         
-                            // Handle thumbnail click to set as cover
-                            const thumb = e.target.closest('.strip-thumb');
-                            if (thumb) {
-                                const index = Array.from(photoStrip.children).indexOf(thumb);
-                                if (index >= 0 && index < selectedFiles.length) {
-                                    // Move selected file to front
-                                    const file = selectedFiles.splice(index, 1)[0];
-                                    selectedFiles.unshift(file);
-                                    renderPreviews();
-                                }
+                        const thumb = e.target.closest('.strip-thumb');
+                        if (thumb) {
+                            const index = Array.from(photoStrip.children).indexOf(thumb);
+                            if (index >= 0 && index < selectedFiles.length) {
+                                const file = selectedFiles.splice(index, 1)[0];
+                                selectedFiles.unshift(file);
+                                renderPreviews();
                             }
-                        });
-                    }
+                        }
+                    });
+                }
 
                 renderPreviews();
 
@@ -7676,7 +6409,6 @@ public class ShopSkuEditDto
 
                 if (form) {
                     form.addEventListener('submit', function (e) {
-                        // Final validation
                         let hasError = false;
                 
                         if (!validateTitle()) {
@@ -7701,6 +6433,7 @@ public class ShopSkuEditDto
 
                         if (hasError) {
                             e.preventDefault();
+                            editField('title');
                             return false;
                         }
 
@@ -7708,6 +6441,7 @@ public class ShopSkuEditDto
                             stealDurationSelect && !stealDurationSelect.value) {
                             e.preventDefault();
                             showToast('Please select a steal window duration.', 'error');
+                            editField('stealable');
                             return false;
                         }
 
@@ -7735,111 +6469,43 @@ public class ShopSkuEditDto
                 // Initialize progress
                 updateProgress();
         
-                // Ensure title field is active on page load
                 const titleField = document.getElementById('fieldTitle');
                 if (titleField) {
                     titleField.classList.add('progressive-field--active');
                 }
 
-                                    // =========================================================
-                    // REVIEW BUTTON & SCROLL TO TOP
-                    // =========================================================
+                // =========================================================
+                // SCROLL TO TOP
+                // =========================================================
         
-                    const reviewBtn = document.getElementById('reviewBtn');
-                    let scrollTopBtn = document.getElementById('scrollTopBtn');
+                let scrollTopBtn = document.getElementById('scrollTopBtn');
         
-                    // Create scroll to top button if it doesn't exist
-                    if (!scrollTopBtn) {
-                        scrollTopBtn = document.createElement('button');
-                        scrollTopBtn.id = 'scrollTopBtn';
-                        scrollTopBtn.className = 'scroll-top-btn';
-                        scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
-                        scrollTopBtn.innerHTML = `
-                            <svg viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        `;
-                        document.body.appendChild(scrollTopBtn);
+                if (!scrollTopBtn) {
+                    scrollTopBtn = document.createElement('button');
+                    scrollTopBtn.id = 'scrollTopBtn';
+                    scrollTopBtn.className = 'scroll-top-btn';
+                    scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
+                    scrollTopBtn.innerHTML = `
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    `;
+                    document.body.appendChild(scrollTopBtn);
+                }
+        
+                function scrollToTop() {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+        
+                scrollTopBtn.addEventListener('click', scrollToTop);
+        
+                window.addEventListener('scroll', function () {
+                    if (window.scrollY > 300) {
+                        scrollTopBtn.classList.add('visible');
+                    } else {
+                        scrollTopBtn.classList.remove('visible');
                     }
-        
-                    // Scroll to top functionality
-                    function scrollToTop() {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-        
-                    scrollTopBtn.addEventListener('click', scrollToTop);
-        
-                    // Show/hide scroll button based on scroll position
-                    window.addEventListener('scroll', function () {
-                        if (window.scrollY > 300) {
-                            scrollTopBtn.classList.add('visible');
-                        } else {
-                            scrollTopBtn.classList.remove('visible');
-                        }
-                    });
-        
-                    // Review button functionality
-                    if (reviewBtn) {
-                        reviewBtn.addEventListener('click', function (e) {
-                            e.preventDefault();
-                
-                            // Scroll to top first
-                            scrollToTop();
-                
-                            // Add review mode class to body
-                            document.body.classList.add('review-mode');
-                
-                            // Pulse animation on all fields
-                            const allFields = document.querySelectorAll('.progressive-field');
-                            allFields.forEach((field, index) => {
-                                setTimeout(() => {
-                                    field.classList.add('review-pulse');
-                                    setTimeout(() => {
-                                        field.classList.remove('review-pulse');
-                                    }, 600);
-                                }, index * 80);
-                            });
-                
-                            // Expand all completed fields for review
-                            allFields.forEach(field => {
-                                if (field.classList.contains('progressive-field--completed')) {
-                                    const body = field.querySelector('.progressive-field__body');
-                                    if (body) body.style.display = 'block';
-                                }
-                            });
-               
-                            // Show toast
-                            showToast('Review your listing details below', 'info');
-                
-                            // Remove review mode after 5 seconds
-                            setTimeout(() => {
-                                document.body.classList.remove('review-mode');
-                                // Collapse completed fields back
-                                allFields.forEach(field => {
-                                    if (field.classList.contains('progressive-field--completed')) {
-                                        const body = field.querySelector('.progressive-field__body');
-                                        if (body) body.style.display = 'none';
-                                    }
-                                });
-                            }, 8000);
-                        });
-                    }
-        
-                    // Click on any field header in review mode to expand/collapse
-                    document.addEventListener('click', function (e) {
-                        const header = e.target.closest('.progressive-field__header');
-                        if (header && document.body.classList.contains('review-mode')) {
-                            const field = header.closest('.progressive-field');
-                            const body = field.querySelector('.progressive-field__body');
-                            if (body) {
-                                if (body.style.display === 'none') {
-                                    body.style.display = 'block';
-                                } else {
-                                    body.style.display = 'none';
-                                }
-                            }
-                        }
-                    });
+                });
             })();
     </script>
 </body>
@@ -8556,6 +7222,7 @@ public class ShopSkuEditDto
 </html>
 
 --- Views\Items\Edit.cshtml ---
+﻿<!-- Edit.cshtml full content -->
 ﻿@using ThriftLoop.ViewModels
 @model ItemEditViewModel
 @{
@@ -8573,210 +7240,824 @@ public class ShopSkuEditDto
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Items.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ItemEdit.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
-    <div class="container">
-        <div class="create-page">
-            <div class="create-header">
-                <a asp-action="Index" class="create-header__back">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                        <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+    <div class="edit-page">
+        <!-- Header -->
+        <div class="edit-header">
+            <a asp-action="Index" class="edit-back">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Back to My Listings</span>
+            </a>
+            <div class="edit-header__title-wrap">
+                <h1 class="edit-header__title">Edit listing</h1>
+                <span class="edit-header__badge">Editing</span>
+            </div>
+            <p class="edit-header__sub">Click any field to edit — changes save automatically</p>
+        </div>
+
+        <form asp-action="Edit" asp-controller="Items" method="post" enctype="multipart/form-data" id="editItemForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="ExistingImageUrls" id="existingImageUrlsHidden" value='@Json.Serialize(Model.ExistingImageUrls)' />
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="edit-toast edit-toast--error" role="alert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                     </svg>
-                    Back to listings
-                </a>
-                <div>
-                    <h1 class="create-header__title">Edit Listing</h1>
-                    <p class="create-header__subtitle">Update your item's details below.</p>
+                    <span>Please fix the errors below before saving.</span>
+                </div>
+            }
+
+            <div class="edit-layout">
+                <!-- LEFT COLUMN — Photos -->
+                <div class="edit-col--media">
+                    <div class="edit-card edit-card--photos">
+                        <div class="edit-card__header">
+                            <div class="edit-card__header-left">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" />
+                                    <circle cx="7" cy="8.5" r="1.5" />
+                                    <path d="M2.5 13.5L7 9L10.5 12.5L13.5 10L17.5 14" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <h3 class="edit-card__title">Photos</h3>
+                            </div>
+                            <span class="photo-badge" id="photoCount">@Model.ExistingImageUrls.Count / 5</span>
+                        </div>
+
+                        <div class="edit-card__body">
+                            <div class="photo-section">
+                                <span class="photo-section__label">Current photos</span>
+                                <div class="photo-grid" id="existingPhotos">
+                                    @foreach (var url in Model.ExistingImageUrls.Select((url, i) => new { url, index = i }))
+                                    {
+                                        <div class="photo-item" data-url="@url.url" data-index="@url.index">
+                                            <img src="@url.url" alt="Photo @(url.index + 1)" />
+                                            @if (url.index == 0)
+                                            {
+                                                <span class="photo-item__cover">Cover</span>
+                                            }
+                                            <button type="button" class="photo-item__remove" data-url="@url.url" aria-label="Remove photo">
+                                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                                                    <path d="M5 5L15 15M15 5L5 15" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                                <div id="removedImagesContainer"></div>
+                            </div>
+
+                            <div class="photo-section">
+                                <span class="photo-section__label">Add more</span>
+                                <div class="photo-upload-area" id="photoUploadArea" tabindex="0">
+                                    <input type="file" asp-for="NewImages" id="photoInput" multiple accept="image/jpeg,image/png,image/webp" class="photo-upload-area__input" />
+                                    <div class="photo-upload-area__content">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                                            <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+                                        </svg>
+                                        <span>Click or drag to upload</span>
+                                        <span class="photo-upload-area__hint">JPEG · PNG · WebP · Max 5 MB</span>
+                                    </div>
+                                </div>
+                                <div class="photo-grid" id="newPhotos"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN — Current Listing Summary -->
+                <div class="edit-col--summary">
+                    <div class="listing-summary" id="listingSummary">
+                        <div class="summary-card">
+                            <div class="summary-card__header">
+                                <div class="summary-card__check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                                        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                                <h3 class="summary-card__title">Current Listing</h3>
+                                <span class="summary-card__hint">Click any field to edit</span>
+                            </div>
+
+                            <!-- Row 1: Title -->
+                            <div class="summary-section">
+                                <div class="inline-field" data-field="title">
+                                    <span class="inline-field__label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <path d="M2 4L5 2L13 10L10 12L2 4Z" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                        Title
+                                    </span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display" id="titleDisplay">@(Model.Title ?? "—")</span>
+                                        <input asp-for="Title" class="inline-field__input" id="titleInput" placeholder="Enter title" maxlength="100" value="@Model.Title" style="display: none;" />
+                                    </div>
+                                    <span class="inline-field__counter" id="titleCounter">@(Model.Title?.Length ?? 0)/100</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Price -->
+                            <div class="summary-section">
+                                <div class="inline-field" data-field="price">
+                                    <span class="inline-field__label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <circle cx="8" cy="8" r="6" />
+                                            <path d="M6 6C6 5.5 7 5 8 5C9 5 10 5.5 10 6C10 7 8.5 7.5 8 9" stroke-linecap="round" />
+                                        </svg>
+                                        Price
+                                    </span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display inline-field__display--price" id="priceDisplay">@(Model.Price > 0 ? "₱" + Model.Price.ToString("N2") : "—")</span>
+                                        <div class="inline-field__price-input" style="display: none;">
+                                            <span class="price-symbol">₱</span>
+                                            <input asp-for="Price" class="inline-field__input" id="priceInput" type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" value="@Model.Price" />
+                                        </div>
+                                    </div>
+                                    <span></span>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Category, Condition, Size -->
+                            <div class="summary-section summary-section--triple">
+                                <div class="inline-field inline-field--compact" data-field="category">
+                                    <span class="inline-field__label">Category</span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display" id="categoryDisplay">@(Model.Category ?? "—")</span>
+                                        <input type="hidden" asp-for="Category" id="categoryHidden" value="@Model.Category" />
+                                    </div>
+                                    <span class="inline-field__chevron">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                                            <path d="M4 6L8 10L12 6" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
+                                </div>
+
+                                <div class="inline-field inline-field--compact" data-field="condition">
+                                    <span class="inline-field__label">Condition</span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display" id="conditionDisplay">@(Model.Condition ?? "—")</span>
+                                        <input type="hidden" asp-for="Condition" id="conditionHidden" value="@Model.Condition" />
+                                    </div>
+                                    <span class="inline-field__chevron">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                                            <path d="M4 6L8 10L12 6" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
+                                </div>
+
+                                <div class="inline-field inline-field--compact" data-field="size">
+                                    <span class="inline-field__label">Size</span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display" id="sizeDisplay">@(Model.Size ?? "Not specified")</span>
+                                        <select asp-for="Size" class="inline-field__native-select" id="sizeSelect" style="position: absolute; opacity: 0; pointer-events: none;">
+                                            <option value="">Select size</option>
+                                            @foreach (var size in ItemEditViewModel.Sizes)
+                                            {
+                                                <option value="@size" selected="@(Model.Size == size)">@size</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <span class="inline-field__chevron">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                                            <path d="M4 6L8 10L12 6" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Row 4: Delivery -->
+                            <div class="summary-section">
+                                <div class="inline-field" data-field="delivery">
+                                    <span class="inline-field__label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <rect x="1.5" y="7.5" width="13" height="5.5" rx="1" />
+                                            <circle cx="5" cy="13" r="1" />
+                                            <circle cx="11" cy="13" r="1" />
+                                        </svg>
+                                        Delivery
+                                    </span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display" id="deliveryDisplay">
+                                            @{
+                                                var deliveryOpts = new List<string>();
+                                                if (Model.AllowDelivery) deliveryOpts.Add("Delivery");
+                                                if (Model.AllowHalfway) deliveryOpts.Add("Halfway");
+                                                if (Model.AllowPickup) deliveryOpts.Add("Pickup");
+                                            }
+                                            @(deliveryOpts.Any() ? string.Join(" · ", deliveryOpts) : "None selected")
+                                        </span>
+                                    </div>
+                                    <span class="inline-field__chevron">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                                            <path d="M4 6L8 10L12 6" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Row 5: Description -->
+                            <div class="summary-section">
+                                <div class="inline-field inline-field--textarea" data-field="description">
+                                    <span class="inline-field__label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+                                            <path d="M4.5 6H11.5" stroke-linecap="round" />
+                                            <path d="M4.5 8.5H9.5" stroke-linecap="round" />
+                                        </svg>
+                                        Description
+                                    </span>
+                                    <div class="inline-field__content">
+                                        <span class="inline-field__display inline-field__display--desc" id="descriptionDisplay">
+                                            @{
+                                                var desc = Model.Description ?? "";
+                                                var truncated = desc.Length > 80 ? desc.Substring(0, 80) + "…" : desc;
+                                            }
+                                            @(string.IsNullOrEmpty(desc) ? "—" : truncated)
+                                        </span>
+                                        <textarea asp-for="Description" class="inline-field__textarea" id="descInput" rows="1" placeholder="Describe your item..." maxlength="1000" style="display: none;">@Model.Description</textarea>
+                                    </div>
+                                    <span class="inline-field__counter" id="descCounter">@(Model.Description?.Length ?? 0)/1000</span>
+                                </div>
+                            </div>
+
+                            <!-- Save Actions -->
+                            <div class="summary-card__footer">
+                                <span class="form-error" id="deliveryError"></span>
+                                <a asp-action="Index" class="btn btn--secondary">Cancel</a>
+                                <button type="submit" class="btn btn--primary" id="submitBtn">
+                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M3 10h14M10 3l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span>Save Changes</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </form>
+    </div>
 
-            <form asp-action="Edit" asp-controller="Items" method="post" enctype="multipart/form-data" id="editItemForm">
-                @Html.AntiForgeryToken()
-                <input type="hidden" asp-for="Id" />
-                <input type="hidden" asp-for="ExistingImageUrls" id="existingImageUrlsHidden" value='@Json.Serialize(Model.ExistingImageUrls)' />
+    <!-- Floating Selection Panel -->
+    <div class="floating-panel" id="floatingPanel" style="display: none;">
+        <div class="floating-panel__content" id="floatingPanelContent"></div>
+    </div>
 
-                @if (!ViewData.ModelState.IsValid)
-                {
-                    <div class="create-error-banner" role="alert">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                        </svg>
-                        <span>Please correct the errors below.</span>
-                    </div>
-                }
-
-                <div class="create-grid">
-                    @* LEFT COLUMN - Photos *@
-                    <div class="create-photo-col">
-                        <div class="create-section-label">Current Photos</div>
-                        
-                        <div class="photo-thumbs" id="existingPhotoThumbs">
-                            @foreach (var url in Model.ExistingImageUrls.Select((url, i) => new { url, index = i }))
-                            {
-                                <div class="photo-thumb" data-url="@url.url" data-index="@url.index">
-                                    <img src="@url.url" alt="Existing photo @(url.index + 1)" />
-                                    @if (url.index == 0)
-                                    {
-                                        <span class="photo-thumb__badge">Cover</span>
-                                    }
-                                    <button type="button" class="photo-thumb__remove" data-url="@url.url" aria-label="Remove photo">×</button>
-                                </div>
-                            }
-                        </div>
-
-                        <div id="removedImagesContainer"></div>
-
-                        <div class="create-section-label" style="margin-top: 20px;">Add More Photos</div>
-                        <p class="create-section-hint">You can have up to 5 photos total.</p>
-
-                        <div class="photo-add-zone" id="photoDropzone" tabindex="0" role="button" aria-label="Upload more photos">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28" aria-hidden="true">
-                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span class="photo-add-zone__cta">Click or drag more photos</span>
-                            <span class="photo-add-zone__hint">JPEG, PNG, WebP · Max 5 MB each</span>
-                        </div>
-
-                        <input asp-for="NewImages" type="file" class="photo-input-hidden" id="photoInput" multiple accept="image/jpeg,image/png,image/webp" />
-
-                        <div class="photo-thumbs" id="newPhotoThumbs"></div>
-                    </div>
-
-                    @* RIGHT COLUMN - Form fields *@
-                    <div class="create-form-col">
-                        @* Title *@
-                        <div class="create-field">
-                            <div class="create-field__top">
-                                <label asp-for="Title" class="create-field__label">Title</label>
-                                <span class="create-field__counter" id="titleCounter">@(Model.Title?.Length ?? 0)/100</span>
-                            </div>
-                            <input asp-for="Title" class="create-field__input" id="titleInput" placeholder="e.g., Vintage Levi's 501 Jeans" maxlength="100" />
-                            <span asp-validation-for="Title" class="field__error"></span>
-                        </div>
-
-                        @* Description *@
-                        <div class="create-field">
-                            <div class="create-field__top">
-                                <label asp-for="Description" class="create-field__label">Description</label>
-                                <span class="create-field__counter" id="descCounter">@(Model.Description?.Length ?? 0)/1000</span>
-                            </div>
-                            <textarea asp-for="Description" class="create-field__input create-field__input--textarea" id="descInput" rows="4" placeholder="Describe your item's condition, brand, measurements, etc." maxlength="1000"></textarea>
-                            <span asp-validation-for="Description" class="field__error"></span>
-                        </div>
-
-                        @* Price & Size row *@
-                        <div class="create-row">
-                            <div class="create-field create-field--half">
-                                <label asp-for="Price" class="create-field__label">Price (₱)</label>
-                                <div class="create-price-wrap">
-                                    <span class="create-price-wrap__symbol">₱</span>
-                                    <input asp-for="Price" class="create-price-wrap__input" id="priceInput" type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" />
-                                </div>
-                                <span asp-validation-for="Price" class="field__error"></span>
-                            </div>
-                            <div class="create-field create-field--half">
-                                <div class="create-field__top">
-                                    <label asp-for="Size" class="create-field__label">Size</label>
-                                    <span class="create-field__optional">Optional</span>
-                                </div>
-                                <select asp-for="Size" class="create-field__input" id="sizeSelect">
-                                    <option value="">-- Select size --</option>
-                                    @foreach (var size in ItemEditViewModel.Sizes)
-                                    {
-                                        <option value="@size" selected="@(Model.Size == size)">@size</option>
-                                    }
-                                </select>
-                                <span asp-validation-for="Size" class="field__error"></span>
-                            </div>
-                        </div>
-
-                        @* Category *@
-                        <div class="create-field">
-                            <label asp-for="Category" class="create-field__label">Category</label>
-                            <input type="hidden" asp-for="Category" id="categoryHidden" value="@Model.Category" />
-                            <div class="create-chips" id="categoryChips" role="radiogroup" aria-label="Select category">
-                                @foreach (var category in ItemEditViewModel.Categories)
-                                {
-                                    <button type="button" class="create-chip @(Model.Category == category ? "create-chip--active" : "")" data-value="@category" role="radio">@category</button>
-                                }
-                            </div>
-                            <span asp-validation-for="Category" class="field__error"></span>
-                        </div>
-
-                        @* Condition *@
-                        <div class="create-field">
-                            <label asp-for="Condition" class="create-field__label">Condition</label>
-                            <input type="hidden" asp-for="Condition" id="conditionHidden" value="@Model.Condition" />
-                            <div class="create-condition" id="conditionPills" role="radiogroup" aria-label="Select condition">
-                                @foreach (var condition in ItemEditViewModel.Conditions)
-                                {
-                                    <button type="button" class="create-condition__pill @(Model.Condition == condition ? "create-condition__pill--active" : "")" data-value="@condition" role="radio">@condition</button>
-                                }
-                            </div>
-                            <span asp-validation-for="Condition" class="field__error"></span>
-                        </div>
-
-                        @* Fulfillment Options *@
-                        <div class="create-field">
-                            <label class="create-field__label">Fulfillment Options</label>
-                            <p class="create-field__hint">Choose how buyers can receive this item. At least one required.</p>
-                            
-                            <div class="fulfillment-options" id="fulfillmentOptions">
-                                <label class="fulfillment-option">
-                                    <input type="checkbox" asp-for="AllowDelivery" class="fulfillment-option__checkbox" />
-                                    <div class="fulfillment-option__content">
-                                        <span class="fulfillment-option__icon">🚚</span>
-                                        <div>
-                                            <span class="fulfillment-option__title">Rider Delivery</span>
-                                            <span class="fulfillment-option__desc">ThriftLoop rider delivers. Buyer pays rider cash.</span>
-                                        </div>
-                                    </div>
-                                </label>
-                                <label class="fulfillment-option">
-                                    <input type="checkbox" asp-for="AllowHalfway" class="fulfillment-option__checkbox" />
-                                    <div class="fulfillment-option__content">
-                                        <span class="fulfillment-option__icon">🤝</span>
-                                        <div>
-                                            <span class="fulfillment-option__title">Halfway Meetup</span>
-                                            <span class="fulfillment-option__desc">Meet at agreed location. Chat opens after purchase.</span>
-                                        </div>
-                                    </div>
-                                </label>
-                                <label class="fulfillment-option">
-                                    <input type="checkbox" asp-for="AllowPickup" class="fulfillment-option__checkbox" />
-                                    <div class="fulfillment-option__content">
-                                        <span class="fulfillment-option__icon">🏠</span>
-                                        <div>
-                                            <span class="fulfillment-option__title">Self Pickup</span>
-                                            <span class="fulfillment-option__desc">Buyer picks up from you. Chat opens after purchase.</span>
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                            <span class="field__error" id="fulfillmentError"></span>
-                        </div>
-
-                        @* Actions *@
-                        <div class="create-actions">
-                            <a asp-action="Index" class="btn btn--ghost">Cancel</a>
-                            <button type="submit" class="btn btn--primary" id="submitBtn">Save Changes</button>
-                        </div>
-                    </div>
+    <!-- Floating Delivery Panel -->
+    <div class="floating-panel floating-panel--large" id="deliveryPanel" style="display: none;">
+        <div class="floating-panel__header">
+            <span>Delivery Options</span>
+            <button type="button" class="floating-panel__close" id="closeDeliveryPanel">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M5 5L15 15M15 5L5 15" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+        <div class="floating-panel__body">
+            <label class="delivery-checkbox @(Model.AllowDelivery ? "delivery-checkbox--checked" : "")">
+                <input type="checkbox" asp-for="AllowDelivery" />
+                <span class="delivery-checkbox__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                        <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
+                        <circle cx="6" cy="16.5" r="1.5" />
+                        <circle cx="14" cy="16.5" r="1.5" />
+                    </svg>
+                </span>
+                <div>
+                    <span class="delivery-checkbox__title">Delivery</span>
+                    <span class="delivery-checkbox__desc">Ship directly to buyer</span>
                 </div>
-            </form>
+            </label>
+            <label class="delivery-checkbox @(Model.AllowHalfway ? "delivery-checkbox--checked" : "")">
+                <input type="checkbox" asp-for="AllowHalfway" />
+                <span class="delivery-checkbox__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                        <circle cx="10" cy="10" r="7.5" />
+                        <path d="M10 5v5l3 3" stroke-linecap="round" />
+                    </svg>
+                </span>
+                <div>
+                    <span class="delivery-checkbox__title">Halfway Meetup</span>
+                    <span class="delivery-checkbox__desc">Meet at agreed location</span>
+                </div>
+            </label>
+            <label class="delivery-checkbox @(Model.AllowPickup ? "delivery-checkbox--checked" : "")">
+                <input type="checkbox" asp-for="AllowPickup" />
+                <span class="delivery-checkbox__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                        <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                        <rect x="8" y="11" width="4" height="5.5" />
+                    </svg>
+                </span>
+                <div>
+                    <span class="delivery-checkbox__title">Pickup</span>
+                    <span class="delivery-checkbox__desc">Buyer comes to you</span>
+                </div>
+            </label>
         </div>
     </div>
 
+    <div class="floating-overlay" id="floatingOverlay" style="display: none;"></div>
+
     <script>
-            window.itemEditData = {
-                existingImageUrls: @Json.Serialize(Model.ExistingImageUrls)
-            };
+        window.itemEditData = {
+            existingImageUrls: @Json.Serialize(Model.ExistingImageUrls)
+        };
+    
+        // Pre-defined options
+        window.editOptions = {
+            categories: @Json.Serialize(ItemEditViewModel.Categories),
+            conditions: @Json.Serialize(ItemEditViewModel.Conditions),
+            sizes: @Json.Serialize(ItemEditViewModel.Sizes)
+        };
     </script>
-    <script src="~/js/items.js" asp-append-version="true"></script>
+    <script>
+        (function() {
+            'use strict';
+
+            // =========================================================
+            // STATE MANAGEMENT
+            // =========================================================
+        
+            const floatingPanel = document.getElementById('floatingPanel');
+            const floatingPanelContent = document.getElementById('floatingPanelContent');
+            const deliveryPanel = document.getElementById('deliveryPanel');
+            const floatingOverlay = document.getElementById('floatingOverlay');
+            const closeDeliveryPanel = document.getElementById('closeDeliveryPanel');
+        
+            let currentField = null;
+            let originalValues = {};
+        
+            // Show floating panel
+            function showFloatingPanel(anchor, content, position = 'bottom') {
+                const rect = anchor.getBoundingClientRect();
+                floatingPanelContent.innerHTML = content;
+                floatingPanel.style.display = 'block';
+            
+                const panelRect = floatingPanel.getBoundingClientRect();
+                let top = rect.bottom + 8;
+                let left = rect.left;
+            
+                if (position === 'top' || top + panelRect.height > window.innerHeight - 20) {
+                    top = rect.top - panelRect.height - 8;
+                }
+            
+                if (left + panelRect.width > window.innerWidth - 20) {
+                    left = window.innerWidth - panelRect.width - 20;
+                }
+            
+                floatingPanel.style.top = top + 'px';
+                floatingPanel.style.left = Math.max(20, left) + 'px';
+                floatingOverlay.style.display = 'block';
+            }
+        
+            function showDeliveryPanel(anchor) {
+                const rect = anchor.getBoundingClientRect();
+                deliveryPanel.style.display = 'block';
+            
+                const panelRect = deliveryPanel.getBoundingClientRect();
+                let top = rect.bottom + 8;
+                let left = rect.left;
+            
+                if (top + panelRect.height > window.innerHeight - 20) {
+                    top = rect.top - panelRect.height - 8;
+                }
+            
+                if (left + panelRect.width > window.innerWidth - 20) {
+                    left = window.innerWidth - panelRect.width - 20;
+                }
+            
+                deliveryPanel.style.top = top + 'px';
+                deliveryPanel.style.left = Math.max(20, left) + 'px';
+                floatingOverlay.style.display = 'block';
+                currentField = 'delivery';
+            }
+        
+            function hideAllPanels() {
+                floatingPanel.style.display = 'none';
+                deliveryPanel.style.display = 'none';
+                floatingOverlay.style.display = 'none';
+            
+                if (currentField) {
+                    const field = document.querySelector(`[data-field="${currentField}"]`);
+                    if (field) field.classList.remove('is-active');
+                }
+                currentField = null;
+            }
+        
+            // Build bubble panel content (horizontal bubbles)
+            function buildBubblePanel(options, selectedValue, fieldType, allowClear = false) {
+                let clearButton = '';
+                if (allowClear) {
+                    clearButton = `<button type="button" class="bubble-panel__clear" data-clear="true">Clear</button>`;
+                }
+                return `
+                    <div class="bubble-panel">
+                        ${options.map(opt => `
+                            <button type="button" class="bubble-panel__item ${selectedValue === opt ? 'bubble-panel__item--selected' : ''}" data-value="${opt}">
+                                ${opt}
+                            </button>
+                        `).join('')}
+                        ${clearButton}
+                    </div>
+                `;
+            }
+        
+            // Handle field clicks
+            document.querySelectorAll('[data-field]').forEach(field => {
+                field.addEventListener('click', function(e) {
+                    if (e.target.closest('input') || e.target.closest('textarea')) return;
+                
+                    const fieldId = this.dataset.field;
+                    const rect = this.getBoundingClientRect();
+                
+                    // Remove active from others
+                    document.querySelectorAll('[data-field]').forEach(f => f.classList.remove('is-active'));
+                    this.classList.add('is-active');
+                
+                    // Handle different field types
+                    if (fieldId === 'category') {
+                        const selected = document.getElementById('categoryHidden').value;
+                        showFloatingPanel(this, buildBubblePanel(window.editOptions.categories, selected, 'category'));
+                        currentField = 'category';
+                    
+                        // Attach bubble listeners
+                        document.querySelectorAll('.bubble-panel__item').forEach(bubble => {
+                            bubble.addEventListener('click', function() {
+                                const value = this.dataset.value;
+                                document.getElementById('categoryHidden').value = value;
+                                document.getElementById('categoryDisplay').textContent = value;
+                                document.querySelectorAll('.bubble-panel__item').forEach(b => b.classList.remove('bubble-panel__item--selected'));
+                                this.classList.add('bubble-panel__item--selected');
+                                setTimeout(hideAllPanels, 100);
+                            });
+                        });
+                    
+                    } else if (fieldId === 'condition') {
+                        const selected = document.getElementById('conditionHidden').value;
+                        showFloatingPanel(this, buildBubblePanel(window.editOptions.conditions, selected, 'condition'));
+                        currentField = 'condition';
+                    
+                        document.querySelectorAll('.bubble-panel__item').forEach(bubble => {
+                            bubble.addEventListener('click', function() {
+                                const value = this.dataset.value;
+                                document.getElementById('conditionHidden').value = value;
+                                document.getElementById('conditionDisplay').textContent = value;
+                                document.querySelectorAll('.bubble-panel__item').forEach(b => b.classList.remove('bubble-panel__item--selected'));
+                                this.classList.add('bubble-panel__item--selected');
+                                setTimeout(hideAllPanels, 100);
+                            });
+                        });
+                    
+                    } else if (fieldId === 'size') {
+                        const selected = document.getElementById('sizeSelect').value;
+                        showFloatingPanel(this, buildBubblePanel(window.editOptions.sizes, selected, 'size', true));
+                        currentField = 'size';
+                    
+                        document.querySelectorAll('.bubble-panel__item').forEach(bubble => {
+                            bubble.addEventListener('click', function() {
+                                const value = this.dataset.value;
+                                document.getElementById('sizeSelect').value = value;
+                                document.getElementById('sizeDisplay').textContent = value || 'Not specified';
+                                document.querySelectorAll('.bubble-panel__item').forEach(b => b.classList.remove('bubble-panel__item--selected'));
+                                this.classList.add('bubble-panel__item--selected');
+                                setTimeout(hideAllPanels, 100);
+                            });
+                        });
+                        
+                        const clearBtn = document.querySelector('.bubble-panel__clear');
+                        if (clearBtn) {
+                            clearBtn.addEventListener('click', function() {
+                                document.getElementById('sizeSelect').value = '';
+                                document.getElementById('sizeDisplay').textContent = 'Not specified';
+                                document.querySelectorAll('.bubble-panel__item').forEach(b => b.classList.remove('bubble-panel__item--selected'));
+                                setTimeout(hideAllPanels, 100);
+                            });
+                        }
+                    
+                    } else if (fieldId === 'delivery') {
+                        showDeliveryPanel(this);
+                    
+                    } else if (fieldId === 'title') {
+                        const display = document.getElementById('titleDisplay');
+                        const input = document.getElementById('titleInput');
+                        const counter = document.getElementById('titleCounter');
+                    
+                        originalValues.title = display.textContent === '—' ? '' : display.textContent;
+                    
+                        display.style.display = 'none';
+                        input.style.display = 'block';
+                        input.focus();
+                        currentField = 'title';
+                    
+                        const saveTitle = () => {
+                            const val = input.value.trim();
+                            display.textContent = val || '—';
+                            counter.textContent = (val?.length || 0) + '/100';
+                            display.style.display = 'block';
+                            input.style.display = 'none';
+                            this.classList.remove('is-active');
+                            currentField = null;
+                        };
+                    
+                        input.onblur = saveTitle;
+                        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveTitle(); } };
+                    
+                    } else if (fieldId === 'price') {
+                        const display = document.getElementById('priceDisplay');
+                        const wrapper = document.querySelector('.inline-field__price-input');
+                        const input = document.getElementById('priceInput');
+                    
+                        originalValues.price = display.textContent === '—' ? '' : display.textContent.replace('₱', '').replace(/,/g, '');
+                    
+                        display.style.display = 'none';
+                        wrapper.style.display = 'flex';
+                        input.focus();
+                        currentField = 'price';
+                    
+                        const savePrice = () => {
+                            const val = input.value;
+                            display.textContent = val ? '₱' + parseFloat(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+                            display.style.display = 'block';
+                            wrapper.style.display = 'none';
+                            this.classList.remove('is-active');
+                            currentField = null;
+                        };
+                    
+                        input.onblur = savePrice;
+                        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); savePrice(); } };
+                    
+                    } else if (fieldId === 'description') {
+                        const display = document.getElementById('descriptionDisplay');
+                        const textarea = document.getElementById('descInput');
+                        const counter = document.getElementById('descCounter');
+                    
+                        originalValues.description = textarea.value;
+                    
+                        display.style.display = 'none';
+                        textarea.style.display = 'block';
+                        textarea.style.height = '80px';
+                        textarea.focus();
+                        currentField = 'description';
+                    
+                        const saveDescription = () => {
+                            const val = textarea.value.trim();
+                            display.textContent = val ? (val.length > 80 ? val.substring(0, 80) + '…' : val) : '—';
+                            counter.textContent = (textarea.value?.length || 0) + '/1000';
+                            display.style.display = 'block';
+                            textarea.style.display = 'none';
+                            this.classList.remove('is-active');
+                            currentField = null;
+                        };
+                    
+                        textarea.onblur = saveDescription;
+                    }
+                });
+            });
+        
+            // Delivery checkboxes
+            document.querySelectorAll('.delivery-checkbox input').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const label = this.closest('.delivery-checkbox');
+                    if (this.checked) {
+                        label.classList.add('delivery-checkbox--checked');
+                    } else {
+                        label.classList.remove('delivery-checkbox--checked');
+                    }
+                    updateDeliveryDisplay();
+                });
+            });
+        
+            function updateDeliveryDisplay() {
+                const opts = [];
+                if (document.querySelector('[name="AllowDelivery"]')?.checked) opts.push('Delivery');
+                if (document.querySelector('[name="AllowHalfway"]')?.checked) opts.push('Halfway');
+                if (document.querySelector('[name="AllowPickup"]')?.checked) opts.push('Pickup');
+                document.getElementById('deliveryDisplay').textContent = opts.length ? opts.join(' · ') : 'None selected';
+            }
+        
+            // Close panels
+            floatingOverlay.addEventListener('click', hideAllPanels);
+            if (closeDeliveryPanel) {
+                closeDeliveryPanel.addEventListener('click', hideAllPanels);
+            }
+        
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') hideAllPanels();
+            });
+        
+            // Character counters
+            const titleInput = document.getElementById('titleInput');
+            const titleCounter = document.getElementById('titleCounter');
+            if (titleInput) {
+                titleInput.addEventListener('input', () => {
+                    titleCounter.textContent = (titleInput.value?.length || 0) + '/100';
+                });
+            }
+        
+            const descInput = document.getElementById('descInput');
+            const descCounter = document.getElementById('descCounter');
+            if (descInput) {
+                descInput.addEventListener('input', () => {
+                    descCounter.textContent = (descInput.value?.length || 0) + '/1000';
+                });
+            }
+
+            // =========================================================
+            // PHOTO MANAGEMENT
+            // =========================================================
+        
+            const photoUploadArea = document.getElementById('photoUploadArea');
+            const photoInput = document.getElementById('photoInput');
+            const existingPhotos = document.getElementById('existingPhotos');
+            const newPhotos = document.getElementById('newPhotos');
+            const removedContainer = document.getElementById('removedImagesContainer');
+            const photoCount = document.getElementById('photoCount');
+            const existingUrlsHidden = document.getElementById('existingImageUrlsHidden');
+        
+            let existingImageUrls = window.itemEditData?.existingImageUrls || [];
+            let newImageFiles = [];
+        
+            function updatePhotoCount() {
+                const total = existingImageUrls.length + newImageFiles.length;
+                if (photoCount) photoCount.textContent = total + ' / 5';
+            }
+        
+            function updateExistingUrlsHidden() {
+                if (existingUrlsHidden) {
+                    existingUrlsHidden.value = JSON.stringify(existingImageUrls);
+                }
+            }
+        
+            function addRemovedInput(url) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'RemovedImageUrls';
+                input.value = url;
+                removedContainer.appendChild(input);
+            }
+        
+            function removeExistingPhoto(url, element) {
+                const index = existingImageUrls.indexOf(url);
+                if (index > -1) {
+                    existingImageUrls.splice(index, 1);
+                    addRemovedInput(url);
+                    element.remove();
+                    updatePhotoCount();
+                    updateExistingUrlsHidden();
+                }
+            }
+        
+            function renderNewPhotos() {
+                if (!newPhotos) return;
+                newPhotos.innerHTML = '';
+            
+                newImageFiles.forEach((file, i) => {
+                    const url = URL.createObjectURL(file);
+                    const item = document.createElement('div');
+                    item.className = 'photo-item photo-item--new';
+                    item.innerHTML = `
+                        <img src="${url}" alt="New photo ${i + 1}" />
+                        <span class="photo-item__badge">New</span>
+                        <button type="button" class="photo-item__remove" data-index="${i}" aria-label="Remove photo">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                                <path d="M5 5L15 15M15 5L5 15" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    `;
+                    newPhotos.appendChild(item);
+                });
+            
+                attachNewPhotoEvents();
+                updatePhotoCount();
+            }
+        
+            function attachNewPhotoEvents() {
+                newPhotos.querySelectorAll('.photo-item__remove').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const index = parseInt(this.dataset.index);
+                        newImageFiles.splice(index, 1);
+                        renderNewPhotos();
+                        updatePhotoInputFiles();
+                    });
+                });
+            }
+        
+            function updatePhotoInputFiles() {
+                const dt = new DataTransfer();
+                newImageFiles.forEach(f => dt.items.add(f));
+                photoInput.files = dt.files;
+            }
+        
+            function addFiles(files) {
+                const remaining = 5 - (existingImageUrls.length + newImageFiles.length);
+                const toAdd = Array.from(files).slice(0, remaining);
+            
+                toAdd.forEach(file => {
+                    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+                        showToast(file.name + ' is not a supported format.', 'error');
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast(file.name + ' exceeds 5 MB.', 'error');
+                        return;
+                    }
+                    newImageFiles.push(file);
+                });
+            
+                renderNewPhotos();
+                updatePhotoInputFiles();
+            }
+        
+            if (existingPhotos) {
+                existingPhotos.querySelectorAll('.photo-item__remove').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const item = this.closest('.photo-item');
+                        const url = item.dataset.url;
+                        removeExistingPhoto(url, item);
+                    });
+                });
+            }
+        
+            if (photoUploadArea && photoInput) {
+                photoUploadArea.addEventListener('click', () => photoInput.click());
+                photoUploadArea.addEventListener('dragover', (e) => { e.preventDefault(); photoUploadArea.classList.add('is-dragging'); });
+                photoUploadArea.addEventListener('dragleave', () => photoUploadArea.classList.remove('is-dragging'));
+                photoUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    photoUploadArea.classList.remove('is-dragging');
+                    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+                });
+            }
+        
+            if (photoInput) {
+                photoInput.addEventListener('change', function() {
+                    if (this.files && this.files.length) addFiles(this.files);
+                    this.value = '';
+                });
+            }
+        
+            updatePhotoCount();
+
+            // =========================================================
+            // FORM SUBMIT
+            // =========================================================
+        
+            const form = document.getElementById('editItemForm');
+        
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    let hasError = false;
+                
+                    const title = document.getElementById('titleInput')?.value.trim();
+                    const price = document.getElementById('priceInput')?.value;
+                    const category = document.getElementById('categoryHidden')?.value;
+                    const condition = document.getElementById('conditionHidden')?.value;
+                    const description = descInput?.value.trim();
+                
+                    const delivery = document.querySelector('[name="AllowDelivery"]')?.checked;
+                    const halfway = document.querySelector('[name="AllowHalfway"]')?.checked;
+                    const pickup = document.querySelector('[name="AllowPickup"]')?.checked;
+                
+                    if (!title) { showToast('Please enter a title.', 'error'); hasError = true; }
+                    else if (!price || parseFloat(price) <= 0) { showToast('Please enter a valid price.', 'error'); hasError = true; }
+                    else if (!category) { showToast('Please select a category.', 'error'); hasError = true; }
+                    else if (!condition) { showToast('Please select the condition.', 'error'); hasError = true; }
+                    else if (!description) { showToast('Please enter a description.', 'error'); hasError = true; }
+                    else if (!delivery && !halfway && !pickup) { showToast('Please select at least one delivery option.', 'error'); hasError = true; }
+                
+                    if (hasError) {
+                        e.preventDefault();
+                    } else {
+                        const btn = document.getElementById('submitBtn');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.querySelector('span').textContent = 'Saving...';
+                        }
+                    }
+                });
+            }
+        
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = 'app-toast app-toast--' + type;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3200);
+            }
+        })();
+    </script>
 </body>
 </html>
 

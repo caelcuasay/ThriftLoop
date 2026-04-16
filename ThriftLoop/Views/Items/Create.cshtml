@@ -1,4 +1,4 @@
-﻿@using ThriftLoop.ViewModels
+﻿﻿@using ThriftLoop.ViewModels
 @model ItemCreateViewModel
 @{
     ViewData["Title"] = "Create Listing";
@@ -108,7 +108,13 @@
                     <!-- Field 1: Title -->
                     <div class="progressive-field" data-field="title" id="fieldTitle">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📝</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M3.5 5.5L6 2.5L16.5 13L14 16L3.5 5.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M6 2.5L8.5 5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M2.5 14.5L5.5 17.5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">What are you selling?</h3>
                                 <p class="progressive-field__hint">A clear title helps buyers find your item</p>
@@ -142,7 +148,13 @@
                     <!-- Field 2: Price -->
                     <div class="progressive-field progressive-field--locked" data-field="price" id="fieldPrice">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">💰</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <circle cx="10" cy="10" r="7.5" stroke-linecap="round" />
+                                    <path d="M7.5 7.5C7.5 6.5 8.5 6 10 6C11.5 6 12.5 6.5 12.5 7.5C12.5 9 10.5 9.5 10 11.5" stroke-linecap="round" />
+                                    <circle cx="10" cy="14" r="0.75" fill="currentColor" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Set your price</h3>
                                 <p class="progressive-field__hint">Price it fairly to sell faster</p>
@@ -179,7 +191,14 @@
                     <!-- Field 3: Category -->
                     <div class="progressive-field progressive-field--locked" data-field="category" id="fieldCategory">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📂</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                    <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Choose a category</h3>
                                 <p class="progressive-field__hint">Help buyers find your listing</p>
@@ -211,7 +230,11 @@
                     <!-- Field 4: Condition -->
                     <div class="progressive-field progressive-field--locked" data-field="condition" id="fieldCondition">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">✨</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M10 2.5L12.5 7.5L18 8.5L14 12.5L15 18L10 15.5L5 18L6 12.5L2 8.5L7.5 7.5L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">What's the condition?</h3>
                                 <p class="progressive-field__hint">Be honest about wear and tear</p>
@@ -243,7 +266,14 @@
                     <!-- Field 5: Size -->
                     <div class="progressive-field progressive-field--locked" data-field="size" id="fieldSize">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📏</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M3.5 6.5L6.5 3.5L16.5 13.5L13.5 16.5L3.5 6.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M6.5 3.5L9 6" stroke-linecap="round" />
+                                    <path d="M2.5 16.5L3.5 17.5" stroke-linecap="round" />
+                                    <path d="M14 11L17 14" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Select size (optional)</h3>
                                 <p class="progressive-field__hint">Skip if not applicable</p>
@@ -277,7 +307,14 @@
                     <!-- Field 6: Description -->
                     <div class="progressive-field progressive-field--locked" data-field="description" id="fieldDescription">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">📋</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="3.5" width="15" height="13" rx="1.5" stroke-linecap="round" />
+                                    <path d="M6 7.5H14" stroke-linecap="round" />
+                                    <path d="M6 10.5H12" stroke-linecap="round" />
+                                    <path d="M6 13.5H10" stroke-linecap="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Describe your item</h3>
                                 <p class="progressive-field__hint">Include details, measurements, and flaws</p>
@@ -311,7 +348,14 @@
                     <!-- Field 7: Delivery -->
                     <div class="progressive-field progressive-field--locked" data-field="delivery" id="fieldDelivery">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">🚚</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <rect x="2.5" y="9.5" width="15" height="7" rx="1" stroke-linecap="round" />
+                                    <circle cx="6" cy="16.5" r="1.5" stroke-linecap="round" />
+                                    <circle cx="14" cy="16.5" r="1.5" stroke-linecap="round" />
+                                    <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Delivery options</h3>
                                 <p class="progressive-field__hint">Choose at least one</p>
@@ -332,7 +376,14 @@
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🚚</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
+                                                <circle cx="6" cy="16.5" r="1.5" />
+                                                <circle cx="14" cy="16.5" r="1.5" />
+                                                <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Delivery</span>
                                             <span class="delivery-card__desc">Ship directly to buyer</span>
@@ -352,7 +403,13 @@
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🤝</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <circle cx="10" cy="10" r="7.5" />
+                                                <path d="M10 5V10L13 13" stroke-linecap="round" />
+                                                <circle cx="10" cy="10" r="2" fill="currentColor" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Pickup Halfway</span>
                                             <span class="delivery-card__desc">Meet at agreed spot</span>
@@ -372,7 +429,12 @@
                                                 <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                                             </svg>
                                         </div>
-                                        <span class="delivery-card__icon">🏠</span>
+                                        <span class="delivery-card__icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                                                <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                                <rect x="8" y="11" width="4" height="5.5" stroke-linecap="round" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="delivery-card__title">Pickup</span>
                                             <span class="delivery-card__desc">Buyer comes to you</span>
@@ -395,7 +457,11 @@
                     <!-- Field 8: Stealable -->
                     <div class="progressive-field progressive-field--locked" data-field="stealable" id="fieldStealable">
                         <div class="progressive-field__header">
-                            <span class="progressive-field__icon">⚡</span>
+                            <span class="progressive-field__icon">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                    <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
                             <div>
                                 <h3 class="progressive-field__title">Make it Stealable?</h3>
                                 <p class="progressive-field__hint">Sell faster with a limited-time discount (optional)</p>
@@ -406,7 +472,11 @@
                             <div class="stealable-card">
                                 <label class="stealable-toggle-row" for="stealableToggle">
                                     <div class="stealable-toggle-row__left">
-                                        <span class="stealable-icon">⚡</span>
+                                        <span class="stealable-icon">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                                                <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </span>
                                         <div>
                                             <span class="stealable-toggle-row__title">Make this Stealable</span>
                                             <span class="stealable-toggle-row__desc">Buyers can claim it instantly at a discounted price</span>
@@ -437,8 +507,8 @@
                                 </div>
                             </div>
                             <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--ghost btn--skip">Skip</button>
-                                <button type="button" class="btn btn--primary btn--continue">
+                                <button type="button" class="btn btn--ghost btn--skip" data-next="summary">Skip</button>
+                                <button type="button" class="btn btn--primary btn--continue" data-next="summary">
                                     Complete
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
                                         <path d="M5 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
@@ -448,24 +518,97 @@
                         </div>
                     </div>
 
-                    <!-- Publish Button (hidden until all fields complete) -->
-                    <div class="publish-section" id="publishSection" style="display: none;">
-                        <div class="publish-card">
-                            <div class="publish-card__check">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="32" height="32">
-                                    <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </div>
-                            <h3>Ready to publish!</h3>
-                            <p>Your listing looks great. Review it one more time or publish now.</p>
-                            <div class="publish-card__actions">
-                                <button type="button" class="btn btn--outline btn--review" id="reviewBtn">
-                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
-                                        <path d="M2.5 10a7.5 7.5 0 1115 0 7.5 7.5 0 01-15 0z" stroke-linecap="round" />
-                                        <path d="M10 6v4l2.5 2.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <!-- UNIFIED SUMMARY CARD (shown after all fields complete) -->
+                    <div class="listing-summary" id="listingSummary" style="display: none;">
+                        <div class="summary-card">
+                            <div class="summary-card__header">
+                                <div class="summary-card__check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                                        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
-                                    Review Listing
-                                </button>
+                                </div>
+                                <h3 class="summary-card__title">Listing Preview</h3>
+                                <span class="summary-card__hint">Click any row to edit</span>
+                            </div>
+
+                            <!-- Row 1: Title & Price -->
+                            <div class="summary-row summary-row--main" data-edit-field="title">
+                                <div class="summary-row__left">
+                                    <span class="summary-label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <path d="M2 4L5 2L13 10L10 12L2 4Z" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                        Title
+                                    </span>
+                                    <span class="summary-value summary-value--title" id="summaryTitle">—</span>
+                                </div>
+                                <div class="summary-row__right" data-edit-field="price">
+                                    <span class="summary-label">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                            <circle cx="8" cy="8" r="6" />
+                                            <path d="M6 6C6 5.5 7 5 8 5C9 5 10 5.5 10 6C10 7 8.5 7.5 8 9" stroke-linecap="round" />
+                                        </svg>
+                                        Price
+                                    </span>
+                                    <span class="summary-value summary-value--price" id="summaryPrice">—</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Category & Condition & Size -->
+                            <div class="summary-row summary-row--meta">
+                                <div class="summary-item" data-edit-field="category">
+                                    <span class="summary-label">Category</span>
+                                    <span class="summary-value" id="summaryCategory">—</span>
+                                </div>
+                                <div class="summary-item" data-edit-field="condition">
+                                    <span class="summary-label">Condition</span>
+                                    <span class="summary-value" id="summaryCondition">—</span>
+                                </div>
+                                <div class="summary-item" data-edit-field="size">
+                                    <span class="summary-label">Size</span>
+                                    <span class="summary-value" id="summarySize">—</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Delivery Options -->
+                            <div class="summary-row" data-edit-field="delivery">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <rect x="1.5" y="7.5" width="13" height="5.5" rx="1" />
+                                        <circle cx="5" cy="13" r="1" />
+                                        <circle cx="11" cy="13" r="1" />
+                                    </svg>
+                                    Delivery
+                                </span>
+                                <span class="summary-value" id="summaryDelivery">—</span>
+                            </div>
+
+                            <!-- Row 4: Stealable Status -->
+                            <div class="summary-row" data-edit-field="stealable">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <path d="M8 1.5L9.5 5.5L14 6L10.5 8.5L11.5 13L8 10.5L4.5 13L5.5 8.5L2 6L6.5 5.5L8 1.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    Listing Type
+                                </span>
+                                <span class="summary-value" id="summaryStealable">—</span>
+                            </div>
+
+                            <!-- Row 5: Description -->
+                            <div class="summary-row summary-row--description" data-edit-field="description">
+                                <span class="summary-label">
+                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                                        <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+                                        <path d="M4.5 6H11.5" stroke-linecap="round" />
+                                        <path d="M4.5 8.5H9.5" stroke-linecap="round" />
+                                    </svg>
+                                    Description
+                                </span>
+                                <span class="summary-value summary-value--desc" id="summaryDescription">—</span>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="summary-card__actions">
                                 <button type="submit" class="btn btn--primary btn--publish" id="submitBtn">
                                     <span>Publish Listing</span>
                                     <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15">
@@ -480,8 +623,10 @@
                     <div class="create-footer">
                         <a asp-action="Index" class="btn btn--ghost">Cancel</a>
                         <span class="footer-hint" id="footerHint">Complete all fields to publish</span>
-                    </div>s
+                    </div>
 
+                </main>
+            </div>
         </form>
     </div>
 
@@ -490,7 +635,7 @@
                 'use strict';
 
                 // =========================================================
-                // PROGRESSIVE FIELD UNLOCKING
+                // PROGRESSIVE FIELD UNLOCKING WITH UNIFIED SUMMARY CARD
                 // =========================================================
         
                 const fields = [
@@ -504,13 +649,13 @@
                     { id: 'stealable', element: document.getElementById('fieldStealable'), validate: validateStealable, optional: true }
                 ];
 
-                let completedFields = new Set(['title']); // Title is open by default
+                let completedFields = new Set(['title']);
+                let allFieldsCompleted = false;
                 const progressFill = document.getElementById('progressiveFill');
                 const progressText = document.getElementById('progressText');
-                const publishSection = document.getElementById('publishSection');
+                const listingSummary = document.getElementById('listingSummary');
                 const footerHint = document.getElementById('footerHint');
 
-                // Clear the default value on price input to avoid validation issues
                 const priceInput = document.getElementById('priceInput');
                 if (priceInput && priceInput.value === '0') {
                     priceInput.value = '';
@@ -538,7 +683,7 @@
                 }
 
                 function validateSize() {
-                    return true; // Optional field always "valid"
+                    return true;
                 }
 
                 function validateDescription() {
@@ -558,12 +703,141 @@
                 function validateStealable() {
                     const stealableToggle = document.getElementById('stealableToggle');
                     const stealDurationSelect = document.getElementById('stealDurationSelect');
-                    // If stealable is checked, duration is required. Otherwise, it's valid.
                     if (stealableToggle && stealableToggle.checked) {
                         return stealDurationSelect && stealDurationSelect.value !== '';
                     }
-                    return true; // Optional - can skip
+                    return true;
                 }
+
+                // Update the unified summary card
+                function updateSummaryCard() {
+                    // Title
+                    const titleVal = document.getElementById('titleInput').value.trim() || '—';
+                    document.getElementById('summaryTitle').textContent = titleVal;
+
+                    // Price
+                    const priceVal = document.getElementById('priceInput').value;
+                    document.getElementById('summaryPrice').textContent = priceVal ? '₱' + parseFloat(priceVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+                    // Category
+                    const categoryVal = document.getElementById('categoryHidden').value || '—';
+                    document.getElementById('summaryCategory').textContent = categoryVal;
+
+                    // Condition
+                    const conditionVal = document.getElementById('conditionHidden').value || '—';
+                    document.getElementById('summaryCondition').textContent = conditionVal;
+
+                    // Size
+                    const sizeVal = document.getElementById('sizeSelect').value || 'Not specified';
+                    document.getElementById('summarySize').textContent = sizeVal;
+
+                    // Delivery
+                    const opts = [];
+                    if (document.getElementById('optDelivery').checked) opts.push('Delivery');
+                    if (document.getElementById('optMeetup').checked) opts.push('Halfway');
+                    if (document.getElementById('optPickup').checked) opts.push('Pickup');
+                    document.getElementById('summaryDelivery').textContent = opts.length ? opts.join(' · ') : 'None selected';
+
+                    // Stealable
+                    const toggle = document.getElementById('stealableToggle');
+                    const duration = document.getElementById('stealDurationSelect');
+                    if (toggle && toggle.checked && duration && duration.value) {
+                        document.getElementById('summaryStealable').textContent = '⚡ Stealable · ' + duration.value + ' hours';
+                    } else {
+                        document.getElementById('summaryStealable').textContent = 'Standard listing';
+                    }
+
+                    // Description
+                    const descVal = document.getElementById('descInput').value.trim();
+                    if (descVal) {
+                        const truncated = descVal.length > 100 ? descVal.substring(0, 100) + '…' : descVal;
+                        document.getElementById('summaryDescription').textContent = truncated;
+                    } else {
+                        document.getElementById('summaryDescription').textContent = '—';
+                    }
+                }
+
+                // Show the unified summary and hide all individual fields
+                function showUnifiedSummary() {
+                    // Hide all field elements
+                    fields.forEach(f => {
+                        if (f.element) f.element.style.display = 'none';
+                    });
+                
+                    // Hide progress bar
+                    document.querySelector('.progressive-progress').style.display = 'none';
+                
+                    // Show summary card
+                    if (listingSummary) {
+                        listingSummary.style.display = 'block';
+                        updateSummaryCard();
+                    }
+                
+                    if (footerHint) footerHint.textContent = 'Click any row to edit';
+                    allFieldsCompleted = true;
+                }
+
+                // Hide summary and show fields (when editing)
+                function hideSummaryAndShowFields() {
+                    fields.forEach(f => {
+                        if (f.element) f.element.style.display = '';
+                    });
+                
+                    document.querySelector('.progressive-progress').style.display = '';
+                
+                    if (listingSummary) listingSummary.style.display = 'none';
+                    allFieldsCompleted = false;
+                }
+
+                // Edit a specific field from the summary
+                function editField(fieldId) {
+                    hideSummaryAndShowFields();
+                
+                    // Collapse all completed fields, expand the target field
+                    fields.forEach(f => {
+                        if (!f.element) return;
+                        const body = f.element.querySelector('.progressive-field__body');
+                        const status = f.element.querySelector('.progressive-field__status');
+                    
+                        f.element.classList.remove('progressive-field--active', 'progressive-field--completed', 'progressive-field--locked');
+                    
+                        if (completedFields.has(f.id)) {
+                            f.element.classList.add('progressive-field--completed');
+                            if (body) body.style.display = 'none';
+                            if (status) status.textContent = '✓';
+                        } else if (f.id === fieldId) {
+                            f.element.classList.add('progressive-field--active');
+                            if (body) body.style.display = 'block';
+                            if (status) status.textContent = '';
+                            completedFields.delete(f.id);
+                        } else {
+                            f.element.classList.add('progressive-field--locked');
+                            if (status) status.textContent = '🔒';
+                        }
+                    });
+                
+                    // Scroll to the field
+                    const targetField = fields.find(f => f.id === fieldId);
+                    if (targetField && targetField.element) {
+                        setTimeout(() => {
+                            targetField.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const firstInput = targetField.element.querySelector('input, textarea, select');
+                            if (firstInput) firstInput.focus();
+                        }, 100);
+                    }
+                
+                    updateProgress();
+                }
+
+                // Summary row click handlers
+                document.querySelectorAll('[data-edit-field]').forEach(el => {
+                    el.addEventListener('click', function(e) {
+                        const fieldId = this.dataset.editField;
+                        if (fieldId) {
+                            editField(fieldId);
+                        }
+                    });
+                });
 
                 function updateProgress() {
                     const total = fields.length;
@@ -577,16 +851,11 @@
                         progressText.textContent = completed + '/' + total + ' fields complete';
                     }
 
-                    // Show/hide publish section when ALL fields are completed
-                    if (completed === total) {
-                        if (publishSection) publishSection.style.display = 'block';
-                        if (footerHint) footerHint.textContent = 'Ready to publish!';
-                    } else {
-                        if (publishSection) publishSection.style.display = 'none';
-                        if (footerHint) {
-                            const remaining = total - completed;
-                            footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
-                        }
+                    if (completed === total && !allFieldsCompleted) {
+                        if (footerHint) footerHint.textContent = 'All fields complete!';
+                    } else if (!allFieldsCompleted && footerHint) {
+                        const remaining = total - completed;
+                        footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
                     }
                 }
 
@@ -598,20 +867,18 @@
                     const body = element.querySelector('.progressive-field__body');
                     const status = element.querySelector('.progressive-field__status');
             
-                    element.classList.remove('progressive-field--locked');
+                    element.classList.remove('progressive-field--locked', 'progressive-field--completed');
                     element.classList.add('progressive-field--active');
                     if (body) body.style.display = 'block';
                     if (status) {
-                        status.textContent = '🔓';
+                        status.textContent = '';
                         status.style.opacity = '1';
                     }
 
-                    // Focus the first input in the field
                     setTimeout(() => {
                         const firstInput = element.querySelector('input, textarea, select, .chip, .pill');
                         if (firstInput) {
                             if (firstInput.classList.contains('chip') || firstInput.classList.contains('pill')) {
-                                // For chips/pills, just scroll into view
                                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             } else {
                                 firstInput.focus();
@@ -626,11 +893,14 @@
                     if (!field || !field.element) return;
 
                     const element = field.element;
+                    const body = element.querySelector('.progressive-field__body');
                     const status = element.querySelector('.progressive-field__status');
             
                     element.classList.remove('progressive-field--active');
                     element.classList.add('progressive-field--completed');
-                    if (status) status.textContent = '✅';
+                
+                    if (body) body.style.display = 'none';
+                    if (status) status.textContent = '✓';
             
                     completedFields.add(fieldId);
                     updateProgress();
@@ -643,9 +913,14 @@
                     if (field.validate()) {
                         completeField(currentFieldId);
                 
-                        // Unlock next field if it exists
                         if (nextFieldId) {
-                            unlockField(nextFieldId);
+                            if (nextFieldId === 'summary') {
+                                // All fields done - show unified summary
+                                completeField(currentFieldId);
+                                showUnifiedSummary();
+                            } else {
+                                unlockField(nextFieldId);
+                            }
                         }
                 
                         return true;
@@ -654,6 +929,36 @@
                         return false;
                     }
                 }
+
+                // Click on completed field headers to expand for editing
+                document.querySelectorAll('.progressive-field .progressive-field__header').forEach(header => {
+                    header.addEventListener('click', function(e) {
+                        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
+                    
+                        const field = this.closest('.progressive-field');
+                        if (!field) return;
+                    
+                        const fieldId = field.dataset.field;
+                    
+                        if (field.classList.contains('progressive-field--completed')) {
+                            const body = field.querySelector('.progressive-field__body');
+                            const status = field.querySelector('.progressive-field__status');
+                        
+                            field.classList.remove('progressive-field--completed');
+                            field.classList.add('progressive-field--active');
+                            if (body) body.style.display = 'block';
+                            if (status) status.textContent = '';
+                        
+                            completedFields.delete(fieldId);
+                            updateProgress();
+                        
+                            setTimeout(() => {
+                                const firstInput = field.querySelector('input, textarea, select');
+                                if (firstInput) firstInput.focus();
+                            }, 50);
+                        }
+                    });
+                });
 
                 // Continue button handlers
                 document.querySelectorAll('.btn--continue').forEach(btn => {
@@ -681,7 +986,11 @@
                 
                         completeField(currentFieldId);
                         if (nextFieldId) {
-                            unlockField(nextFieldId);
+                            if (nextFieldId === 'summary') {
+                                showUnifiedSummary();
+                            } else {
+                                unlockField(nextFieldId);
+                            }
                         }
                     });
                 });
@@ -910,29 +1219,26 @@
                     });
                 }
 
-                    if (photoStrip) {
-                        photoStrip.addEventListener('click', function (e) {
-                            // Handle remove button
-                            const btn = e.target.closest('.strip-thumb__remove');
-                            if (btn) {
-                                e.stopPropagation();
-                                removeFile(parseInt(btn.dataset.index, 10));
-                                return;
-                            }
+                if (photoStrip) {
+                    photoStrip.addEventListener('click', function (e) {
+                        const btn = e.target.closest('.strip-thumb__remove');
+                        if (btn) {
+                            e.stopPropagation();
+                            removeFile(parseInt(btn.dataset.index, 10));
+                            return;
+                        }
         
-                            // Handle thumbnail click to set as cover
-                            const thumb = e.target.closest('.strip-thumb');
-                            if (thumb) {
-                                const index = Array.from(photoStrip.children).indexOf(thumb);
-                                if (index >= 0 && index < selectedFiles.length) {
-                                    // Move selected file to front
-                                    const file = selectedFiles.splice(index, 1)[0];
-                                    selectedFiles.unshift(file);
-                                    renderPreviews();
-                                }
+                        const thumb = e.target.closest('.strip-thumb');
+                        if (thumb) {
+                            const index = Array.from(photoStrip.children).indexOf(thumb);
+                            if (index >= 0 && index < selectedFiles.length) {
+                                const file = selectedFiles.splice(index, 1)[0];
+                                selectedFiles.unshift(file);
+                                renderPreviews();
                             }
-                        });
-                    }
+                        }
+                    });
+                }
 
                 renderPreviews();
 
@@ -1035,7 +1341,6 @@
 
                 if (form) {
                     form.addEventListener('submit', function (e) {
-                        // Final validation
                         let hasError = false;
                 
                         if (!validateTitle()) {
@@ -1060,6 +1365,7 @@
 
                         if (hasError) {
                             e.preventDefault();
+                            editField('title');
                             return false;
                         }
 
@@ -1067,6 +1373,7 @@
                             stealDurationSelect && !stealDurationSelect.value) {
                             e.preventDefault();
                             showToast('Please select a steal window duration.', 'error');
+                            editField('stealable');
                             return false;
                         }
 
@@ -1094,111 +1401,43 @@
                 // Initialize progress
                 updateProgress();
         
-                // Ensure title field is active on page load
                 const titleField = document.getElementById('fieldTitle');
                 if (titleField) {
                     titleField.classList.add('progressive-field--active');
                 }
 
-                                    // =========================================================
-                    // REVIEW BUTTON & SCROLL TO TOP
-                    // =========================================================
+                // =========================================================
+                // SCROLL TO TOP
+                // =========================================================
         
-                    const reviewBtn = document.getElementById('reviewBtn');
-                    let scrollTopBtn = document.getElementById('scrollTopBtn');
+                let scrollTopBtn = document.getElementById('scrollTopBtn');
         
-                    // Create scroll to top button if it doesn't exist
-                    if (!scrollTopBtn) {
-                        scrollTopBtn = document.createElement('button');
-                        scrollTopBtn.id = 'scrollTopBtn';
-                        scrollTopBtn.className = 'scroll-top-btn';
-                        scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
-                        scrollTopBtn.innerHTML = `
-                            <svg viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        `;
-                        document.body.appendChild(scrollTopBtn);
+                if (!scrollTopBtn) {
+                    scrollTopBtn = document.createElement('button');
+                    scrollTopBtn.id = 'scrollTopBtn';
+                    scrollTopBtn.className = 'scroll-top-btn';
+                    scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
+                    scrollTopBtn.innerHTML = `
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    `;
+                    document.body.appendChild(scrollTopBtn);
+                }
+        
+                function scrollToTop() {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+        
+                scrollTopBtn.addEventListener('click', scrollToTop);
+        
+                window.addEventListener('scroll', function () {
+                    if (window.scrollY > 300) {
+                        scrollTopBtn.classList.add('visible');
+                    } else {
+                        scrollTopBtn.classList.remove('visible');
                     }
-        
-                    // Scroll to top functionality
-                    function scrollToTop() {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-        
-                    scrollTopBtn.addEventListener('click', scrollToTop);
-        
-                    // Show/hide scroll button based on scroll position
-                    window.addEventListener('scroll', function () {
-                        if (window.scrollY > 300) {
-                            scrollTopBtn.classList.add('visible');
-                        } else {
-                            scrollTopBtn.classList.remove('visible');
-                        }
-                    });
-        
-                    // Review button functionality
-                    if (reviewBtn) {
-                        reviewBtn.addEventListener('click', function (e) {
-                            e.preventDefault();
-                
-                            // Scroll to top first
-                            scrollToTop();
-                
-                            // Add review mode class to body
-                            document.body.classList.add('review-mode');
-                
-                            // Pulse animation on all fields
-                            const allFields = document.querySelectorAll('.progressive-field');
-                            allFields.forEach((field, index) => {
-                                setTimeout(() => {
-                                    field.classList.add('review-pulse');
-                                    setTimeout(() => {
-                                        field.classList.remove('review-pulse');
-                                    }, 600);
-                                }, index * 80);
-                            });
-                
-                            // Expand all completed fields for review
-                            allFields.forEach(field => {
-                                if (field.classList.contains('progressive-field--completed')) {
-                                    const body = field.querySelector('.progressive-field__body');
-                                    if (body) body.style.display = 'block';
-                                }
-                            });
-               
-                            // Show toast
-                            showToast('Review your listing details below', 'info');
-                
-                            // Remove review mode after 5 seconds
-                            setTimeout(() => {
-                                document.body.classList.remove('review-mode');
-                                // Collapse completed fields back
-                                allFields.forEach(field => {
-                                    if (field.classList.contains('progressive-field--completed')) {
-                                        const body = field.querySelector('.progressive-field__body');
-                                        if (body) body.style.display = 'none';
-                                    }
-                                });
-                            }, 8000);
-                        });
-                    }
-        
-                    // Click on any field header in review mode to expand/collapse
-                    document.addEventListener('click', function (e) {
-                        const header = e.target.closest('.progressive-field__header');
-                        if (header && document.body.classList.contains('review-mode')) {
-                            const field = header.closest('.progressive-field');
-                            const body = field.querySelector('.progressive-field__body');
-                            if (body) {
-                                if (body.style.display === 'none') {
-                                    body.style.display = 'block';
-                                } else {
-                                    body.style.display = 'none';
-                                }
-                            }
-                        }
-                    });
+                });
             })();
     </script>
 </body>
