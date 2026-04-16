@@ -1,8 +1,10 @@
 @using System.Security.Claims
 @using ThriftLoop.Repositories.Interface
+@using ThriftLoop.Services.Interface
 @inject IShopRepository ShopRepo
 @inject ICartRepository CartRepo
 @inject IItemLikeRepository LikeRepo
+@inject IChatService ChatService
 
 @{
     var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
@@ -17,9 +19,10 @@
     // Resolve live shop name for the navbar pill (only for Sellers)
     var shopLabel = "My Shop";
 
-    // Get cart count and likes count for authenticated users
+    // Get cart count, likes count, and unread message count for authenticated users
     int cartCount = 0;
     int likesCount = 0;
+    int unreadMessageCount = 0;
 
     var rawId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (int.TryParse(rawId, out var navUserId))
@@ -36,6 +39,7 @@
             cartCount = await CartRepo.GetCountByUserIdAsync(navUserId);
             var likes = await LikeRepo.GetByUserIdAsync(navUserId);
             likesCount = likes.Count;
+            unreadMessageCount = await ChatService.GetTotalUnreadCountAsync(navUserId);
         }
     }
 }
@@ -100,9 +104,20 @@
                     </a>
                 }
 
-                @* Cart icon — for all authenticated non-rider users *@
+                @* Messages icon — for all authenticated non-rider users *@
                 @if (!isRider)
                 {
+                    <a asp-controller="Chat" asp-action="Index" class="tl-nav__icon-btn @(currentPath.StartsWith("/Chat", StringComparison.OrdinalIgnoreCase) ? "tl-nav__icon-btn--active" : "")" title="Messages">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" aria-hidden="true">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        @if (unreadMessageCount > 0)
+                        {
+                            <span class="tl-nav__badge message-badge" id="chatUnreadBadge">@(unreadMessageCount > 99 ? "99+" : unreadMessageCount.ToString())</span>
+                        }
+                    </a>
+
+                    @* Cart icon — for all authenticated non-rider users *@
                     <a asp-controller="Cart" asp-action="Index" class="tl-nav__icon-btn @(currentPath.StartsWith("/Cart", StringComparison.OrdinalIgnoreCase) ? "tl-nav__icon-btn--active" : "")" title="Shopping Cart">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" aria-hidden="true">
                             <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
@@ -148,6 +163,17 @@
                                     <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-4.5 5.5a5 5 0 019 0h-9z" />
                                 </svg>
                                 My Profile
+                            </a>
+
+                            <a asp-controller="Chat" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Chat", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
+                                    <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z" />
+                                </svg>
+                                Messages
+                                @if (unreadMessageCount > 0)
+                                {
+                                    <span class="tl-nav__dropdown-badge">@(unreadMessageCount > 99 ? "99+" : unreadMessageCount.ToString())</span>
+                                }
                             </a>
 
                             <a asp-controller="Wallet" asp-action="Index" class="tl-nav__dropdown-item @(currentPath.StartsWith("/Wallet", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
@@ -255,17 +281,17 @@
         transition: background 0.15s, color 0.15s;
     }
 
-    .tl-nav__icon-btn:hover {
-        background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
-        color: var(--color-primary, #2d5a27);
-    }
+        .tl-nav__icon-btn:hover {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+            color: var(--color-primary, #2d5a27);
+        }
 
     .tl-nav__icon-btn--active {
         background: color-mix(in srgb, var(--color-primary, #2d5a27) 12%, transparent);
         color: var(--color-primary, #2d5a27);
     }
 
-    /* Badge for cart/likes counts */
+    /* Badge for cart/likes/message counts */
     .tl-nav__badge {
         position: absolute;
         top: 2px;
@@ -286,6 +312,44 @@
     .likes-badge {
         background: #dc3545;
     }
+
+    .message-badge {
+        background: #0095f6;
+    }
+
+    /* Dropdown badge for message count */
+    .tl-nav__dropdown-badge {
+        margin-left: auto;
+        background: #0095f6;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    /* Dropdown item with badge alignment */
+    .tl-nav__dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        color: var(--color-text, #1a1814);
+        text-decoration: none;
+        font-size: 14px;
+        transition: background 0.15s;
+    }
+
+        .tl-nav__dropdown-item:hover {
+            background: #f5f5f5;
+        }
+
+        .tl-nav__dropdown-item.active {
+            background: color-mix(in srgb, var(--color-primary, #2d5a27) 8%, transparent);
+            color: var(--color-primary, #2d5a27);
+        }
 
 </style>
 
@@ -309,6 +373,32 @@
                     dropdownMenu.classList.remove('show');
                 }
             });
+        }
+
+        // Poll for unread message count updates
+        function updateUnreadCount() {
+            fetch('/Chat/UnreadCount')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('chatUnreadBadge');
+                    if (badge) {
+                        if (data.unreadCount > 0) {
+                            badge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount;
+                            badge.style.display = 'flex';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Only poll if user is authenticated and not a rider
+        @if (User.Identity?.IsAuthenticated == true && !isRider)
+        {
+                <text>
+                    setInterval(updateUnreadCount, 30000); // Poll every 30 seconds
+                </text>
         }
     });
 </script>

@@ -1,0 +1,573 @@
+﻿@* Views/Chat/_UserSearchModal.cshtml *@
+@{
+    Layout = null;
+}
+
+<div class="modal" id="userSearchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>New message</h3>
+                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="M21 21l-4.35-4.35" />
+                        </svg>
+                        <input type="text"
+                               id="userSearchInput"
+                               class="form-control search-input"
+                               placeholder="Search by name or email..."
+                               autocomplete="off"
+                               autofocus />
+                        <button type="button" class="clear-search" id="clearSearchBtn" style="display: none;">
+                            &times;
+                        </button>
+                    </div>
+                    
+                    <div class="search-loading" id="searchLoading" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Searching...</span>
+                    </div>
+                    
+                    <div class="search-results" id="userSearchResults">
+                        <div class="search-empty-state">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="M21 21l-4.35-4.35" />
+                            </svg>
+                            <p>Type at least 2 characters to search for users</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="newMessageForm" method="post" action="/Chat/Start" style="display: none;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="selectedUserId" name="RecipientId" />
+                    
+                    <div class="selected-user-section">
+                        <div class="selected-user-header">
+                            <span>To:</span>
+                        </div>
+                        <div class="selected-user-display" id="selectedUserDisplay">
+                            <span class="no-user-selected">No user selected</span>
+                        </div>
+                        <button type="button" class="btn-change-user" id="changeUserBtn">Change</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="initialMessage">Message (optional)</label>
+                        <textarea id="initialMessage"
+                                  name="InitialMessage"
+                                  class="form-control message-textarea"
+                                  rows="4"
+                                  maxlength="2000"
+                                  placeholder="Write a message..."></textarea>
+                        <div class="char-count-wrapper">
+                            <small class="char-count"><span id="charCount">0</span>/2000</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="newMessageForm" class="btn btn-primary" id="startChatBtn" disabled>
+                    Start chat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/template" id="userSearchResultTemplate">
+    <div class="user-search-item" data-user-id="{{userId}}" data-user-name="{{userName}}" data-user-email="{{userEmail}}" data-conversation-id="{{conversationId}}">
+        <div class="user-avatar">
+            {{#avatarUrl}}
+                <img src="{{avatarUrl}}" alt="{{userName}}" />
+            {{/avatarUrl}}
+            {{^avatarUrl}}
+                <div class="avatar-placeholder">{{initials}}</div>
+            {{/avatarUrl}}
+        </div>
+        <div class="user-info">
+            <span class="user-name">{{userName}}</span>
+            <span class="user-email">{{userEmail}}</span>
+        </div>
+        {{#hasExistingConversation}}
+            <span class="existing-chat-badge">Existing chat</span>
+        {{/hasExistingConversation}}
+    </div>
+</script>
+
+<script type="text/template" id="selectedUserTemplate">
+    <div class="selected-user">
+        <div class="user-avatar-small">
+            {{#avatarUrl}}
+                <img src="{{avatarUrl}}" alt="{{userName}}" />
+            {{/avatarUrl}}
+            {{^avatarUrl}}
+                <div class="avatar-placeholder small">{{initials}}</div>
+            {{/avatarUrl}}
+        </div>
+        <div class="user-info-compact">
+            <span class="user-name">{{userName}}</span>
+            <span class="user-email">{{userEmail}}</span>
+        </div>
+    </div>
+</script>
+
+<style>
+    /* Modal-specific styles that complement chat.css */
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        color: #8e8e8e;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 40px 12px 40px;
+        font-size: 14px;
+        border: 1px solid #dbdbdb;
+        border-radius: 8px;
+        background-color: #fafafa;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #0095f6;
+        background-color: #ffffff;
+    }
+    
+    .clear-search {
+        position: absolute;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 20px;
+        color: #8e8e8e;
+        cursor: pointer;
+        padding: 4px 8px;
+    }
+    
+    .clear-search:hover {
+        color: #262626;
+    }
+    
+    .search-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px;
+        color: #8e8e8e;
+    }
+    
+    .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #dbdbdb;
+        border-top-color: #0095f6;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 8px;
+        border: 1px solid #dbdbdb;
+        border-radius: 8px;
+        background-color: #ffffff;
+    }
+    
+    .search-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+        color: #8e8e8e;
+        text-align: center;
+    }
+    
+    .search-empty-state svg {
+        margin-bottom: 12px;
+        opacity: 0.5;
+    }
+    
+    .user-search-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #efefef;
+        transition: background-color 0.2s;
+    }
+    
+    .user-search-item:last-child {
+        border-bottom: none;
+    }
+    
+    .user-search-item:hover {
+        background-color: #fafafa;
+    }
+    
+    .user-search-item.selected {
+        background-color: #e8f5fe;
+    }
+    
+    .user-avatar {
+        width: 44px;
+        height: 44px;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0095f6, #8a3ab9);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    
+    .avatar-placeholder.small {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+    
+    .user-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #262626;
+    }
+    
+    .user-email {
+        font-size: 12px;
+        color: #8e8e8e;
+    }
+    
+    .existing-chat-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        background-color: #efefef;
+        color: #8e8e8e;
+        border-radius: 12px;
+        flex-shrink: 0;
+    }
+    
+    .selected-user-section {
+        display: flex;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #dbdbdb;
+        margin-bottom: 16px;
+    }
+    
+    .selected-user-header {
+        font-weight: 600;
+        color: #262626;
+        margin-right: 12px;
+    }
+    
+    .selected-user-display {
+        flex: 1;
+    }
+    
+    .no-user-selected {
+        color: #8e8e8e;
+        font-style: italic;
+    }
+    
+    .selected-user {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .user-avatar-small {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+    }
+    
+    .user-avatar-small img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .user-info-compact {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .user-info-compact .user-name {
+        font-size: 14px;
+    }
+    
+    .user-info-compact .user-email {
+        font-size: 11px;
+    }
+    
+    .btn-change-user {
+        background: none;
+        border: none;
+        color: #0095f6;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+    }
+    
+    .btn-change-user:hover {
+        color: #00376b;
+    }
+    
+    .message-textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #dbdbdb;
+        border-radius: 8px;
+        resize: vertical;
+        font-family: inherit;
+        font-size: 14px;
+    }
+    
+    .message-textarea:focus {
+        outline: none;
+        border-color: #0095f6;
+    }
+    
+    .char-count-wrapper {
+        text-align: right;
+        margin-top: 4px;
+    }
+    
+    .char-count {
+        font-size: 12px;
+        color: #8e8e8e;
+    }
+</style>
+
+<script>
+    (function() {
+        // Modal functionality for the search modal
+        const modal = document.getElementById('userSearchModal');
+        const searchInput = document.getElementById('userSearchInput');
+        const clearBtn = document.getElementById('clearSearchBtn');
+        const searchResults = document.getElementById('userSearchResults');
+        const searchLoading = document.getElementById('searchLoading');
+        const selectedUserId = document.getElementById('selectedUserId');
+        const selectedUserDisplay = document.getElementById('selectedUserDisplay');
+        const newMessageForm = document.getElementById('newMessageForm');
+        const startChatBtn = document.getElementById('startChatBtn');
+        const changeUserBtn = document.getElementById('changeUserBtn');
+        const initialMessage = document.getElementById('initialMessage');
+        const charCount = document.getElementById('charCount');
+        
+        let searchTimeout = null;
+        let selectedUserData = null;
+        
+        // Character count for message
+        if (initialMessage) {
+            initialMessage.addEventListener('input', function() {
+                const count = this.value.length;
+                charCount.textContent = count;
+            });
+        }
+        
+        // Clear search
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                clearBtn.style.display = 'none';
+                showEmptyState();
+            });
+        }
+        
+        // Search input
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                clearBtn.style.display = query ? 'block' : 'none';
+                
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+                
+                if (query.length < 2) {
+                    showEmptyState();
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => performSearch(query), 300);
+            });
+        }
+        
+        // Change user button
+        if (changeUserBtn) {
+            changeUserBtn.addEventListener('click', function() {
+                newMessageForm.style.display = 'none';
+                searchResults.style.display = 'block';
+                searchInput.disabled = false;
+                searchInput.focus();
+            });
+        }
+        
+        function showEmptyState() {
+            searchResults.innerHTML = `
+                <div class="search-empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <p>Type at least 2 characters to search for users</p>
+                </div>
+            `;
+        }
+        
+        async function performSearch(query) {
+            searchLoading.style.display = 'flex';
+            searchResults.innerHTML = '';
+            
+            try {
+                const response = await fetch(`/Chat/SearchUsers?query=${encodeURIComponent(query)}`);
+                const users = await response.json();
+                
+                searchLoading.style.display = 'none';
+                
+                if (users.length === 0) {
+                    searchResults.innerHTML = `
+                        <div class="search-empty-state">
+                            <p>No users found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                renderSearchResults(users);
+            } catch (error) {
+                searchLoading.style.display = 'none';
+                searchResults.innerHTML = `
+                    <div class="search-empty-state">
+                        <p>Error searching. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderSearchResults(users) {
+            const template = document.getElementById('userSearchResultTemplate').innerHTML;
+            let html = '';
+            
+            users.forEach(user => {
+                let itemHtml = template
+                    .replace(/{{userId}}/g, user.id)
+                    .replace(/{{userName}}/g, user.name)
+                    .replace(/{{userEmail}}/g, user.email)
+                    .replace(/{{conversationId}}/g, user.existingConversationId || '')
+                    .replace(/{{avatarUrl}}/g, user.avatarUrl || '')
+                    .replace(/{{initials}}/g, getInitials(user.name))
+                    .replace(/{{#hasExistingConversation}}([\s\S]*?){{\/hasExistingConversation}}/g,
+                        user.existingConversationId ? '$1' : '');
+                
+                html += itemHtml;
+            });
+            
+            searchResults.innerHTML = html;
+            
+            // Add click handlers
+            searchResults.querySelectorAll('.user-search-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    selectUser({
+                        id: this.dataset.userId,
+                        name: this.dataset.userName,
+                        email: this.dataset.userEmail,
+                        conversationId: this.dataset.conversationId
+                    });
+                });
+            });
+        }
+        
+        function selectUser(user) {
+            selectedUserData = user;
+            selectedUserId.value = user.id;
+            
+            // Render selected user
+            const template = document.getElementById('selectedUserTemplate').innerHTML;
+            const html = template
+                .replace(/{{userId}}/g, user.id)
+                .replace(/{{userName}}/g, user.name)
+                .replace(/{{userEmail}}/g, user.email)
+                .replace(/{{avatarUrl}}/g, user.avatarUrl || '')
+                .replace(/{{initials}}/g, getInitials(user.name));
+            
+            selectedUserDisplay.innerHTML = html;
+            
+            // Switch to message form
+            searchResults.style.display = 'none';
+            newMessageForm.style.display = 'block';
+            searchInput.disabled = true;
+            startChatBtn.disabled = false;
+            
+            initialMessage.focus();
+        }
+        
+        function getInitials(name) {
+            if (!name) return '?';
+            const parts = name.split(' ').filter(p => p);
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+            return name.substring(0, 1).toUpperCase();
+        }
+        
+        // If there's an existing conversation, redirect instead of showing form
+        window.checkExistingConversation = function(userId, conversationId) {
+            if (conversationId) {
+                window.location.href = `/Chat/Conversation/${conversationId}`;
+                return true;
+            }
+            return false;
+        };
+    })();
+</script>

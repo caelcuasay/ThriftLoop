@@ -1,0 +1,115 @@
+﻿@* Views/Chat/_ConversationListItem.cshtml *@
+@model ThriftLoop.DTOs.Chat.ConversationDTO
+
+@{
+    var itemClass = Model.UnreadCount > 0 ? "conversation-item unread" : "conversation-item";
+    var timeString = GetRelativeTime(Model.LastMessageAt);
+}
+
+<a href="@Url.Action("Conversation", new { id = Model.Id })" class="@itemClass" data-conversation-id="@Model.Id">
+    <div class="conversation-avatar">
+        @if (!string.IsNullOrEmpty(Model.OtherUserAvatarUrl))
+        {
+            <img src="@Model.OtherUserAvatarUrl" alt="@Model.OtherUserName" />
+        }
+        else
+        {
+            <div class="avatar-placeholder">
+                @GetInitials(Model.OtherUserName)
+            </div>
+        }
+    </div>
+
+    <div class="conversation-content">
+        <div class="conversation-header">
+            <span class="conversation-name" title="@Model.OtherUserName">@Truncate(Model.OtherUserName, 25)</span>
+            <span class="conversation-time" title="@Model.LastMessageAt.ToLocalTime().ToString("f")">@timeString</span>
+        </div>
+
+        <div class="conversation-preview">
+            @if (Model.LastMessageIsFromCurrentUser)
+            {
+                <span class="you-prefix">You: </span>
+            }
+            <span class="last-message" title="@Model.LastMessage">@Truncate(Model.LastMessage, 35)</span>
+            
+            @if (Model.UnreadCount > 0)
+            {
+                <span class="unread-badge">@GetBadgeCount(Model.UnreadCount)</span>
+            }
+        </div>
+
+        @if (Model.LastMessageIsFromCurrentUser)
+        {
+            <div class="message-status">
+                @Html.Raw(GetStatusIcon(Model.LastMessageStatus))
+            </div>
+        }
+    </div>
+</a>
+
+@functions {
+    private string GetRelativeTime(DateTime timestamp)
+    {
+        var now = DateTime.UtcNow;
+        var localTime = timestamp.ToLocalTime();
+        var diff = now - timestamp;
+
+        if (diff.TotalMinutes < 1)
+            return "just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h";
+        if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays}d";
+        
+        return localTime.ToString("MMM d");
+    }
+
+    private string Truncate(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text ?? string.Empty;
+        return text.Substring(0, maxLength) + "...";
+    }
+
+    private string GetBadgeCount(int count)
+    {
+        return count > 99 ? "99+" : count.ToString();
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return "?";
+        
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        
+        return name.Substring(0, 1).ToUpper();
+    }
+
+    private string GetStatusIcon(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "read" => @"
+                <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#34B7F1' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                    <path d='M16 6l-7 7 5 5 7-7'/>
+                </svg>",
+            "delivered" => @"
+                <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                    <path d='M16 6l-7 7'/>
+                </svg>",
+            "sent" => @"
+                <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                </svg>",
+            _ => ""
+        };
+    }
+}

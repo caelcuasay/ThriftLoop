@@ -1,0 +1,185 @@
+﻿@* Views/Chat/Conversation.cshtml *@
+@model ThriftLoop.DTOs.Chat.ConversationDetailDTO
+@{
+    ViewData["Title"] = Model.OtherUserName;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/chat.css" asp-append-version="true" />
+}
+
+<div class="chat-container">
+    @* Sidebar *@
+    <div class="chat-sidebar" id="chatSidebar">
+        <div class="chat-sidebar-header">
+            <h2>Messages</h2>
+            <button type="button" class="btn-new-message" id="newMessageBtn" title="New message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5 5 5-5M12 14V2" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="chat-sidebar-search">
+            <input type="text" id="conversationSearch" placeholder="Search conversations..." autocomplete="off" />
+        </div>
+
+        <div class="chat-conversation-list" id="conversationList">
+            @* Conversations will be loaded via AJAX *@
+            <div class="loading-placeholder">Loading conversations...</div>
+        </div>
+    </div>
+
+    @* Main Chat Area *@
+    <div class="chat-main">
+        @* Chat Header *@
+        <div class="chat-header">
+            <button type="button" class="btn-back-sidebar" id="toggleSidebarBtn" title="Show conversations">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+
+            <div class="chat-header-info">
+                <div class="chat-avatar">
+                    @if (!string.IsNullOrEmpty(Model.OtherUserAvatarUrl))
+                    {
+                        <img src="@Model.OtherUserAvatarUrl" alt="@Model.OtherUserName" />
+                    }
+                    else
+                    {
+                        <div class="avatar-placeholder">
+                            @Model.OtherUserName.Substring(0, 1).ToUpper()
+                        </div>
+                    }
+                    <span class="online-indicator @(Model.IsOtherUserOnline ? "online" : "")"></span>
+                </div>
+                <div class="chat-user-info">
+                    <h3>@Model.OtherUserName</h3>
+                    <span class="user-status" id="userStatus">@Model.OtherUserActiveStatus</span>
+                </div>
+            </div>
+
+            <div class="chat-header-actions">
+                <button type="button" class="btn-icon" title="View profile">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        @* Messages Area *@
+        <div class="chat-messages" id="messageContainer">
+            @if (Model.HasMoreMessages)
+            {
+                <div class="load-more-container">
+                    <button type="button" class="btn-load-more-messages" id="loadOlderMessages" data-page="@(Model.Page + 1)">
+                        Load older messages
+                    </button>
+                </div>
+            }
+
+            <div class="messages-list" id="messagesList">
+                @foreach (var message in Model.Messages)
+                {
+                    <partial name="_MessageBubble" model="message" />
+                }
+            </div>
+
+            <div id="typingIndicator" class="typing-indicator hidden">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span class="typing-text">@Model.OtherUserName is typing...</span>
+            </div>
+        </div>
+
+        @* Message Input Area *@
+        <div class="chat-input-area">
+            <form id="messageForm" class="message-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="conversationId" value="@Model.Id" />
+                <input type="hidden" id="recipientId" value="@Model.OtherUserId" />
+                
+                <textarea id="messageInput"
+                          class="message-input"
+                          placeholder="Type a message..."
+                          rows="1"
+                          maxlength="2000"
+                          autocomplete="off"></textarea>
+                
+                <button type="submit" class="btn-send" id="sendMessageBtn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                    </svg>
+                </button>
+            </form>
+            <small class="char-count"><span id="messageCharCount">0</span>/2000</small>
+        </div>
+    </div>
+</div>
+
+@* New Message Modal *@
+<div class="modal" id="newMessageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>New message</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-container">
+                    <input type="text"
+                           id="userSearchInput"
+                           class="form-control"
+                           placeholder="Search for a user..."
+                           autocomplete="off" />
+                    <div class="search-results" id="userSearchResults"></div>
+                </div>
+                <form id="newMessageForm" method="post" action="@Url.Action("Start")" class="hidden">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="selectedUserId" name="RecipientId" />
+                    <div class="selected-user-display" id="selectedUserDisplay"></div>
+                    <div class="form-group">
+                        <label for="initialMessage">Message (optional)</label>
+                        <textarea id="initialMessage"
+                                  name="InitialMessage"
+                                  class="form-control"
+                                  rows="3"
+                                  maxlength="2000"
+                                  placeholder="Write a message..."></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="startChatBtn" disabled>Start chat</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script src="~/js/chat.js" asp-append-version="true"></script>
+    <script>
+        // Initialize chat with conversation data
+        document.addEventListener('DOMContentLoaded', function() {
+        window.chatConfig = {
+        conversationId: @Model.Id,
+        currentUserId: @Context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0",
+        otherUserId: @Model.OtherUserId,
+        otherUserName: '@Html.Raw(Model.OtherUserName)',
+        prefillMessage: '@(ViewBag.PrefillMessage ?? "")'
+        };
+            
+        // Trigger chat initialization
+        if (typeof initializeChat === 'function') {
+        initializeChat(window.chatConfig);
+        }
+        });
+    </script>
+}

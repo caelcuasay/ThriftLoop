@@ -1,0 +1,100 @@
+﻿@* Views/Chat/_MessageBubble.cshtml *@
+@model ThriftLoop.DTOs.Chat.MessageDTO
+
+@{
+    var bubbleClass = Model.IsFromCurrentUser ? "message-bubble sent" : "message-bubble received";
+    var statusIcon = Model.IsFromCurrentUser ? GetStatusIcon(Model.Status) : "";
+}
+
+<div class="@bubbleClass"
+     data-message-id="@Model.Id"
+     data-sender-id="@Model.SenderId"
+     data-status="@Model.Status.ToString().ToLower()"
+     id="message-@Model.Id">
+    
+    @if (!Model.IsFromCurrentUser)
+    {
+        <div class="message-avatar">
+            @if (!string.IsNullOrEmpty(Model.SenderAvatarUrl))
+            {
+                <img src="@Model.SenderAvatarUrl" alt="@Model.SenderName" />
+            }
+            else
+            {
+                <div class="avatar-placeholder small">
+                    @Model.SenderName.Substring(0, 1).ToUpper()
+                </div>
+            }
+        </div>
+    }
+
+    <div class="message-content-wrapper">
+        @if (!Model.IsFromCurrentUser)
+        {
+            <span class="message-sender">@Model.SenderName</span>
+        }
+
+        <div class="message-content">
+            <p class="message-text">@Html.Raw(FormatMessageContent(Model.Content))</p>
+            
+            <div class="message-meta">
+                <span class="message-time">@Model.FormattedTime</span>
+                
+                @if (Model.IsFromCurrentUser)
+                {
+                    <span class="message-status" data-status="@Model.Status.ToString().ToLower()">
+                        @Html.Raw(statusIcon)
+                    </span>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (Model.IsFromCurrentUser)
+    {
+        <div class="message-avatar-placeholder"></div>
+    }
+</div>
+
+@functions {
+    private string GetStatusIcon(ThriftLoop.Enums.MessageStatus status)
+    {
+        return status switch
+        {
+            ThriftLoop.Enums.MessageStatus.Read => @"
+                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#34B7F1' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                    <path d='M16 6l-7 7 5 5 7-7'/>
+                </svg>",
+            ThriftLoop.Enums.MessageStatus.Delivered => @"
+                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                    <path d='M16 6l-7 7'/>
+                </svg>",
+            ThriftLoop.Enums.MessageStatus.Sent => @"
+                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>
+                    <path d='M20 6L9 17l-5-5'/>
+                </svg>",
+            _ => ""
+        };
+    }
+
+    private string FormatMessageContent(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return content;
+
+        // Escape HTML
+        content = System.Net.WebUtility.HtmlEncode(content);
+        
+        // Convert URLs to clickable links
+        var urlPattern = @"(https?:\/\/[^\s]+)";
+        content = System.Text.RegularExpressions.Regex.Replace(content, urlPattern,
+            "<a href=\"$1\" target=\"_blank\" rel=\"noopener noreferrer\">$1</a>");
+        
+        // Convert line breaks to <br />
+        content = content.Replace("\n", "<br />");
+        
+        return content;
+    }
+}

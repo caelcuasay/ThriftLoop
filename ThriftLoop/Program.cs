@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
+using ThriftLoop.Hubs;
 using ThriftLoop.Repositories.Implementation;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Auth.Implementation;
@@ -14,11 +15,20 @@ using ThriftLoop.Services.OrderManagement.Interface;
 using ThriftLoop.Services.UserProfile.Implementation;
 using ThriftLoop.Services.WalletManagement.Implementation;
 using ThriftLoop.Services.WalletManagement.Interface;
+using ThriftLoop.Services.Interface;
+using ThriftLoop.Services.Implementation;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── MVC ───────────────────────────────────────────────────────────────────────
 builder.Services.AddControllersWithViews();
+
+// ── SignalR ───────────────────────────────────────────────────────────────────
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.MaximumReceiveMessageSize = 32 * 1024; // 32 KB
+});
 
 // ── Database (EF Core + SQL Server) ──────────────────────────────────────────
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -79,6 +89,10 @@ builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();
 builder.Services.AddScoped<IItemLikeRepository, ItemLikeRepository>();
 
+// Chat Repositories
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRiderAuthService, RiderAuthService>();
@@ -87,6 +101,9 @@ builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
+// Chat Services
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddSingleton<IChatNotificationService, ChatNotificationService>();
 
 var app = builder.Build();
 
@@ -133,5 +150,8 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// ── SignalR Hub Mapping ───────────────────────────────────────────────────────
+app.MapHub<ChatHub>("/chatHub");
 
 app.Run();

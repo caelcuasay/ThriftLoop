@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// Data/ApplicationDbContext.cs
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
 using ThriftLoop.Models;
@@ -26,6 +27,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<ItemLike> ItemLikes => Set<ItemLike>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+
     // ── JSON options (shared, thread-safe) ────────────────────────────────────
     private static readonly JsonSerializerOptions _jsonOpts =
         new(JsonSerializerDefaults.Web);
@@ -516,6 +520,7 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(il => il.ItemId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
+
         // ── OrderItems ─────────────────────────────────────────────────────────
         modelBuilder.Entity<OrderItem>(entity =>
         {
@@ -536,5 +541,88 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
+        // ── Conversations ──────────────────────────────────────────────────────
+        modelBuilder.Entity<Conversation>(entity =>
+        {
+            entity.ToTable("Conversations");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Id).ValueGeneratedOnAdd();
+
+            // Unique index on the pair (UserOneId, UserTwoId) to prevent duplicate conversations
+            // We need to ensure the pair is unique regardless of order, so we'll enforce
+            // that UserOneId < UserTwoId at the application level and add a unique constraint.
+            entity.HasIndex(c => new { c.UserOneId, c.UserTwoId })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_Conversations_UserPair");
+
+            entity.Property(c => c.CreatedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(c => c.LastMessageAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // Foreign keys to User
+            entity.HasOne(c => c.UserOne)
+                  .WithMany()
+                  .HasForeignKey(c => c.UserOneId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.UserTwo)
+                  .WithMany()
+                  .HasForeignKey(c => c.UserTwoId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Messages ───────────────────────────────────────────────────────────
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.ToTable("Messages");
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.Id).ValueGeneratedOnAdd();
+
+            entity.Property(m => m.Content)
+                  .IsRequired()
+                  .HasMaxLength(2000);
+
+            entity.Property(m => m.SentAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(m => m.DeliveredAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(m => m.ReadAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(m => m.Status)
+                  .IsRequired()
+                  .HasDefaultValue(MessageStatus.Sent);
+
+            // Index for efficient inbox queries (get latest messages per conversation)
+            entity.HasIndex(m => new { m.ConversationId, m.SentAt })
+                  .HasDatabaseName("IX_Messages_ConversationId_SentAt");
+
+            // Index for finding unread messages for a specific user
+            entity.HasIndex(m => new { m.SenderId, m.Status })
+                  .HasDatabaseName("IX_Messages_SenderId_Status");
+
+            // Foreign keys
+            entity.HasOne(m => m.Conversation)
+                  .WithMany(c => c.Messages)
+                  .HasForeignKey(m => m.ConversationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(m => m.Sender)
+                  .WithMany()
+                  .HasForeignKey(m => m.SenderId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }
