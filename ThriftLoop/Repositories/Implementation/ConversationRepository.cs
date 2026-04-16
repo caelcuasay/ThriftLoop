@@ -133,4 +133,157 @@ public class ConversationRepository : IConversationRepository
         return conversation != null &&
                (conversation.UserOneId == userId || conversation.UserTwoId == userId);
     }
+
+    // ── Order/Item Context Methods ────────────────────────────────────────────
+
+    public async Task<Conversation> GetOrCreateForItemAsync(int buyerId, int sellerId, int itemId)
+    {
+        // First, try to find an existing conversation between these users about this item
+        var existing = await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .FirstOrDefaultAsync(c =>
+                c.ContextItemId == itemId &&
+                ((c.UserOneId == buyerId && c.UserTwoId == sellerId) ||
+                 (c.UserOneId == sellerId && c.UserTwoId == buyerId)));
+
+        if (existing != null)
+            return existing;
+
+        // Next, try to find any conversation between these users
+        var id1 = Math.Min(buyerId, sellerId);
+        var id2 = Math.Max(buyerId, sellerId);
+
+        var generalConv = await _context.Conversations
+            .FirstOrDefaultAsync(c => c.UserOneId == id1 && c.UserTwoId == id2);
+
+        if (generalConv != null)
+        {
+            // Link the existing conversation to this item if not already linked
+            if (generalConv.ContextItemId == null)
+            {
+                generalConv.ContextItemId = itemId;
+                await _context.SaveChangesAsync();
+            }
+            return generalConv;
+        }
+
+        // Create new conversation with item context
+        var conversation = new Conversation
+        {
+            UserOneId = id1,
+            UserTwoId = id2,
+            ContextItemId = itemId,
+            CreatedAt = DateTime.UtcNow,
+            LastMessageAt = DateTime.UtcNow
+        };
+
+        _context.Conversations.Add(conversation);
+        await _context.SaveChangesAsync();
+
+        return conversation;
+    }
+
+    public async Task<Conversation> GetOrCreateForOrderAsync(int buyerId, int sellerId, int orderId)
+    {
+        // First, check if there's already a conversation linked to this order
+        var existing = await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .FirstOrDefaultAsync(c => c.OrderId == orderId);
+
+        if (existing != null)
+            return existing;
+
+        // Get the order to find the item context
+        var order = await _context.Orders
+            .Include(o => o.Item)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        // Check for existing conversation between these users (maybe from pre-order inquiry)
+        var id1 = Math.Min(buyerId, sellerId);
+        var id2 = Math.Max(buyerId, sellerId);
+
+        var generalConv = await _context.Conversations
+            .FirstOrDefaultAsync(c => c.UserOneId == id1 && c.UserTwoId == id2);
+
+        if (generalConv != null)
+        {
+            // Link the existing conversation to this order
+            generalConv.OrderId = orderId;
+            if (order?.ItemId != null && generalConv.ContextItemId == null)
+            {
+                generalConv.ContextItemId = order.ItemId;
+            }
+            await _context.SaveChangesAsync();
+            return generalConv;
+        }
+
+        // Create new conversation with order context
+        var conversation = new Conversation
+        {
+            UserOneId = id1,
+            UserTwoId = id2,
+            OrderId = orderId,
+            ContextItemId = order?.ItemId,
+            CreatedAt = DateTime.UtcNow,
+            LastMessageAt = DateTime.UtcNow
+        };
+
+        _context.Conversations.Add(conversation);
+        await _context.SaveChangesAsync();
+
+        return conversation;
+    }
+
+    public async Task<Conversation?> GetByOrderIdAsync(int orderId)
+    {
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.OrderId == orderId);
+    }
+
+    public async Task<Conversation?> GetByItemAndParticipantsAsync(int itemId, int buyerId, int sellerId)
+    {
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c =>
+                c.ContextItemId == itemId &&
+                ((c.UserOneId == buyerId && c.UserTwoId == sellerId) ||
+                 (c.UserOneId == sellerId && c.UserTwoId == buyerId)));
+    }
+
+    public async Task LinkToOrderAsync(int conversationId, int orderId)
+    {
+        var conversation = await _context.Conversations.FindAsync(conversationId);
+        if (conversation != null && conversation.OrderId == null)
+        {
+            var order = await _context.Orders
+                .Include(o => o.Item)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            conversation.OrderId = orderId;
+            if (order?.ItemId != null && conversation.ContextItemId == null)
+            {
+                conversation.ContextItemId = order.ItemId;
+            }
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<Conversation?> GetByIdWithContextAsync(int conversationId)
+    {
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .Include(c => c.Order)
+                .ThenInclude(o => o != null ? o.Item : null)
+            .Include(c => c.ContextItem)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+    }
 }

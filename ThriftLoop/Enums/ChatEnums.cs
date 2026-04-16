@@ -22,3 +22,35 @@ public enum MessageStatus
     /// </summary>
     Read = 3
 }
+
+/// <summary>
+/// Type of chat message for rendering different bubble styles.
+/// </summary>
+public enum MessageType
+{
+    /// <summary>
+    /// Standard text message sent by a user.
+    /// </summary>
+    Text = 1,
+
+    /// <summary>
+    /// Embedded order reference card (item details, price, condition).
+    /// Sent when a buyer contacts a seller about an item or when an order is created.
+    /// </summary>
+    OrderReference = 2,
+
+    /// <summary>
+    /// Meeting proposal message (e.g., "Let's meet at SM North at 3pm").
+    /// </summary>
+    MeetingProposal = 3,
+
+    /// <summary>
+    /// System-generated message confirming an order was placed.
+    /// </summary>
+    OrderConfirmed = 4,
+
+    /// <summary>
+    /// System reminder about pending payment or action needed.
+    /// </summary>
+    PaymentReminder = 5
+}

@@ -345,6 +345,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(o => o.ChatInitialized).IsRequired().HasDefaultValue(false);
             entity.Property(o => o.ChatSessionId).IsRequired(false).HasMaxLength(100).IsUnicode(false);
 
+            // ── Chat Conversation FK ───────────────────────────────────────────
+            entity.Property(o => o.ChatConversationId)
+                  .IsRequired(false);
+
+            entity.HasOne(o => o.ChatConversation)
+                  .WithOne(c => c.Order)
+                  .HasForeignKey<Conversation>(c => c.OrderId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasOne(o => o.Item)
                   .WithMany()
                   .HasForeignKey(o => o.ItemId)
@@ -549,8 +559,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(c => c.Id).ValueGeneratedOnAdd();
 
             // Unique index on the pair (UserOneId, UserTwoId) to prevent duplicate conversations
-            // We need to ensure the pair is unique regardless of order, so we'll enforce
-            // that UserOneId < UserTwoId at the application level and add a unique constraint.
             entity.HasIndex(c => new { c.UserOneId, c.UserTwoId })
                   .IsUnique()
                   .HasDatabaseName("UQ_Conversations_UserPair");
@@ -564,6 +572,26 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasColumnType("datetime2")
                   .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            // ── Order Linking ──────────────────────────────────────────────────
+            entity.Property(c => c.OrderId)
+                  .IsRequired(false);
+
+            entity.HasOne(c => c.Order)
+                  .WithOne(o => o.ChatConversation)
+                  .HasForeignKey<Conversation>(c => c.OrderId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // ── Item Context ───────────────────────────────────────────────────
+            entity.Property(c => c.ContextItemId)
+                  .IsRequired(false);
+
+            entity.HasOne(c => c.ContextItem)
+                  .WithMany()
+                  .HasForeignKey(c => c.ContextItemId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             // Foreign keys to User
             entity.HasOne(c => c.UserOne)
@@ -588,6 +616,10 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasMaxLength(2000);
 
+            entity.Property(m => m.MessageType)
+                  .IsRequired()
+                  .HasDefaultValue(MessageType.Text);
+
             entity.Property(m => m.SentAt)
                   .IsRequired()
                   .HasColumnType("datetime2")
@@ -605,6 +637,29 @@ public class ApplicationDbContext : DbContext
                   .IsRequired()
                   .HasDefaultValue(MessageStatus.Sent);
 
+            // ── Order/Item References ──────────────────────────────────────────
+            entity.Property(m => m.ReferencedOrderId)
+                  .IsRequired(false);
+
+            entity.HasOne(m => m.ReferencedOrder)
+                  .WithMany()
+                  .HasForeignKey(m => m.ReferencedOrderId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(m => m.ReferencedItemId)
+                  .IsRequired(false);
+
+            entity.HasOne(m => m.ReferencedItem)
+                  .WithMany()
+                  .HasForeignKey(m => m.ReferencedItemId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(m => m.MetadataJson)
+                  .IsRequired(false)
+                  .HasMaxLength(1000);
+
             // Index for efficient inbox queries (get latest messages per conversation)
             entity.HasIndex(m => new { m.ConversationId, m.SentAt })
                   .HasDatabaseName("IX_Messages_ConversationId_SentAt");
@@ -612,6 +667,10 @@ public class ApplicationDbContext : DbContext
             // Index for finding unread messages for a specific user
             entity.HasIndex(m => new { m.SenderId, m.Status })
                   .HasDatabaseName("IX_Messages_SenderId_Status");
+
+            // Index for message type filtering
+            entity.HasIndex(m => m.MessageType)
+                  .HasDatabaseName("IX_Messages_MessageType");
 
             // Foreign keys
             entity.HasOne(m => m.Conversation)

@@ -1,5 +1,6 @@
 ﻿// Services/Implementation/ChatService.cs
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using ThriftLoop.Data;
 using ThriftLoop.DTOs.Chat;
 using ThriftLoop.Enums;
@@ -17,6 +18,7 @@ public class ChatService : IChatService
     private readonly IChatNotificationService _notificationService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ChatService> _logger;
+    private static readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web);
 
     public ChatService(
         IConversationRepository conversationRepo,
@@ -52,8 +54,8 @@ public class ChatService : IChatService
                 Id = conv.Id,
                 OtherUserId = otherUserId,
                 OtherUserName = otherUser?.FullName ?? otherUser?.Email ?? "Unknown User",
-                OtherUserAvatarUrl = null, // Add avatar field if you have one
-                LastMessage = lastMessage?.Content ?? "No messages yet",
+                OtherUserAvatarUrl = null,
+                LastMessage = GetLastMessagePreview(lastMessage),
                 LastMessageAt = conv.LastMessageAt,
                 UnreadCount = unreadCount,
                 LastMessageIsFromCurrentUser = lastMessage?.SenderId == userId,
@@ -68,7 +70,7 @@ public class ChatService : IChatService
 
     public async Task<ConversationDetailDTO?> GetConversationDetailAsync(int conversationId, int currentUserId, int page = 1, int pageSize = 50)
     {
-        var conversation = await _conversationRepo.GetByIdAsync(conversationId);
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
         if (conversation == null)
             return null;
 
@@ -85,24 +87,61 @@ public class ChatService : IChatService
         var isOnline = await _notificationService.IsUserOnlineAsync(otherUserId);
         var lastActive = await _notificationService.GetLastActiveTimeAsync(otherUserId);
 
-        var messageDtos = messages.Select(m => new MessageDTO
+        var messageDtos = new List<MessageDTO>();
+        foreach (var m in messages)
         {
-            Id = m.Id,
-            ConversationId = m.ConversationId,
-            SenderId = m.SenderId,
-            SenderName = m.Sender?.FullName ?? m.Sender?.Email ?? "Unknown",
-            SenderAvatarUrl = null,
-            Content = m.Content,
-            SentAt = m.SentAt,
-            Status = m.Status,
-            IsFromCurrentUser = m.SenderId == currentUserId,
-            FormattedTime = FormatMessageTime(m.SentAt)
-        }).OrderBy(m => m.SentAt).ToList();
+            var dto = new MessageDTO
+            {
+                Id = m.Id,
+                ConversationId = m.ConversationId,
+                SenderId = m.SenderId,
+                SenderName = m.SenderId == 0 ? "System" : (m.Sender?.FullName ?? m.Sender?.Email ?? "Unknown"),
+                SenderAvatarUrl = null,
+                Content = m.Content,
+                SentAt = m.SentAt,
+                Status = m.Status,
+                MessageType = m.MessageType,
+                IsFromCurrentUser = m.SenderId == currentUserId,
+                FormattedTime = FormatMessageTime(m.SentAt),
+                Metadata = !string.IsNullOrEmpty(m.MetadataJson)
+                    ? JsonSerializer.Deserialize<Dictionary<string, object>>(m.MetadataJson, _jsonOpts)
+                    : null
+            };
+
+            // Populate order reference if applicable
+            if (m.MessageType == MessageType.OrderReference || m.MessageType == MessageType.OrderConfirmed)
+            {
+                var item = m.ReferencedItem ?? m.ReferencedOrder?.Item;
+                var order = m.ReferencedOrder;
+
+                if (item != null)
+                {
+                    dto.OrderReference = new OrderReferenceDTO
+                    {
+                        ItemId = item.Id,
+                        ItemTitle = item.Title,
+                        ItemImageUrl = item.ImageUrls?.FirstOrDefault(),
+                        Price = item.Price,
+                        Condition = item.Condition,
+                        Size = item.Size,
+                        Category = item.Category,
+                        OrderId = order?.Id,
+                        ConversationId = conversationId,
+                        SellerId = item.UserId,
+                        SellerName = item.User?.Email?.Split('@')[0] ?? "Unknown",
+                        IsConfirmedOrder = order != null,
+                        FulfillmentMethod = order?.FulfillmentMethod.ToString()
+                    };
+                }
+            }
+
+            messageDtos.Add(dto);
+        }
 
         // Mark messages as read when user views the conversation
         await _messageRepo.MarkAllAsReadAsync(conversationId, currentUserId);
 
-        return new ConversationDetailDTO
+        var detailDto = new ConversationDetailDTO
         {
             Id = conversation.Id,
             OtherUserId = otherUserId,
@@ -111,13 +150,24 @@ public class ChatService : IChatService
             IsOtherUserOnline = isOnline,
             OtherUserLastActiveAt = lastActive,
             OtherUserActiveStatus = GetActiveStatusText(isOnline, lastActive),
-            Messages = messageDtos,
+            Messages = messageDtos.OrderBy(m => m.SentAt).ToList(),
             TotalMessageCount = totalCount,
             Page = page,
             PageSize = pageSize,
             HasMoreMessages = (page * pageSize) < totalCount,
-            CreatedAt = conversation.CreatedAt
+            CreatedAt = conversation.CreatedAt,
+            LinkedOrderId = conversation.OrderId,
+            ContextItemId = conversation.ContextItemId,
+            LinkedItemTitle = conversation.ContextItem?.Title ?? conversation.Order?.Item?.Title,
+            LinkedItemPrice = conversation.ContextItem?.Price ?? conversation.Order?.Item?.Price,
+            LinkedItemImageUrl = conversation.ContextItem?.ImageUrls?.FirstOrDefault() ?? conversation.Order?.Item?.ImageUrls?.FirstOrDefault(),
+            LinkedOrderStatus = conversation.Order?.Status.ToString(),
+            LinkedFulfillmentMethod = conversation.Order?.FulfillmentMethod.ToString(),
+            CanCreateOrder = CanUserCreateOrderFromConversation(conversation, currentUserId),
+            CanConfirmReceipt = CanUserConfirmReceipt(conversation, currentUserId)
         };
+
+        return detailDto;
     }
 
     public async Task<ConversationDTO> StartConversationAsync(int currentUserId, StartConversationDTO dto)
@@ -137,7 +187,8 @@ public class ChatService : IChatService
             var sendDto = new SendMessageDTO
             {
                 ConversationId = conversation.Id,
-                Content = dto.InitialMessage
+                Content = dto.InitialMessage,
+                MessageType = MessageType.Text
             };
             await SendMessageAsync(currentUserId, sendDto);
         }
@@ -189,11 +240,27 @@ public class ChatService : IChatService
             throw new InvalidOperationException("Either ConversationId or RecipientId must be provided.");
         }
 
+        // Handle context item/order if provided
+        if (dto.ContextItemId.HasValue && conversation.ContextItemId == null)
+        {
+            conversation.ContextItemId = dto.ContextItemId;
+            await _context.SaveChangesAsync();
+        }
+        if (dto.ContextOrderId.HasValue && conversation.OrderId == null)
+        {
+            conversation.OrderId = dto.ContextOrderId;
+            await _context.SaveChangesAsync();
+        }
+
         var message = new Message
         {
             ConversationId = conversation.Id,
             SenderId = senderId,
             Content = dto.Content.Trim(),
+            MessageType = dto.MessageType,
+            ReferencedItemId = dto.ContextItemId,
+            ReferencedOrderId = dto.ContextOrderId,
+            MetadataJson = dto.MetadataJson,
             SentAt = DateTime.UtcNow,
             Status = MessageStatus.Sent
         };
@@ -201,7 +268,6 @@ public class ChatService : IChatService
         var createdMessage = await _messageRepo.CreateAsync(message);
         await _conversationRepo.UpdateLastMessageTimeAsync(conversation.Id, message.SentAt);
 
-        // Load sender info for the DTO
         var sender = await _userRepo.GetByIdAsync(senderId);
 
         return new MessageDTO
@@ -214,10 +280,231 @@ public class ChatService : IChatService
             Content = createdMessage.Content,
             SentAt = createdMessage.SentAt,
             Status = createdMessage.Status,
+            MessageType = createdMessage.MessageType,
             IsFromCurrentUser = true,
             FormattedTime = FormatMessageTime(createdMessage.SentAt)
         };
     }
+
+    // ── Order/Item Chat Integration ───────────────────────────────────────────
+
+    public async Task<ConversationDetailDTO> ContactSellerAboutItemAsync(int buyerId, int itemId, string? initialMessage = null)
+    {
+        var item = await _context.Items
+            .Include(i => i.User)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item == null)
+            throw new InvalidOperationException("Item not found.");
+
+        if (item.UserId == buyerId)
+            throw new InvalidOperationException("You cannot contact yourself about your own item.");
+
+        var sellerId = item.UserId;
+
+        // Get or create conversation with item context
+        var conversation = await _conversationRepo.GetOrCreateForItemAsync(buyerId, sellerId, itemId);
+
+        // Check if we already sent an order reference for this item
+        var hasOrderReference = await _messageRepo.HasOrderReferenceForItemAsync(conversation.Id, itemId);
+
+        if (!hasOrderReference)
+        {
+            // Send order reference message (as system or buyer)
+            await _messageRepo.CreateOrderReferenceMessageAsync(
+                conversation.Id,
+                buyerId,
+                itemId,
+                orderId: null,
+                messageType: MessageType.OrderReference);
+        }
+
+        // Send initial text message if provided
+        if (!string.IsNullOrWhiteSpace(initialMessage))
+        {
+            var sendDto = new SendMessageDTO
+            {
+                ConversationId = conversation.Id,
+                Content = initialMessage,
+                MessageType = MessageType.Text
+            };
+            await SendMessageAsync(buyerId, sendDto);
+        }
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversation.Id, DateTime.UtcNow);
+
+        return await GetConversationDetailAsync(conversation.Id, buyerId);
+    }
+
+    public async Task<int> InitializeOrderChatAsync(int orderId)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Item)
+            .Include(o => o.Buyer)
+            .Include(o => o.Seller)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null)
+            throw new InvalidOperationException("Order not found.");
+
+        // Only initialize chat for Halfway and Pickup orders
+        if (order.FulfillmentMethod != FulfillmentMethod.Halfway && order.FulfillmentMethod != FulfillmentMethod.Pickup)
+        {
+            _logger.LogInformation("Chat not initialized for Order {OrderId} - Fulfillment method is {Method}",
+                orderId, order.FulfillmentMethod);
+            return 0;
+        }
+
+        // Get or create conversation linked to this order
+        var conversation = await _conversationRepo.GetOrCreateForOrderAsync(order.BuyerId, order.SellerId, orderId);
+
+        // Update order with conversation ID
+        order.ChatConversationId = conversation.Id;
+        order.ChatInitialized = true;
+        await _context.SaveChangesAsync();
+
+        // Check if order reference already exists
+        var hasOrderReference = await _messageRepo.HasOrderReferenceForItemAsync(conversation.Id, order.ItemId);
+
+        if (!hasOrderReference && order.Item != null)
+        {
+            // Send order confirmed message (as system)
+            await _messageRepo.CreateOrderReferenceMessageAsync(
+                conversation.Id,
+                0, // System
+                order.ItemId,
+                orderId,
+                MessageType.OrderConfirmed);
+        }
+
+        // Send system confirmation message
+        var fulfillmentText = order.FulfillmentMethod == FulfillmentMethod.Halfway
+            ? "halfway meetup"
+            : "pickup";
+
+        await _messageRepo.CreateSystemMessageAsync(
+            conversation.Id,
+            MessageType.OrderConfirmed,
+            $"✅ Order #{order.Id} confirmed! Please coordinate {fulfillmentText} details in this chat.",
+            orderId);
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversation.Id, DateTime.UtcNow);
+
+        _logger.LogInformation("Chat initialized for Order {OrderId}, Conversation {ConversationId}", orderId, conversation.Id);
+
+        return conversation.Id;
+    }
+
+    public async Task<MessageDTO> SendOrderConfirmationMessageAsync(int conversationId, int orderId, int senderId)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Item)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null)
+            throw new InvalidOperationException("Order not found.");
+
+        var message = await _messageRepo.CreateOrderReferenceMessageAsync(
+            conversationId,
+            senderId,
+            order.ItemId,
+            orderId,
+            MessageType.OrderConfirmed);
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversationId, DateTime.UtcNow);
+
+        var sender = await _userRepo.GetByIdAsync(senderId);
+
+        return new MessageDTO
+        {
+            Id = message.Id,
+            ConversationId = message.ConversationId,
+            SenderId = message.SenderId,
+            SenderName = sender?.FullName ?? sender?.Email ?? "Unknown",
+            Content = message.Content,
+            SentAt = message.SentAt,
+            Status = message.Status,
+            MessageType = message.MessageType,
+            IsFromCurrentUser = true,
+            FormattedTime = FormatMessageTime(message.SentAt),
+            OrderReference = new OrderReferenceDTO
+            {
+                ItemId = order.ItemId,
+                ItemTitle = order.Item?.Title ?? "Unknown Item",
+                ItemImageUrl = order.Item?.ImageUrls?.FirstOrDefault(),
+                Price = order.FinalPrice - order.DeliveryFee,
+                Condition = order.Item?.Condition ?? "Unknown",
+                Size = order.Item?.Size,
+                Category = order.Item?.Category ?? "Unknown",
+                OrderId = orderId,
+                ConversationId = conversationId,
+                SellerId = order.SellerId,
+                SellerName = order.Seller?.Email?.Split('@')[0] ?? "Unknown",
+                IsConfirmedOrder = true,
+                FulfillmentMethod = order.FulfillmentMethod.ToString()
+            }
+        };
+    }
+
+    public async Task<MessageDTO> SendMeetingProposalAsync(int conversationId, int senderId, string location, DateTime proposedTime, string? notes = null)
+    {
+        var message = await _messageRepo.CreateMeetingProposalAsync(conversationId, senderId, location, proposedTime.ToUniversalTime(), notes);
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversationId, DateTime.UtcNow);
+
+        var sender = await _userRepo.GetByIdAsync(senderId);
+
+        return new MessageDTO
+        {
+            Id = message.Id,
+            ConversationId = message.ConversationId,
+            SenderId = message.SenderId,
+            SenderName = sender?.FullName ?? sender?.Email ?? "Unknown",
+            Content = message.Content,
+            SentAt = message.SentAt,
+            Status = message.Status,
+            MessageType = message.MessageType,
+            IsFromCurrentUser = true,
+            FormattedTime = FormatMessageTime(message.SentAt),
+            Metadata = !string.IsNullOrEmpty(message.MetadataJson)
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(message.MetadataJson, _jsonOpts)
+                : null
+        };
+    }
+
+    public async Task<ItemContextDTO?> GetConversationItemContextAsync(int conversationId)
+    {
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
+        if (conversation == null)
+            return null;
+
+        var item = conversation.ContextItem ?? conversation.Order?.Item;
+        if (item == null)
+            return null;
+
+        return new ItemContextDTO
+        {
+            ItemId = item.Id,
+            Title = item.Title,
+            Price = item.Price,
+            Condition = item.Condition,
+            Size = item.Size,
+            Category = item.Category,
+            ImageUrl = item.ImageUrls?.FirstOrDefault(),
+            SellerId = item.UserId,
+            SellerName = item.User?.Email?.Split('@')[0] ?? "Unknown",
+            AllowHalfway = item.AllowHalfway,
+            AllowPickup = item.AllowPickup,
+            AllowDelivery = item.AllowDelivery
+        };
+    }
+
+    public async Task<bool> ConversationHasActiveContextAsync(int conversationId)
+    {
+        var conversation = await _conversationRepo.GetByIdAsync(conversationId);
+        return conversation?.OrderId != null || conversation?.ContextItemId != null;
+    }
+
+    // ── Existing methods (unchanged) ──────────────────────────────────────────
 
     public async Task MarkMessageAsReadAsync(int messageId, int currentUserId)
     {
@@ -229,11 +516,9 @@ public class ChatService : IChatService
         if (conversation == null)
             return;
 
-        // Only the recipient (not the sender) can mark as read
         if (message.SenderId == currentUserId)
             return;
 
-        // Verify user is part of the conversation
         if (conversation.UserOneId != currentUserId && conversation.UserTwoId != currentUserId)
             return;
 
@@ -303,7 +588,47 @@ public class ChatService : IChatService
         return result;
     }
 
-    #region Helper Methods
+    // ── Private Helpers ───────────────────────────────────────────────────────
+
+    private string GetLastMessagePreview(Message? message)
+    {
+        if (message == null)
+            return "No messages yet";
+
+        return message.MessageType switch
+        {
+            MessageType.OrderReference => "📦 Order inquiry",
+            MessageType.OrderConfirmed => "✅ Order confirmed",
+            MessageType.MeetingProposal => "📍 Meeting proposed",
+            _ => message.Content.Length > 50 ? message.Content[..50] + "..." : message.Content
+        };
+    }
+
+    private bool CanUserCreateOrderFromConversation(Conversation conversation, int currentUserId)
+    {
+        // Seller can create order from item inquiry
+        if (conversation.ContextItemId.HasValue && !conversation.OrderId.HasValue)
+        {
+            return conversation.UserOneId == currentUserId || conversation.UserTwoId == currentUserId;
+        }
+        return false;
+    }
+
+    private bool CanUserConfirmReceipt(Conversation conversation, int currentUserId)
+    {
+        if (!conversation.OrderId.HasValue)
+            return false;
+
+        var order = conversation.Order;
+        if (order == null)
+            return false;
+
+        // Buyer can confirm receipt if order is pending and fulfillment is Halfway/Pickup
+        return order.BuyerId == currentUserId &&
+               order.Status == OrderStatus.Pending &&
+               (order.FulfillmentMethod == FulfillmentMethod.Halfway ||
+                order.FulfillmentMethod == FulfillmentMethod.Pickup);
+    }
 
     private string FormatMessageTime(DateTime timestamp)
     {
@@ -341,6 +666,4 @@ public class ChatService : IChatService
 
         return "Offline";
     }
-
-    #endregion
 }

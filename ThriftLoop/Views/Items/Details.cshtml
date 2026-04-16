@@ -36,6 +36,12 @@
         priceLabel = "Stolen price";
 
     bool hasImages = Model.ImageUrls.Count > 0;
+    
+    // Determine default fulfillment method (first allowed option)
+    string defaultFulfillmentMethod = Model.AllowDelivery ? "Delivery"
+        : Model.AllowHalfway ? "Halfway"
+        : Model.AllowPickup ? "Pickup"
+        : "Delivery";
 }
 
 <!DOCTYPE html>
@@ -180,6 +186,41 @@
                     @if (isStealable && Model.Status == ItemStatus.Available)
                     {
                         <span class="detail-steal-note">+₱50 if stolen</span>
+                    }
+                </div>
+
+                @* Fulfillment Options Display (show what seller allows) *@
+                <div class="detail-fulfillment-badges">
+                    @if (Model.AllowDelivery)
+                    {
+                        <span class="fulfillment-badge fulfillment-badge--delivery">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M2.5 3A1.5 1.5 0 001 4.5v7A1.5 1.5 0 002.5 13h11a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0013.5 3h-11z" />
+                                <circle cx="4.5" cy="9.5" r="1.5" />
+                                <circle cx="11.5" cy="9.5" r="1.5" />
+                            </svg>
+                            Delivery
+                        </span>
+                    }
+                    @if (Model.AllowHalfway)
+                    {
+                        <span class="fulfillment-badge fulfillment-badge--halfway">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M8 1a5 5 0 00-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 00-5-5z" />
+                                <circle cx="8" cy="6" r="2" />
+                            </svg>
+                            Halfway Meetup
+                        </span>
+                    }
+                    @if (Model.AllowPickup)
+                    {
+                        <span class="fulfillment-badge fulfillment-badge--pickup">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M2 6l6-4.5L14 6v7.5a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5V6z" />
+                                <path d="M6 14V9h4v5" />
+                            </svg>
+                            Pickup
+                        </span>
                     }
                 </div>
 
@@ -361,21 +402,129 @@
                     {
                         @if (Model.Status != ItemStatus.Sold)
                         {
-                            <div class="detail-actions">
-                                <a asp-action="BuyNow" asp-controller="Items" asp-route-id="@Model.Id"
-                                       class="detail-btn detail-btn--buy">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
-                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                                    </svg>
-                                    Buy Now
-                                </a>
+                            @* Fulfillment Method Selection *@
+                            <div class="detail-fulfillment-section">
+                                <label class="detail-fulfillment-label">How would you like to receive this item?</label>
+                                <div class="detail-fulfillment-options">
+                                    @if (Model.AllowDelivery)
+                                    {
+                                        <label class="detail-fulfillment-option @(defaultFulfillmentMethod == "Delivery" ? "detail-fulfillment-option--selected" : "")" data-method="Delivery">
+                                            <input type="radio" name="fulfillmentMethod" value="Delivery" class="detail-fulfillment-radio"
+                                            @(defaultFulfillmentMethod == "Delivery" ? "checked" : "") />
+                                            <div class="detail-fulfillment-option__content">
+                                                <div class="detail-fulfillment-option__icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                                                        <path d="M4 7h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                                                        <circle cx="7" cy="14" r="2" />
+                                                        <circle cx="17" cy="14" r="2" />
+                                                    </svg>
+                                                </div>
+                                                <div class="detail-fulfillment-option__info">
+                                                    <span class="detail-fulfillment-option__title">Rider Delivery</span>
+                                                    <span class="detail-fulfillment-option__description">Delivery fee: ₱50.00</span>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    }
+                                    @if (Model.AllowHalfway)
+                                    {
+                                        <label class="detail-fulfillment-option @(defaultFulfillmentMethod == "Halfway" ? "detail-fulfillment-option--selected" : "")" data-method="Halfway">
+                                            <input type="radio" name="fulfillmentMethod" value="Halfway" class="detail-fulfillment-radio"
+                                            @(defaultFulfillmentMethod == "Halfway" ? "checked" : "") />
+                                            <div class="detail-fulfillment-option__content">
+                                                <div class="detail-fulfillment-option__icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                                                        <path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z" />
+                                                        <circle cx="12" cy="9" r="3" />
+                                                    </svg>
+                                                </div>
+                                                <div class="detail-fulfillment-option__info">
+                                                    <span class="detail-fulfillment-option__title">Halfway Meetup</span>
+                                                    <span class="detail-fulfillment-option__description">No delivery fee — coordinate via chat</span>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    }
+                                    @if (Model.AllowPickup)
+                                    {
+                                        <label class="detail-fulfillment-option @(defaultFulfillmentMethod == "Pickup" ? "detail-fulfillment-option--selected" : "")" data-method="Pickup">
+                                            <input type="radio" name="fulfillmentMethod" value="Pickup" class="detail-fulfillment-radio"
+                                            @(defaultFulfillmentMethod == "Pickup" ? "checked" : "") />
+                                            <div class="detail-fulfillment-option__content">
+                                                <div class="detail-fulfillment-option__icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                                                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                        <path d="M9 22V12h6v10" />
+                                                    </svg>
+                                                </div>
+                                                <div class="detail-fulfillment-option__info">
+                                                    <span class="detail-fulfillment-option__title">Self Pickup</span>
+                                                    <span class="detail-fulfillment-option__description">No delivery fee — coordinate via chat</span>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    }
+                                </div>
                             </div>
+
+                            @* Price breakdown *@
+                            <div class="detail-price-breakdown" id="priceBreakdown">
+                                <div class="detail-breakdown-row">
+                                    <span>Item price</span>
+                                    <span>₱@Model.Price.ToString("N2")</span>
+                                </div>
+                                <div class="detail-breakdown-row" id="deliveryFeeRow">
+                                    <span>Delivery fee</span>
+                                    <span id="deliveryFeeDisplay">₱50.00</span>
+                                </div>
+                                <div class="detail-breakdown-row detail-breakdown-row--total">
+                                    <span>Total</span>
+                                    <span id="totalPriceDisplay">₱@((Model.Price + 50).ToString("N2"))</span>
+                                </div>
+                            </div>
+
+                            @* Dynamic Action Button - changes based on selected fulfillment method *@
+                            <div class="detail-actions">
+                                @* Buy Now form (for Delivery) *@
+                                <form asp-action="BuyNow" asp-controller="Items" method="get" id="buyNowForm" style="display: none;">
+                                    <input type="hidden" name="id" value="@Model.Id" />
+                                    <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput" value="@defaultFulfillmentMethod" />
+                                    <button type="submit" class="detail-btn detail-btn--buy">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                        </svg>
+                                        Buy Now
+                                    </button>
+                                </form>
+
+                                @* Contact Seller form (for Halfway/Pickup) *@
+                                <form asp-action="ContactSeller" asp-controller="Items" method="get" id="contactSellerForm" style="display: none;">
+                                    <input type="hidden" name="id" value="@Model.Id" />
+                                    <button type="submit" class="detail-btn detail-btn--contact">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                            <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-2.5l-3.5 3-3.5-3H4a2 2 0 01-2-2V5z" />
+                                        </svg>
+                                        Contact Seller
+                                    </button>
+                                </form>
+                            </div>
+
+                            <p class="detail-fulfillment-hint" id="fulfillmentHint">
+                                @if (defaultFulfillmentMethod == "Delivery")
+                                {
+                                    @:Proceed to checkout — rider will deliver this item.
+                                }
+                                else
+                                {
+                                    @:Chat with the seller to coordinate meetup or pickup details.
+                                }
+                            </p>
                         }
                     }
                     else if (Model.Status == ItemStatus.Available)
                     {
                         <div class="detail-actions">
-                            <form asp-action="GetItem" asp-controller="Items" asp-route-id="@Model.Id" method="post" class="get-item-form">
+                            <form asp-action="GetItem" asp-controller="Item" asp-route-id="@Model.Id" method="post" class="get-item-form">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="detail-btn detail-btn--get" data-get-item>
                                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
@@ -425,7 +574,7 @@
 
                                 <div class="detail-cancel-get-wrap">
                                     <p class="detail-cancel-get-hint">Changed your mind?</p>
-                                    <form asp-action="CancelGet" asp-controller="Items" asp-route-id="@Model.Id" method="post">
+                                    <form asp-action="CancelGet" asp-controller="Item" asp-route-id="@Model.Id" method="post">
                                         @Html.AntiForgeryToken()
                                         <button type="submit" class="detail-cancel-get-btn">
                                             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
@@ -445,7 +594,7 @@
                             @if (stealWindowOpen)
                             {
                                 <div class="detail-actions">
-                                    <form asp-action="StealItem" asp-controller="Items" asp-route-id="@Model.Id" method="post" class="steal-item-form">
+                                    <form asp-action="StealItem" asp-controller="Item" asp-route-id="@Model.Id" method="post" class="steal-item-form">
                                         @Html.AntiForgeryToken()
                                         <button type="submit" class="detail-btn detail-btn--steal" data-steal-item>
                                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
@@ -612,13 +761,270 @@
         </div>
     </div>
 
+    <style>
+            /* Fulfillment badges */
+            .detail-fulfillment-badges {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin: 0.75rem 0 0.5rem;
+            }
+
+            .fulfillment-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+                padding: 0.25rem 0.75rem;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 500;
+                background: #f3f4f6;
+                color: #4b5563;
+            }
+
+            .fulfillment-badge--delivery {
+                background: #e0f2fe;
+                color: #0369a1;
+            }
+
+            .fulfillment-badge--halfway {
+                background: #fef3c7;
+                color: #b45309;
+            }
+
+            .fulfillment-badge--pickup {
+                background: #dcfce7;
+                color: #15803d;
+            }
+
+            /* Fulfillment Options Styles */
+            .detail-fulfillment-section {
+                margin: 1.25rem 0 1rem;
+            }
+
+            .detail-fulfillment-label {
+                display: block;
+                font-size: 0.9rem;
+                font-weight: 600;
+                margin-bottom: 0.75rem;
+                color: #1a1814;
+            }
+
+            .detail-fulfillment-options {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .detail-fulfillment-option {
+                cursor: pointer;
+                display: block;
+            }
+
+            .detail-fulfillment-radio {
+                display: none;
+            }
+
+            .detail-fulfillment-option__content {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.75rem 1rem;
+                border: 1.5px solid #e2ddd6;
+                border-radius: 10px;
+                transition: all 0.15s;
+            }
+
+            .detail-fulfillment-option--selected .detail-fulfillment-option__content,
+            .detail-fulfillment-radio:checked + .detail-fulfillment-option__content {
+                border-color: #2d5a27;
+                background: rgba(45, 90, 39, 0.02);
+            }
+
+            .detail-fulfillment-option__icon {
+                flex-shrink: 0;
+                color: #6b7280;
+            }
+
+            .detail-fulfillment-option--selected .detail-fulfillment-option__icon,
+            .detail-fulfillment-radio:checked + .detail-fulfillment-option__content .detail-fulfillment-option__icon {
+                color: #2d5a27;
+            }
+
+            .detail-fulfillment-option__info {
+                flex: 1;
+            }
+
+            .detail-fulfillment-option__title {
+                display: block;
+                font-weight: 600;
+                font-size: 0.9rem;
+                color: #1a1814;
+            }
+
+            .detail-fulfillment-option__description {
+                display: block;
+                font-size: 0.75rem;
+                color: #6b7280;
+                margin-top: 0.125rem;
+            }
+
+            /* Price Breakdown */
+            .detail-price-breakdown {
+                background: #f8f7f5;
+                border-radius: 10px;
+                padding: 1rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .detail-breakdown-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.25rem 0;
+                font-size: 0.9rem;
+                color: #4b5563;
+            }
+
+            .detail-breakdown-row--total {
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid #e2ddd6;
+                font-weight: 700;
+                font-size: 1rem;
+                color: #1a1814;
+            }
+
+            /* Contact Seller Button */
+            .detail-btn--contact {
+                width: 100%;
+                justify-content: center;
+                padding: 0.875rem 1.5rem;
+                font-size: 1rem;
+                background: #0095f6;
+                color: white;
+                border: none;
+            }
+
+                .detail-btn--contact:hover {
+                    background: #0074cc;
+                }
+
+            /* Fulfillment Hint */
+            .detail-fulfillment-hint {
+                margin-top: 0.75rem;
+                font-size: 0.8rem;
+                color: #6b7280;
+                text-align: center;
+            }
+    </style>
+
     <script>
             window.itemDetailsData = {
                 itemId: @Model.Id,
                 imageUrls: @Json.Serialize(Model.ImageUrls),
-                stealEndsAt: '@(Model.StealEndsAt.HasValue? DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O") : "")',
-                finalizeDeadline: '@(Model.FinalizeDeadline.HasValue? DateTime.SpecifyKind(Model.FinalizeDeadline.Value, DateTimeKind.Utc).ToString("O") : "")'
+                stealEndsAt: '@(Model.StealEndsAt.HasValue ? DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O") : "")',
+                finalizeDeadline: '@(Model.FinalizeDeadline.HasValue ? DateTime.SpecifyKind(Model.FinalizeDeadline.Value, DateTimeKind.Utc).ToString("O") : "")'
             };
+
+            // Fulfillment method selection - switches between Buy Now and Contact Seller
+            (function() {
+                'use strict';
+            
+                const fulfillmentRadios = document.querySelectorAll('.detail-fulfillment-radio');
+                const fulfillmentInput = document.getElementById('fulfillmentMethodInput');
+                const deliveryFeeRow = document.getElementById('deliveryFeeRow');
+                const totalPriceDisplay = document.getElementById('totalPriceDisplay');
+                const fulfillmentOptions = document.querySelectorAll('.detail-fulfillment-option');
+                const buyNowForm = document.getElementById('buyNowForm');
+                const contactSellerForm = document.getElementById('contactSellerForm');
+                const fulfillmentHint = document.getElementById('fulfillmentHint');
+            
+                const itemPrice = @Model.Price;
+                const deliveryFee = 50.00;
+            
+                function updateFulfillmentUI(method) {
+                    // Update option selection styling
+                    fulfillmentOptions.forEach(function(opt) {
+                        opt.classList.remove('detail-fulfillment-option--selected');
+                    });
+                
+                    const selectedOption = document.querySelector('.detail-fulfillment-option[data-method="' + method + '"]');
+                    if (selectedOption) {
+                        selectedOption.classList.add('detail-fulfillment-option--selected');
+                    }
+                
+                    const isDelivery = method === 'Delivery';
+                    const isHalfway = method === 'Halfway';
+                    const isPickup = method === 'Pickup';
+                
+                    // Show/hide delivery fee row
+                    if (deliveryFeeRow) {
+                        deliveryFeeRow.style.display = isDelivery ? 'flex' : 'none';
+                    }
+                
+                    // Calculate and update total price
+                    const total = isDelivery ? itemPrice + deliveryFee : itemPrice;
+                    if (totalPriceDisplay) {
+                        totalPriceDisplay.textContent = '₱' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                    }
+                
+                    // Update hidden input
+                    if (fulfillmentInput) {
+                        fulfillmentInput.value = method;
+                    }
+                
+                    // Toggle between Buy Now and Contact Seller forms
+                    if (buyNowForm && contactSellerForm) {
+                        if (isDelivery) {
+                            buyNowForm.style.display = 'block';
+                            contactSellerForm.style.display = 'none';
+                            if (fulfillmentHint) {
+                                fulfillmentHint.textContent = 'Proceed to checkout — rider will deliver this item.';
+                            }
+                        } else {
+                            buyNowForm.style.display = 'none';
+                            contactSellerForm.style.display = 'block';
+                            if (fulfillmentHint) {
+                                fulfillmentHint.textContent = isHalfway
+                                    ? 'Chat with the seller to coordinate a halfway meetup.'
+                                    : 'Chat with the seller to arrange pickup details.';
+                            }
+                        }
+                    }
+                }
+            
+                if (fulfillmentRadios.length > 0) {
+                    fulfillmentRadios.forEach(function(radio) {
+                        radio.addEventListener('change', function() {
+                            updateFulfillmentUI(radio.value);
+                        });
+                    });
+                
+                    fulfillmentOptions.forEach(function(opt) {
+                        opt.addEventListener('click', function(e) {
+                            const radio = this.querySelector('.detail-fulfillment-radio');
+                            if (radio && !radio.disabled) {
+                                radio.checked = true;
+                                updateFulfillmentUI(radio.value);
+                            }
+                        });
+                    });
+                
+                    // Initialize UI with default selection
+                    const checkedFulfillment = document.querySelector('.detail-fulfillment-radio:checked');
+                    if (checkedFulfillment) {
+                        updateFulfillmentUI(checkedFulfillment.value);
+                    } else {
+                        // Default to first available option
+                        const firstOption = document.querySelector('.detail-fulfillment-radio');
+                        if (firstOption) {
+                            firstOption.checked = true;
+                            updateFulfillmentUI(firstOption.value);
+                        }
+                    }
+                }
+            })();
     </script>
     <script src="~/js/items-details.js" asp-append-version="true"></script>
 </body>

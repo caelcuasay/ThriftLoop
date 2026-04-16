@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ThriftLoop.Data;
 
@@ -11,9 +12,11 @@ using ThriftLoop.Data;
 namespace ThriftLoop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260416181636_ForceAddRiderFields")]
+    partial class ForceAddRiderFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,9 +73,6 @@ namespace ThriftLoop.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ContextItemId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -83,9 +83,6 @@ namespace ThriftLoop.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
-                    b.Property<int?>("OrderId")
-                        .HasColumnType("int");
-
                     b.Property<int>("UserOneId")
                         .HasColumnType("int");
 
@@ -93,12 +90,6 @@ namespace ThriftLoop.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ContextItemId");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique()
-                        .HasFilter("[OrderId] IS NOT NULL");
 
                     b.HasIndex("UserTwoId");
 
@@ -378,23 +369,8 @@ namespace ThriftLoop.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("MessageType")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
-
-                    b.Property<string>("MetadataJson")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<int?>("ReferencedItemId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ReferencedOrderId")
-                        .HasColumnType("int");
 
                     b.Property<int>("SenderId")
                         .HasColumnType("int");
@@ -410,13 +386,6 @@ namespace ThriftLoop.Migrations
                         .HasDefaultValue(1);
 
                     b.HasKey("Id");
-
-                    b.HasIndex("MessageType")
-                        .HasDatabaseName("IX_Messages_MessageType");
-
-                    b.HasIndex("ReferencedItemId");
-
-                    b.HasIndex("ReferencedOrderId");
 
                     b.HasIndex("ConversationId", "SentAt")
                         .HasDatabaseName("IX_Messages_ConversationId_SentAt");
@@ -442,9 +411,6 @@ namespace ThriftLoop.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
-
-                    b.Property<int?>("ChatConversationId")
-                        .HasColumnType("int");
 
                     b.Property<bool>("ChatInitialized")
                         .ValueGeneratedOnAdd()
@@ -939,16 +905,6 @@ namespace ThriftLoop.Migrations
 
             modelBuilder.Entity("ThriftLoop.Models.Conversation", b =>
                 {
-                    b.HasOne("ThriftLoop.Models.Item", "ContextItem")
-                        .WithMany()
-                        .HasForeignKey("ContextItemId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ThriftLoop.Models.Order", "Order")
-                        .WithOne("ChatConversation")
-                        .HasForeignKey("ThriftLoop.Models.Conversation", "OrderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("ThriftLoop.Models.User", "UserOne")
                         .WithMany()
                         .HasForeignKey("UserOneId")
@@ -960,10 +916,6 @@ namespace ThriftLoop.Migrations
                         .HasForeignKey("UserTwoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("ContextItem");
-
-                    b.Navigation("Order");
 
                     b.Navigation("UserOne");
 
@@ -1055,16 +1007,6 @@ namespace ThriftLoop.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ThriftLoop.Models.Item", "ReferencedItem")
-                        .WithMany()
-                        .HasForeignKey("ReferencedItemId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ThriftLoop.Models.Order", "ReferencedOrder")
-                        .WithMany()
-                        .HasForeignKey("ReferencedOrderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("ThriftLoop.Models.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -1072,10 +1014,6 @@ namespace ThriftLoop.Migrations
                         .IsRequired();
 
                     b.Navigation("Conversation");
-
-                    b.Navigation("ReferencedItem");
-
-                    b.Navigation("ReferencedOrder");
 
                     b.Navigation("Sender");
                 });
@@ -1236,8 +1174,6 @@ namespace ThriftLoop.Migrations
 
             modelBuilder.Entity("ThriftLoop.Models.Order", b =>
                 {
-                    b.Navigation("ChatConversation");
-
                     b.Navigation("Delivery");
 
                     b.Navigation("OrderItems");

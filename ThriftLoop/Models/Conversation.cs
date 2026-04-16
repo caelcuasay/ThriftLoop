@@ -32,6 +32,35 @@ public class Conversation
     /// </summary>
     public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
 
+    // ── Order Linking ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Optional link to an Order. When this conversation was created for a specific
+    /// Halfway or Pickup order, this field references that order.
+    /// Null for conversations started independently (e.g., from profile).
+    /// </summary>
+    public int? OrderId { get; set; }
+
+    /// <summary>
+    /// Navigation property to the linked order.
+    /// </summary>
+    public Order? Order { get; set; }
+
+    // ── Item Context (for pre-order conversations) ─────────────────────────────
+
+    /// <summary>
+    /// Optional link to an Item. When a buyer contacts a seller about a specific
+    /// item before placing an order, this field references that item.
+    /// Used to display the item context in the chat header and to generate
+    /// order reference messages.
+    /// </summary>
+    public int? ContextItemId { get; set; }
+
+    /// <summary>
+    /// Navigation property to the context item.
+    /// </summary>
+    public Item? ContextItem { get; set; }
+
     // ── Navigation Properties ─────────────────────────────────────────────────
 
     public User UserOne { get; set; } = null!;

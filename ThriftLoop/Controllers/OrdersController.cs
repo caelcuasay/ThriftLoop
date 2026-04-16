@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿// Controllers/OrdersController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Constants;
@@ -8,6 +9,7 @@ using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.OrderManagement.Interface;
 using ThriftLoop.Services.WalletManagement.Interface;
+using ThriftLoop.Services.Interface;
 using ThriftLoop.ViewModels;
 
 namespace ThriftLoop.Controllers;
@@ -20,6 +22,7 @@ public class OrdersController : BaseController
     private readonly IDeliveryRepository _deliveryRepository;
     private readonly IWalletService _walletService;
     private readonly IOrderService _orderService;
+    private readonly IChatService _chatService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<OrdersController> _logger;
 
@@ -29,6 +32,7 @@ public class OrdersController : BaseController
         IDeliveryRepository deliveryRepository,
         IWalletService walletService,
         IOrderService orderService,
+        IChatService chatService,
         ApplicationDbContext context,
         ILogger<OrdersController> logger)
     {
@@ -37,6 +41,7 @@ public class OrdersController : BaseController
         _deliveryRepository = deliveryRepository;
         _walletService = walletService;
         _orderService = orderService;
+        _chatService = chatService;
         _context = context;
         _logger = logger;
     }
@@ -67,32 +72,44 @@ public class OrdersController : BaseController
     // ── Helper to initialize chat for non-delivery orders ────────────────────
     /// <summary>
     /// Initializes a chat session between buyer and seller for Halfway or Pickup orders.
-    /// This is a placeholder that logs the chat initialization. In production,
-    /// this would call a ChatService to create a conversation.
     /// </summary>
     private async Task InitializeChatForOrderAsync(Order order)
     {
         if (order.ChatInitialized)
             return;
 
-        // TODO: Replace with actual ChatService integration
-        // var chatSession = await _chatService.CreateConversationAsync(
-        //     order.BuyerId, order.SellerId, order.Id, $"Order #{order.Id} - {order.Item?.Title}");
+        try
+        {
+            // Initialize the order chat using ChatService
+            var conversationId = await _chatService.InitializeOrderChatAsync(order.Id);
 
-        // For now, generate a placeholder session ID
-        order.ChatSessionId = $"chat_order_{order.Id}_{Guid.NewGuid():N}";
-        order.ChatInitialized = true;
+            if (conversationId > 0)
+            {
+                order.ChatConversationId = conversationId;
+                order.ChatInitialized = true;
 
-        _logger.LogInformation(
-            "Chat session initialized for Order {OrderId} between Buyer {BuyerId} and Seller {SellerId}. " +
-            "Fulfillment method: {FulfillmentMethod}. Session ID: {SessionId}",
-            order.Id, order.BuyerId, order.SellerId, order.FulfillmentMethod, order.ChatSessionId);
+                _logger.LogInformation(
+                    "Chat initialized for Order {OrderId} between Buyer {BuyerId} and Seller {SellerId}. " +
+                    "Fulfillment method: {FulfillmentMethod}. Conversation ID: {ConversationId}",
+                    order.Id, order.BuyerId, order.SellerId, order.FulfillmentMethod, conversationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to initialize chat for Order {OrderId}. Falling back to placeholder.",
+                order.Id);
+
+            // Fallback to placeholder if chat service fails
+            order.ChatSessionId = $"chat_order_{order.Id}_{Guid.NewGuid():N}";
+            order.ChatInitialized = true;
+        }
     }
 
     // ── P2P CHECKOUT (GET) ─────────────────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> Checkout(int itemId)
+    public async Task<IActionResult> Checkout(int itemId, FulfillmentMethod? fulfillmentMethod = null)
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
@@ -127,7 +144,15 @@ public class OrdersController : BaseController
         }
 
         var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
-        return View(BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance));
+        var viewModel = BuildCheckoutViewModel(item, buyerId.Value, wallet.Balance);
+
+        // Set the selected fulfillment method if provided
+        if (fulfillmentMethod.HasValue)
+        {
+            viewModel.SelectedFulfillmentMethod = fulfillmentMethod.Value.ToString();
+        }
+
+        return View(viewModel);
     }
 
     // ── P2P CONFIRM ORDER (POST) ───────────────────────────────────────────
@@ -252,6 +277,16 @@ public class OrdersController : BaseController
             };
 
             TempData["SuccessMessage"] = successMessage;
+
+            // If Halfway or Pickup, redirect to the chat conversation
+            if (fulfillmentMethod == FulfillmentMethod.Halfway || fulfillmentMethod == FulfillmentMethod.Pickup)
+            {
+                if (tempOrder.ChatConversationId.HasValue)
+                {
+                    return RedirectToAction("Conversation", "Chat", new { id = tempOrder.ChatConversationId.Value });
+                }
+            }
+
             return RedirectToAction(nameof(MyPurchases));
         }
 
@@ -307,6 +342,16 @@ public class OrdersController : BaseController
         };
 
         TempData["SuccessMessage"] = codSuccessMessage;
+
+        // If Halfway or Pickup, redirect to the chat conversation
+        if (fulfillmentMethod == FulfillmentMethod.Halfway || fulfillmentMethod == FulfillmentMethod.Pickup)
+        {
+            if (order.ChatConversationId.HasValue)
+            {
+                return RedirectToAction("Conversation", "Chat", new { id = order.ChatConversationId.Value });
+            }
+        }
+
         return RedirectToAction(nameof(MyPurchases));
     }
 
@@ -319,7 +364,7 @@ public class OrdersController : BaseController
     /// the quantity picker and is clamped to available stock.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> ShopCheckout(int skuId, int quantity = 1)
+    public async Task<IActionResult> ShopCheckout(int skuId, int quantity = 1, FulfillmentMethod? fulfillmentMethod = null)
     {
         var buyerId = ResolveUserId();
         if (buyerId is null) return Unauthorized();
@@ -349,7 +394,15 @@ public class OrdersController : BaseController
         quantity = Math.Max(1, Math.Min(quantity, sku.Quantity));
 
         var wallet = await _walletService.GetOrCreateWalletAsync(buyerId.Value);
-        return View("Checkout", BuildShopCheckoutViewModel(item, sku, quantity, wallet.Balance));
+        var viewModel = BuildShopCheckoutViewModel(item, sku, quantity, wallet.Balance);
+
+        // Set the selected fulfillment method if provided
+        if (fulfillmentMethod.HasValue)
+        {
+            viewModel.SelectedFulfillmentMethod = fulfillmentMethod.Value.ToString();
+        }
+
+        return View("Checkout", viewModel);
     }
 
     // ── CONFIRM SHOP ORDER / Option B (POST) ──────────────────────────────
@@ -487,6 +540,16 @@ public class OrdersController : BaseController
             };
 
             TempData["SuccessMessage"] = successMessage;
+
+            // If Halfway or Pickup, redirect to the chat conversation
+            if (fulfillmentMethod == FulfillmentMethod.Halfway || fulfillmentMethod == FulfillmentMethod.Pickup)
+            {
+                if (tempOrder.ChatConversationId.HasValue)
+                {
+                    return RedirectToAction("Conversation", "Chat", new { id = tempOrder.ChatConversationId.Value });
+                }
+            }
+
             return RedirectToAction(nameof(MyPurchases));
         }
 
@@ -542,6 +605,16 @@ public class OrdersController : BaseController
         };
 
         TempData["SuccessMessage"] = codSuccessMessage;
+
+        // If Halfway or Pickup, redirect to the chat conversation
+        if (fulfillmentMethod == FulfillmentMethod.Halfway || fulfillmentMethod == FulfillmentMethod.Pickup)
+        {
+            if (order.ChatConversationId.HasValue)
+            {
+                return RedirectToAction("Conversation", "Chat", new { id = order.ChatConversationId.Value });
+            }
+        }
+
         return RedirectToAction(nameof(MyPurchases));
     }
 
@@ -873,6 +946,22 @@ public class OrdersController : BaseController
         order.Status = OrderStatus.Completed;
         await _orderRepository.UpdateAsync(order);
 
+        // Send system message to chat if conversation exists
+        if (order.ChatConversationId.HasValue)
+        {
+            try
+            {
+                await _chatService.SendOrderConfirmationMessageAsync(
+                    order.ChatConversationId.Value,
+                    order.Id,
+                    0); // System message
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send completion message for Order {OrderId}", order.Id);
+            }
+        }
+
         _logger.LogInformation(
             "Non-delivery Order {OrderId} marked Completed by Buyer {BuyerId}. " +
             "Fulfillment: {FulfillmentMethod}. Seller received ₱{ItemPrice}.",
@@ -932,6 +1021,12 @@ public class OrdersController : BaseController
             ? sellerEmail.Split('@')[0]
             : sellerEmail;
 
+        // Determine default fulfillment method
+        string defaultMethod = item.AllowDelivery ? "Delivery"
+            : item.AllowHalfway ? "Halfway"
+            : item.AllowPickup ? "Pickup"
+            : "Delivery";
+
         return new CheckoutViewModel
         {
             ItemId = item.Id,
@@ -948,7 +1043,8 @@ public class OrdersController : BaseController
             BuyerBalance = buyerBalance,
             AllowDelivery = item.AllowDelivery,
             AllowHalfway = item.AllowHalfway,
-            AllowPickup = item.AllowPickup
+            AllowPickup = item.AllowPickup,
+            SelectedFulfillmentMethod = defaultMethod
         };
     }
 
@@ -960,6 +1056,12 @@ public class OrdersController : BaseController
         string sellerDisplay = sellerEmail.Contains('@')
             ? sellerEmail.Split('@')[0]
             : sellerEmail;
+
+        // Determine default fulfillment method
+        string defaultMethod = item.AllowDelivery ? "Delivery"
+            : item.AllowHalfway ? "Halfway"
+            : item.AllowPickup ? "Pickup"
+            : "Delivery";
 
         return new CheckoutViewModel
         {
@@ -982,7 +1084,8 @@ public class OrdersController : BaseController
             IsStealable = false,
             AllowDelivery = item.AllowDelivery,
             AllowHalfway = item.AllowHalfway,
-            AllowPickup = item.AllowPickup
+            AllowPickup = item.AllowPickup,
+            SelectedFulfillmentMethod = defaultMethod
         };
     }
 

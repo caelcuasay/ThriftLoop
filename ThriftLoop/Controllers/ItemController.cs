@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿// Controllers/ItemsController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -7,6 +8,7 @@ using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.ViewModels;
 using ThriftLoop.Enums;
+using ThriftLoop.Services.Interface;
 
 namespace ThriftLoop.Controllers;
 
@@ -17,17 +19,20 @@ public class ItemsController : Controller
     private readonly ILogger<ItemsController> _logger;
     private readonly IWebHostEnvironment _env;
     private readonly ApplicationDbContext _context;
+    private readonly IChatService _chatService;
 
     public ItemsController(
         IItemRepository itemRepository,
         IWebHostEnvironment env,
         ILogger<ItemsController> logger,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IChatService chatService)
     {
         _itemRepository = itemRepository;
         _env = env;
         _logger = logger;
         _context = context;
+        _chatService = chatService;
     }
 
     // ── Helper to check if current user is a rider ───────────────────────────
@@ -107,7 +112,7 @@ public class ItemsController : Controller
     // ── BUY NOW ───────────────────────────────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> BuyNow(int id)
+    public async Task<IActionResult> BuyNow(int id, FulfillmentMethod? fulfillmentMethod = null)
     {
         // Redirect riders to their dashboard
         if (IsRider())
@@ -122,7 +127,67 @@ public class ItemsController : Controller
         if (!await HasCompleteProfileAsync(userId))
             return RedirectToCompleteProfile("purchase items");
 
-        return RedirectToAction("Checkout", "Orders", new { itemId = id });
+        return RedirectToAction("Checkout", "Orders", new { itemId = id, fulfillmentMethod });
+    }
+
+    // ── CONTACT SELLER ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Initiates a chat with the seller about a specific item.
+    /// Used for Halfway and Pickup fulfillment methods where buyer and seller
+    /// need to coordinate before completing the purchase.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> ContactSeller(int id, string? message = null)
+    {
+        // Redirect riders to their dashboard
+        if (IsRider())
+        {
+            _logger.LogWarning("Rider attempted to access Items/ContactSeller");
+            return RedirectToAction("Index", "Rider");
+        }
+
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(rawId, out int buyerId)) return Unauthorized();
+
+        if (!await HasCompleteProfileAsync(buyerId))
+            return RedirectToCompleteProfile("contact sellers");
+
+        var item = await _itemRepository.GetByIdWithUserAsync(id);
+        if (item is null) return NotFound();
+
+        // Cannot contact yourself
+        if (item.UserId == buyerId)
+        {
+            TempData["ErrorMessage"] = "You cannot contact yourself about your own item.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // Item must be available
+        if (item.Status != ItemStatus.Available)
+        {
+            TempData["ErrorMessage"] = "This item is no longer available.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        try
+        {
+            // Create or get conversation with item context and send initial message
+            var conversation = await _chatService.ContactSellerAboutItemAsync(buyerId, id, message);
+
+            _logger.LogInformation(
+                "User {BuyerId} contacted seller {SellerId} about Item {ItemId}. Conversation: {ConversationId}",
+                buyerId, item.UserId, id, conversation.Id);
+
+            TempData["SuccessMessage"] = $"Chat opened with {item.User?.Email?.Split('@')[0] ?? "seller"} about '{item.Title}'.";
+            return RedirectToAction("Conversation", "Chat", new { id = conversation.Id });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Failed to contact seller for Item {ItemId}", id);
+            TempData["ErrorMessage"] = ex.Message;
+            return RedirectToAction(nameof(Details), new { id });
+        }
     }
 
     // ── CREATE ────────────────────────────────────────────────────────────────

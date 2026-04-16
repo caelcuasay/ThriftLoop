@@ -34,13 +34,9 @@ public class ChatHub : Hub
         if (userId > 0)
         {
             await _notificationService.UserConnectedAsync(userId, connectionId);
-
-            // Add user to their personal group for notifications
             await Groups.AddToGroupAsync(connectionId, $"user-{userId}");
 
             _logger.LogInformation("User {UserId} connected to ChatHub with connection {ConnectionId}", userId, connectionId);
-
-            // Notify others that this user is online (optional)
             await Clients.Others.SendAsync("UserOnline", userId);
         }
 
@@ -58,8 +54,6 @@ public class ChatHub : Hub
             await Groups.RemoveFromGroupAsync(connectionId, $"user-{userId}");
 
             _logger.LogInformation("User {UserId} disconnected from ChatHub", userId);
-
-            // Notify others that this user is offline (optional)
             await Clients.Others.SendAsync("UserOffline", userId);
         }
 
@@ -68,7 +62,6 @@ public class ChatHub : Hub
 
     /// <summary>
     /// Sends a message to a conversation.
-    /// Creates the conversation if it doesn't exist.
     /// </summary>
     public async Task SendMessage(SendMessageDTO dto)
     {
@@ -76,34 +69,34 @@ public class ChatHub : Hub
 
         try
         {
-            // Save message to database
+            // Save message to database and get the DTO
             var messageDto = await _chatService.SendMessageAsync(senderId, dto);
             var conversationId = messageDto.ConversationId;
 
+            // Ensure the caller is in the conversation group
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conversation-{conversationId}");
+
             // Get the recipient ID
             var recipient = await _chatService.GetOtherParticipantAsync(conversationId, senderId);
-            if (recipient == null)
-            {
-                _logger.LogWarning("Recipient not found for conversation {ConversationId}", conversationId);
-                return;
-            }
 
-            // Send to all clients in the conversation group (including sender for sync across tabs)
+            // Broadcast to ALL clients in the conversation group (including sender)
             await Clients.Group($"conversation-{conversationId}").SendAsync("ReceiveMessage", messageDto);
 
             // Send notification to recipient if they're not actively viewing the conversation
-            await Clients.Group($"user-{recipient.Id}").SendAsync("NewMessageNotification", new
+            if (recipient != null)
             {
-                conversationId,
-                message = messageDto,
-                senderName = messageDto.SenderName
-            });
+                await Clients.Group($"user-{recipient.Id}").SendAsync("NewMessageNotification", new
+                {
+                    conversationId,
+                    message = messageDto,
+                    senderName = messageDto.SenderName
+                });
 
-            // Update unread count for recipient
-            var unreadCount = await _chatService.GetTotalUnreadCountAsync(recipient.Id);
-            await Clients.Group($"user-{recipient.Id}").SendAsync("UnreadCountUpdate", unreadCount);
+                // Update unread count for recipient
+                var unreadCount = await _chatService.GetTotalUnreadCountAsync(recipient.Id);
+                await Clients.Group($"user-{recipient.Id}").SendAsync("UnreadCountUpdate", unreadCount);
+            }
 
-            // Mark message as delivered (recipient will get it via ReceiveMessage)
             _logger.LogInformation("Message {MessageId} sent from {SenderId} to conversation {ConversationId}",
                 messageDto.Id, senderId, conversationId);
         }
@@ -131,8 +124,6 @@ public class ChatHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, $"conversation-{conversationId}");
 
-        // Mark messages as delivered when user joins the conversation
-        // This would typically be called by a service method, but we'll handle it directly
         _logger.LogInformation("User {UserId} joined conversation {ConversationId}", userId, conversationId);
 
         // Notify other participants that this user is viewing the conversation
@@ -164,8 +155,6 @@ public class ChatHub : Hub
         try
         {
             await _chatService.MarkMessageAsReadAsync(messageId, userId);
-
-            // Notify the sender that their message was read
             await Clients.Caller.SendAsync("MessageMarkedAsRead", messageId);
         }
         catch (Exception ex)
@@ -223,7 +212,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// Pings the server to keep the connection alive and update last active time.
+    /// Pings the server to keep the connection alive.
     /// </summary>
     public async Task Ping()
     {

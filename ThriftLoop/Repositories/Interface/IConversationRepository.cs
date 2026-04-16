@@ -57,4 +57,46 @@ public interface IConversationRepository
     /// Checks if a user is a participant in a conversation.
     /// </summary>
     Task<bool> IsUserInConversationAsync(int conversationId, int userId);
+
+    // ── Order/Item Context Methods ────────────────────────────────────────────
+
+    /// <summary>
+    /// Gets or creates a conversation for a specific item inquiry.
+    /// Links the conversation to the context item.
+    /// </summary>
+    /// <param name="buyerId">The user inquiring about the item.</param>
+    /// <param name="sellerId">The seller of the item.</param>
+    /// <param name="itemId">The item being discussed.</param>
+    /// <returns>The existing or newly created conversation.</returns>
+    Task<Conversation> GetOrCreateForItemAsync(int buyerId, int sellerId, int itemId);
+
+    /// <summary>
+    /// Gets or creates a conversation for a confirmed order.
+    /// Links the conversation to the order.
+    /// </summary>
+    /// <param name="buyerId">The buyer.</param>
+    /// <param name="sellerId">The seller.</param>
+    /// <param name="orderId">The confirmed order.</param>
+    /// <returns>The existing or newly created conversation.</returns>
+    Task<Conversation> GetOrCreateForOrderAsync(int buyerId, int sellerId, int orderId);
+
+    /// <summary>
+    /// Gets a conversation by its linked order ID.
+    /// </summary>
+    Task<Conversation?> GetByOrderIdAsync(int orderId);
+
+    /// <summary>
+    /// Gets a conversation by its context item ID and participants.
+    /// </summary>
+    Task<Conversation?> GetByItemAndParticipantsAsync(int itemId, int buyerId, int sellerId);
+
+    /// <summary>
+    /// Links an existing conversation to an order (called after checkout).
+    /// </summary>
+    Task LinkToOrderAsync(int conversationId, int orderId);
+
+    /// <summary>
+    /// Gets conversation details with full context (order, item) loaded.
+    /// </summary>
+    Task<Conversation?> GetByIdWithContextAsync(int conversationId);
 }

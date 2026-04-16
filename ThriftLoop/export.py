@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ThriftLoop Project Exporter
-Usage: python export.py [--output file.txt] [--feature Feature1 Feature2] [--exclude .css .js] [--no-open]
+Usage: python export.py [--output file.txt] [--feature Feature1 Feature2] [--folder folder1 folder2] [--exclude .css .js] [--no-open]
 """
 
 import os
@@ -64,6 +64,36 @@ def should_exclude_file(file_path: Path, exclude_patterns: list) -> bool:
     
     return False
 
+def normalize_feature_name(feature: str) -> str:
+    """Normalize feature name by removing 's' suffix if present."""
+    # Remove trailing 's' if it exists, but keep singular form
+    if feature.endswith('s'):
+        singular = feature[:-1]
+        return singular
+    return feature
+
+def find_controller_variants(feature: str) -> list:
+    """Find all possible controller name variants for a feature."""
+    singular = normalize_feature_name(feature)
+    plural = singular + 's'
+    
+    variants = [
+        singular,           # Item
+        plural,            # Items
+        singular.capitalize(),  # Item (capitalized)
+        plural.capitalize(),    # Items (capitalized)
+    ]
+    
+    patterns = []
+    for variant in variants:
+        patterns.extend([
+            f"*{variant}*Controller.cs",
+            f"*{variant}Controller.cs",
+            f"*{variant}sController.cs",
+        ])
+    
+    return list(set(patterns))  # Remove duplicates
+
 def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
     """Find all files related to given features by tracing dependencies."""
     cwd = Path.cwd()
@@ -81,11 +111,12 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
     for feature in feature_names:
         print(f"  🔍 Tracing feature: {feature}")
         
-        # STEP 1: Find the controller(s) for this feature
-        controller_patterns = [
-            f"*{feature}*Controller.cs",
-            f"*{feature}s*Controller.cs",  # Plural variant
-        ]
+        normalized_feature = normalize_feature_name(feature)
+        singular = normalized_feature
+        plural = singular + 's'
+        
+        # STEP 1: Find the controller(s) for this feature using multiple variants
+        controller_patterns = find_controller_variants(feature)
         
         controllers_found = []
         for pattern in controller_patterns:
@@ -94,9 +125,10 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
                     continue
                 if should_exclude_file(controller_file, exclude_patterns):
                     continue
-                controllers_found.append(controller_file)
-                feature_files.add(controller_file)
-                print(f"     Found controller: {controller_file.relative_to(cwd)}")
+                if controller_file not in controllers_found:
+                    controllers_found.append(controller_file)
+                    feature_files.add(controller_file)
+                    print(f"     Found controller: {controller_file.relative_to(cwd)}")
         
         # STEP 2: For each controller found, find its corresponding Views folder
         for controller in controllers_found:
@@ -104,8 +136,12 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
             
             # Try multiple view folder naming conventions
             view_folders = [
-                cwd / 'Views' / controller_name,           # e.g., Views/Item
-                cwd / 'Views' / f"{controller_name}s",     # e.g., Views/Items
+                cwd / 'Views' / controller_name,
+                cwd / 'Views' / f"{controller_name}s",
+                cwd / 'Views' / singular.capitalize(),
+                cwd / 'Views' / plural.capitalize(),
+                cwd / 'Views' / singular,
+                cwd / 'Views' / plural,
             ]
             
             for view_folder in view_folders:
@@ -120,11 +156,12 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
             if areas_folder.exists():
                 for area in areas_folder.iterdir():
                     if area.is_dir():
-                        area_views = area / 'Views' / controller_name
-                        if area_views.exists():
-                            for view in area_views.rglob('*.cshtml'):
-                                if not should_exclude_file(view, exclude_patterns):
-                                    feature_files.add(view)
+                        for view_name in [controller_name, f"{controller_name}s", singular, plural]:
+                            area_views = area / 'Views' / view_name
+                            if area_views.exists():
+                                for view in area_views.rglob('*.cshtml'):
+                                    if not should_exclude_file(view, exclude_patterns):
+                                        feature_files.add(view)
         
         # STEP 3: Find services and repositories by parsing controller
         for controller in controllers_found:
@@ -154,41 +191,99 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
             except Exception as e:
                 pass  # Silently skip parsing errors
         
-        # STEP 4: Find models
-        model_paths = [
-            cwd / 'Models' / f"{feature}.cs",
-            cwd / 'Models' / f"{feature}s.cs",
-            cwd / 'Models' / f"{feature}Model.cs",
+        # STEP 4: Find models (check both singular and plural)
+        model_patterns = [
+            cwd / 'Models' / f"{singular}.cs",
+            cwd / 'Models' / f"{plural}.cs",
+            cwd / 'Models' / f"{singular}Model.cs",
+            cwd / 'Models' / f"{plural}Model.cs",
+            cwd / 'Models' / f"{singular.capitalize()}.cs",
+            cwd / 'Models' / f"{plural.capitalize()}.cs",
         ]
         
-        for model_path in model_paths:
+        for model_path in model_patterns:
             if model_path.exists():
                 if not should_exclude_file(model_path, exclude_patterns):
                     feature_files.add(model_path)
                     print(f"     Found model: {model_path.relative_to(cwd)}")
         
-        # Search Models folder by pattern
-        for model_file in cwd.rglob(f"*{feature}*.cs"):
-            if 'Models' in model_file.parts:
-                if any(ex in model_file.parts for ex in EXCLUDE_DIRS):
+        # Search Models folder by pattern (both singular and plural)
+        for search_term in [singular, plural]:
+            for model_file in cwd.rglob(f"*{search_term}*.cs"):
+                if 'Models' in model_file.parts:
+                    if any(ex in model_file.parts for ex in EXCLUDE_DIRS):
+                        continue
+                    if not should_exclude_file(model_file, exclude_patterns):
+                        feature_files.add(model_file)
+        
+        # STEP 5: Find DTOs/ViewModels (both singular and plural)
+        for search_term in [singular, plural]:
+            for dto_file in cwd.rglob(f"*{search_term}*Dto*.cs"):
+                if any(ex in dto_file.parts for ex in EXCLUDE_DIRS):
                     continue
-                if not should_exclude_file(model_file, exclude_patterns):
-                    feature_files.add(model_file)
-        
-        # STEP 5: Find DTOs/ViewModels
-        for dto_file in cwd.rglob(f"*{feature}*Dto*.cs"):
-            if any(ex in dto_file.parts for ex in EXCLUDE_DIRS):
-                continue
-            if not should_exclude_file(dto_file, exclude_patterns):
-                feature_files.add(dto_file)
-        
-        for vm_file in cwd.rglob(f"*{feature}*ViewModel*.cs"):
-            if any(ex in vm_file.parts for ex in EXCLUDE_DIRS):
-                continue
-            if not should_exclude_file(vm_file, exclude_patterns):
-                feature_files.add(vm_file)
+                if not should_exclude_file(dto_file, exclude_patterns):
+                    feature_files.add(dto_file)
+            
+            for vm_file in cwd.rglob(f"*{search_term}*ViewModel*.cs"):
+                if any(ex in vm_file.parts for ex in EXCLUDE_DIRS):
+                    continue
+                if not should_exclude_file(vm_file, exclude_patterns):
+                    feature_files.add(vm_file)
     
     return feature_files
+
+def resolve_folders(folder_names: list, exclude_patterns: list = None) -> set:
+    """Find all files in specified folders."""
+    cwd = Path.cwd()
+    folder_files = set()
+    exclude_patterns = exclude_patterns or []
+    
+    print(f"\n  📁 Searching folders: {', '.join(folder_names)}")
+    
+    for folder_name in folder_names:
+        # Try multiple common locations for the folder
+        possible_paths = [
+            cwd / folder_name,
+            cwd / folder_name.capitalize(),
+            cwd / folder_name.upper(),
+            cwd / folder_name.lower(),
+        ]
+        
+        # Also search in common parent folders
+        for parent in ['', 'Data', 'Models', 'Services', 'Controllers', 'Views']:
+            possible_paths.append(cwd / parent / folder_name)
+            possible_paths.append(cwd / parent / folder_name.capitalize())
+        
+        found_folder = False
+        for folder_path in possible_paths:
+            if folder_path.exists() and folder_path.is_dir():
+                found_folder = True
+                print(f"     Found folder: {folder_path.relative_to(cwd)}")
+                
+                # Recursively add all files in the folder
+                for file in folder_path.rglob('*'):
+                    if file.is_file():
+                        if any(ex in file.parts for ex in EXCLUDE_DIRS):
+                            continue
+                        if should_exclude_file(file, exclude_patterns):
+                            continue
+                        folder_files.add(file)
+        
+        if not found_folder:
+            print(f"     ⚠️ Folder '{folder_name}' not found in common locations")
+            # Try fuzzy search
+            for item in cwd.rglob(f"*{folder_name}*"):
+                if item.is_dir() and not any(ex in item.parts for ex in EXCLUDE_DIRS):
+                    print(f"     Found similar folder: {item.relative_to(cwd)}")
+                    for file in item.rglob('*'):
+                        if file.is_file():
+                            if any(ex in file.parts for ex in EXCLUDE_DIRS):
+                                continue
+                            if should_exclude_file(file, exclude_patterns):
+                                continue
+                            folder_files.add(file)
+    
+    return folder_files
 
 def open_in_chrome(filepath: str):
     """Open the exported file in Chrome."""
@@ -215,7 +310,8 @@ def open_in_chrome(filepath: str):
         print(f"⚠️ Could not open file automatically: {e}")
         print(f"📁 File location: {os.path.abspath(filepath)}")
 
-def export_project(output_file: str, feature_filter: list = None, exclude_patterns: list = None, no_open: bool = False):
+def export_project(output_file: str, feature_filter: list = None, folder_filter: list = None, 
+                  exclude_patterns: list = None, no_open: bool = False):
     """Export project files to a single text file."""
     cwd = Path.cwd()
     files_exported = 0
@@ -224,10 +320,22 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
     excluded_count = 0
     
     # Collect files
-    if feature_filter:
+    if feature_filter or folder_filter:
         print()
-        all_files = sorted(resolve_features(feature_filter, exclude_patterns))
-        print(f"\n🔍 Found {len(all_files)} files for feature(s): {', '.join(feature_filter)}")
+        all_files = set()
+        
+        if feature_filter:
+            feature_files = resolve_features(feature_filter, exclude_patterns)
+            all_files.update(feature_files)
+            print(f"\n🔍 Found {len(feature_files)} files for feature(s): {', '.join(feature_filter)}")
+        
+        if folder_filter:
+            folder_files = resolve_folders(folder_filter, exclude_patterns)
+            all_files.update(folder_files)
+            print(f"\n📁 Found {len(folder_files)} files in folder(s): {', '.join(folder_filter)}")
+        
+        all_files = sorted(all_files)
+        print(f"📊 Total files to export: {len(all_files)}")
     else:
         all_files = []
         for ext in INCLUDE_EXTS:
@@ -241,8 +349,7 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         all_files.sort()
         print(f"📁 Found {len(all_files)} files (full export)")
     
-    # Rest of the export function remains the same...
-    # (Content buffer building, tree generation, file writing)
+    # Content buffer building
     content_buffer = []
     
     content_buffer.append(f"Project: {cwd}\n")
@@ -250,6 +357,8 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
     content_buffer.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     if feature_filter:
         content_buffer.append(f"Features: {', '.join(feature_filter)}\n")
+    if folder_filter:
+        content_buffer.append(f"Folders: {', '.join(folder_filter)}\n")
     content_buffer.append(f"Files: {len(all_files)}\n")
     content_buffer.append("Auto-excluded: .cshtml.cs files, wwwroot/lib/*\n")
     if exclude_patterns:
@@ -334,7 +443,7 @@ def export_project(output_file: str, feature_filter: list = None, exclude_patter
         out.write(''.join(content_buffer))
         out.write(''.join(file_contents))
     
-    print(f"📊 Estimated tokens: ~{token_estimate:,}")
+    print(f"\n📊 Estimated tokens: ~{token_estimate:,}")
     print(f"✅ Exported {files_exported} files to {output_file}")
     
     if exclude_patterns:
@@ -362,17 +471,40 @@ def list_features():
         print(f"    -Feature {f}")
     print()
 
+def list_folders():
+    """List all detected folders in the project."""
+    cwd = Path.cwd()
+    folders = set()
+    
+    for item in cwd.rglob('*'):
+        if item.is_dir() and not any(ex in item.parts for ex in EXCLUDE_DIRS):
+            rel_path = item.relative_to(cwd)
+            if str(rel_path) != '.':
+                folders.add(str(rel_path))
+    
+    print("\n  Available Folders")
+    print("  " + "-" * 50)
+    for f in sorted(folders)[:50]:  # Show first 50 to avoid overwhelming output
+        print(f"    -{f}")
+    if len(folders) > 50:
+        print(f"    ... and {len(folders) - 50} more")
+    print()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Export ThriftLoop project files')
     parser.add_argument('--output', '-o', default='Project_Export.txt', help='Output file name')
     parser.add_argument('--feature', '-f', nargs='+', help='Filter by feature name(s)')
+    parser.add_argument('--folder', '-d', nargs='+', help='Include specific folder(s) like Migrations, Models')
     parser.add_argument('--exclude', '-e', nargs='+', help='Exclude files by extension (.css) or path keyword')
     parser.add_argument('--list-features', '-l', action='store_true', help='List all detected features')
+    parser.add_argument('--list-folders', '-L', action='store_true', help='List all available folders')
     parser.add_argument('--no-open', '-n', action='store_true', help='Skip opening the output file in Chrome')
     
     args = parser.parse_args()
     
     if args.list_features:
         list_features()
+    elif args.list_folders:
+        list_folders()
     else:
-        export_project(args.output, args.feature, args.exclude, args.no_open)
+        export_project(args.output, args.feature, args.folder, args.exclude, args.no_open)

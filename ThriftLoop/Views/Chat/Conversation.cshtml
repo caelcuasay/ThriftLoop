@@ -1,4 +1,4 @@
-﻿@* Views/Chat/Conversation.cshtml *@
+﻿﻿@* Views/Chat/Conversation.cshtml *@
 @model ThriftLoop.DTOs.Chat.ConversationDetailDTO
 @{
     ViewData["Title"] = Model.OtherUserName;
@@ -26,7 +26,6 @@
         </div>
 
         <div class="chat-conversation-list" id="conversationList">
-            @* Conversations will be loaded via AJAX *@
             <div class="loading-placeholder">Loading conversations...</div>
         </div>
     </div>
@@ -71,12 +70,45 @@
             </div>
         </div>
 
+        @* Context header if linked to item/order *@
+        @if (Model.HasContext)
+        {
+            <div class="chat-context-header">
+                <div class="chat-context-info">
+                    @if (!string.IsNullOrEmpty(Model.LinkedItemImageUrl))
+                    {
+                        <img src="@Model.LinkedItemImageUrl" alt="@Model.LinkedItemTitle" class="chat-context-image" />
+                    }
+                    <div class="chat-context-details">
+                        <span class="chat-context-title">@Model.ContextHeaderText</span>
+                        @if (!string.IsNullOrEmpty(Model.ContextSubtitleText))
+                        {
+                            <span class="chat-context-subtitle">@Model.ContextSubtitleText</span>
+                        }
+                    </div>
+                </div>
+                @if (Model.IsItemInquiry && Model.CanCreateOrder)
+                {
+                    <a asp-action="Checkout" asp-controller="Orders" asp-route-itemId="@Model.ContextItemId" class="chat-context-action">
+                        Create Order
+                    </a>
+                }
+                @if (Model.IsOrderConversation && Model.CanConfirmReceipt)
+                {
+                    <form asp-action="MarkDelivered" asp-controller="Orders" asp-route-orderId="@Model.LinkedOrderId" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="chat-context-action">Confirm Receipt</button>
+                    </form>
+                }
+            </div>
+        }
+
         @* Messages Area *@
         <div class="chat-messages" id="messageContainer">
             @if (Model.HasMoreMessages)
             {
                 <div class="load-more-container">
-                    <button type="button" class="btn-load-more-messages" id="loadOlderMessages" data-page="@(Model.Page + 1)">
+                    <button type="button" class="btn-load-more-messages" id="loadOlderMessages" data-page="@(Model.Page + 1)" data-has-more="true">
                         Load older messages
                     </button>
                 </div>
@@ -131,32 +163,7 @@
                 <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="search-container">
-                    <input type="text"
-                           id="userSearchInput"
-                           class="form-control"
-                           placeholder="Search for a user..."
-                           autocomplete="off" />
-                    <div class="search-results" id="userSearchResults"></div>
-                </div>
-                <form id="newMessageForm" method="post" action="@Url.Action("Start")" class="hidden">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" id="selectedUserId" name="RecipientId" />
-                    <div class="selected-user-display" id="selectedUserDisplay"></div>
-                    <div class="form-group">
-                        <label for="initialMessage">Message (optional)</label>
-                        <textarea id="initialMessage"
-                                  name="InitialMessage"
-                                  class="form-control"
-                                  rows="3"
-                                  maxlength="2000"
-                                  placeholder="Write a message..."></textarea>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="startChatBtn" disabled>Start chat</button>
-                    </div>
-                </form>
+                <partial name="_UserSearchModal" />
             </div>
         </div>
     </div>
@@ -170,16 +177,105 @@
         document.addEventListener('DOMContentLoaded', function() {
         window.chatConfig = {
         conversationId: @Model.Id,
-        currentUserId: @Context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0",
+        currentUserId: @(Context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0"),
         otherUserId: @Model.OtherUserId,
         otherUserName: '@Html.Raw(Model.OtherUserName)',
-        prefillMessage: '@(ViewBag.PrefillMessage ?? "")'
+        prefillMessage: ''
         };
             
-        // Trigger chat initialization
         if (typeof initializeChat === 'function') {
         initializeChat(window.chatConfig);
         }
         });
+
+        // Auto-scroll to bottom on page load/refresh
+        (function() {
+        function scrollToBottomImmediate() {
+        const messageContainer = document.getElementById('messageContainer');
+        if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+        }
+            
+        // Try immediate scroll
+        scrollToBottomImmediate();
+            
+        // Also scroll after short delays to ensure images and dynamic content are loaded
+        setTimeout(scrollToBottomImmediate, 100);
+        setTimeout(scrollToBottomImmediate, 300);
+        setTimeout(scrollToBottomImmediate, 500);
+        setTimeout(scrollToBottomImmediate, 1000);
+            
+        // Use MutationObserver to detect when new messages are added
+        const messagesList = document.getElementById('messagesList');
+        if (messagesList) {
+        const observer = new MutationObserver(function() {
+        scrollToBottomImmediate();
+        });
+        observer.observe(messagesList, { childList: true, subtree: true });
+        }
+        })();
     </script>
 }
+
+<style>
+    .chat-context-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    }
+    
+    .chat-context-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    }
+    
+    .chat-context-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    }
+    
+    .chat-context-details {
+    display: flex;
+    flex-direction: column;
+    }
+    
+    .chat-context-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1a1814;
+    }
+    
+    .chat-context-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    }
+    
+    .chat-context-action {
+    padding: 6px 16px;
+    background: #2d5a27;
+    color: white;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    }
+    
+    .chat-context-action:hover {
+    background: #1f401b;
+    }
+    
+    .chat-toast {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    }
+</style>

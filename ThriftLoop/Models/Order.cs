@@ -1,4 +1,5 @@
-﻿using ThriftLoop.Enums;
+﻿// Models/Order.cs
+using ThriftLoop.Enums;
 using ThriftLoop.Constants;
 
 namespace ThriftLoop.Models;
@@ -112,20 +113,32 @@ public class Order
     /// </summary>
     public bool CashCollectedByRider { get; set; } = false;
 
-    // ── Chat initialization ───────────────────────────────────────────────────
+    // ── Chat Integration ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Indicates whether a chat session has been initialized for this order.
+    /// Indicates whether a chat conversation has been initialized for this order.
     /// Used for Halfway and Pickup fulfillments where buyer and seller need
     /// to coordinate meeting details.
     /// </summary>
     public bool ChatInitialized { get; set; } = false;
 
     /// <summary>
-    /// The ID of the chat session created for this order.
-    /// Null if no chat has been initialized yet.
+    /// Legacy session ID — kept for backward compatibility.
+    /// New orders use <see cref="ChatConversationId"/> instead.
     /// </summary>
     public string? ChatSessionId { get; set; }
+
+    /// <summary>
+    /// Foreign key to the Conversation table.
+    /// Links this order to its dedicated chat conversation.
+    /// Null for Delivery orders or orders where chat hasn't been initialized.
+    /// </summary>
+    public int? ChatConversationId { get; set; }
+
+    /// <summary>
+    /// Navigation property to the linked conversation.
+    /// </summary>
+    public Conversation? ChatConversation { get; set; }
 
     // ── Navigation properties ─────────────────────────────────────────────────
 
