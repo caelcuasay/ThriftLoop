@@ -116,22 +116,9 @@ public class ChatService : IChatService
 
                 if (item != null)
                 {
-                    dto.OrderReference = new OrderReferenceDTO
-                    {
-                        ItemId = item.Id,
-                        ItemTitle = item.Title,
-                        ItemImageUrl = item.ImageUrls?.FirstOrDefault(),
-                        Price = item.Price,
-                        Condition = item.Condition,
-                        Size = item.Size,
-                        Category = item.Category,
-                        OrderId = order?.Id,
-                        ConversationId = conversationId,
-                        SellerId = item.UserId,
-                        SellerName = item.User?.Email?.Split('@')[0] ?? "Unknown",
-                        IsConfirmedOrder = order != null,
-                        FulfillmentMethod = order?.FulfillmentMethod.ToString()
-                    };
+                    // Use the full builder method to get all inquiry status and permission flags
+                    var orderRef = await BuildOrderReferenceFromConversation(conversation, m.Id, currentUserId);
+                    dto.OrderReference = orderRef;
                 }
             }
 
@@ -502,6 +489,252 @@ public class ChatService : IChatService
     {
         var conversation = await _conversationRepo.GetByIdAsync(conversationId);
         return conversation?.OrderId != null || conversation?.ContextItemId != null;
+    }
+
+    // ── Inquiry Management Methods ────────────────────────────────────────────
+
+    public async Task<InquiryActionResponseDTO> AcceptInquiryAsync(int conversationId, int messageId, int sellerId, string? note = null)
+    {
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
+        if (conversation == null)
+            return new InquiryActionResponseDTO { Success = false, Error = "Conversation not found." };
+
+        // Verify seller is a participant
+        if (conversation.UserOneId != sellerId && conversation.UserTwoId != sellerId)
+            return new InquiryActionResponseDTO { Success = false, Error = "You are not authorized to accept this inquiry." };
+
+        // Verify inquiry is pending
+        if (conversation.InquiryStatus != InquiryStatus.Pending)
+            return new InquiryActionResponseDTO { Success = false, Error = $"Inquiry is already {conversation.InquiryStatus}." };
+
+        // Check if expired
+        if (conversation.IsExpired)
+        {
+            await _conversationRepo.UpdateInquiryStatusAsync(conversationId, InquiryStatus.Expired);
+            return new InquiryActionResponseDTO { Success = false, Error = "This inquiry has expired." };
+        }
+
+        // Update inquiry status
+        await _conversationRepo.UpdateInquiryStatusAsync(conversationId, InquiryStatus.Accepted);
+
+        // Send system message confirming acceptance
+        var noteMessage = string.IsNullOrEmpty(note) ? "" : $"\n\n📝 Seller note: {note}";
+        await _messageRepo.CreateSystemMessageAsync(
+            conversationId,
+            MessageType.OrderConfirmed,
+            $"✅ Seller accepted your inquiry for '{conversation.ContextItem?.Title ?? "this item"}'! You can now proceed to checkout.{noteMessage}",
+            orderId: null);
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversationId, DateTime.UtcNow);
+
+        // Build updated order reference
+        var orderRef = await BuildOrderReferenceFromConversation(conversation, messageId, sellerId);
+
+        _logger.LogInformation("Seller {SellerId} accepted inquiry for Conversation {ConversationId}", sellerId, conversationId);
+
+        return new InquiryActionResponseDTO
+        {
+            Success = true,
+            Status = InquiryStatus.Accepted.ToString(),
+            Message = "Inquiry accepted! The buyer can now proceed to checkout.",
+            UpdatedReference = orderRef
+        };
+    }
+
+    public async Task<InquiryActionResponseDTO> DeclineInquiryAsync(int conversationId, int messageId, int sellerId, string? note = null)
+    {
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
+        if (conversation == null)
+            return new InquiryActionResponseDTO { Success = false, Error = "Conversation not found." };
+
+        // Verify seller is a participant
+        if (conversation.UserOneId != sellerId && conversation.UserTwoId != sellerId)
+            return new InquiryActionResponseDTO { Success = false, Error = "You are not authorized to decline this inquiry." };
+
+        // Verify inquiry is pending
+        if (conversation.InquiryStatus != InquiryStatus.Pending)
+            return new InquiryActionResponseDTO { Success = false, Error = $"Inquiry is already {conversation.InquiryStatus}." };
+
+        // Update inquiry status
+        await _conversationRepo.UpdateInquiryStatusAsync(conversationId, InquiryStatus.Declined);
+
+        // Send system message about declination
+        var noteMessage = string.IsNullOrEmpty(note) ? "" : $"\n\n📝 Seller note: {note}";
+        await _messageRepo.CreateSystemMessageAsync(
+            conversationId,
+            MessageType.Text,
+            $"❌ Seller declined your inquiry for '{conversation.ContextItem?.Title ?? "this item"}'.{noteMessage}",
+            orderId: null);
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversationId, DateTime.UtcNow);
+
+        // Build updated order reference
+        var orderRef = await BuildOrderReferenceFromConversation(conversation, messageId, sellerId);
+
+        _logger.LogInformation("Seller {SellerId} declined inquiry for Conversation {ConversationId}", sellerId, conversationId);
+
+        return new InquiryActionResponseDTO
+        {
+            Success = true,
+            Status = InquiryStatus.Declined.ToString(),
+            Message = "Inquiry declined.",
+            UpdatedReference = orderRef
+        };
+    }
+
+    public async Task<InquiryActionResponseDTO> CancelInquiryAsync(int conversationId, int messageId, int buyerId)
+    {
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
+        if (conversation == null)
+            return new InquiryActionResponseDTO { Success = false, Error = "Conversation not found." };
+
+        // Determine which participant is the buyer (the one who is NOT the seller of the item)
+        var item = conversation.ContextItem;
+        if (item == null)
+            return new InquiryActionResponseDTO { Success = false, Error = "No item context found for this conversation." };
+
+        var sellerId = item.UserId;
+        var isBuyer = (conversation.UserOneId == buyerId && conversation.UserTwoId == sellerId) ||
+                      (conversation.UserTwoId == buyerId && conversation.UserOneId == sellerId);
+
+        if (!isBuyer)
+            return new InquiryActionResponseDTO { Success = false, Error = "You are not authorized to cancel this inquiry." };
+
+        // Verify inquiry is pending
+        if (conversation.InquiryStatus != InquiryStatus.Pending)
+            return new InquiryActionResponseDTO { Success = false, Error = $"Inquiry is already {conversation.InquiryStatus}." };
+
+        // Update inquiry status
+        await _conversationRepo.UpdateInquiryStatusAsync(conversationId, InquiryStatus.Cancelled);
+
+        // Send system message about cancellation
+        await _messageRepo.CreateSystemMessageAsync(
+            conversationId,
+            MessageType.Text,
+            $"🔔 Buyer cancelled their inquiry for '{item.Title}'.",
+            orderId: null);
+
+        await _conversationRepo.UpdateLastMessageTimeAsync(conversationId, DateTime.UtcNow);
+
+        // Build updated order reference
+        var orderRef = await BuildOrderReferenceFromConversation(conversation, messageId, buyerId);
+
+        _logger.LogInformation("Buyer {BuyerId} cancelled inquiry for Conversation {ConversationId}", buyerId, conversationId);
+
+        return new InquiryActionResponseDTO
+        {
+            Success = true,
+            Status = InquiryStatus.Cancelled.ToString(),
+            Message = "Inquiry cancelled.",
+            UpdatedReference = orderRef
+        };
+    }
+
+    public async Task<int> ProcessExpiredInquiriesAsync()
+    {
+        var expiredConversations = await _conversationRepo.GetExpiredPendingInquiriesAsync();
+        var expiredCount = 0;
+
+        foreach (var conversation in expiredConversations)
+        {
+            await _conversationRepo.UpdateInquiryStatusAsync(conversation.Id, InquiryStatus.Expired);
+
+            // Send system message about expiration
+            await _messageRepo.CreateSystemMessageAsync(
+                conversation.Id,
+                MessageType.Text,
+                $"⏰ This inquiry has expired. The item '{conversation.ContextItem?.Title ?? "this item"}' is still available for others to inquire about.",
+                orderId: null);
+
+            expiredCount++;
+            _logger.LogInformation("Inquiry expired for Conversation {ConversationId}", conversation.Id);
+        }
+
+        if (expiredCount > 0)
+        {
+            _logger.LogInformation("Processed {Count} expired inquiries", expiredCount);
+        }
+
+        return expiredCount;
+    }
+
+    public async Task<List<ConversationDTO>> GetPendingInquiriesForSellerAsync(int sellerId)
+    {
+        var conversations = await _conversationRepo.GetPendingInquiriesForSellerAsync(sellerId);
+        return conversations.Select(c => new ConversationDTO
+        {
+            Id = c.Id,
+            OtherUserId = c.UserOneId == sellerId ? c.UserTwoId : c.UserOneId,
+            OtherUserName = (c.UserOneId == sellerId ? c.UserTwo : c.UserOne)?.FullName ?? "Unknown",
+            LastMessage = c.Messages.FirstOrDefault()?.Content ?? "New inquiry",
+            LastMessageAt = c.LastMessageAt,
+            UnreadCount = c.Messages.Count(m => m.SenderId != sellerId && m.ReadAt == null),
+            LastMessageIsFromCurrentUser = c.Messages.FirstOrDefault()?.SenderId == sellerId
+        }).ToList();
+    }
+
+    public async Task<List<ConversationDTO>> GetPendingInquiriesForBuyerAsync(int buyerId)
+    {
+        var conversations = await _conversationRepo.GetPendingInquiriesForBuyerAsync(buyerId);
+        return conversations.Select(c => new ConversationDTO
+        {
+            Id = c.Id,
+            OtherUserId = c.UserOneId == buyerId ? c.UserTwoId : c.UserOneId,
+            OtherUserName = (c.UserOneId == buyerId ? c.UserTwo : c.UserOne)?.FullName ?? "Unknown",
+            LastMessage = c.Messages.FirstOrDefault()?.Content ?? "Awaiting response",
+            LastMessageAt = c.LastMessageAt,
+            UnreadCount = c.Messages.Count(m => m.SenderId != buyerId && m.ReadAt == null),
+            LastMessageIsFromCurrentUser = c.Messages.FirstOrDefault()?.SenderId == buyerId
+        }).ToList();
+    }
+
+    public async Task<OrderReferenceDTO?> GetOrderReferenceForConversationAsync(int conversationId)
+    {
+        var conversation = await _conversationRepo.GetByIdWithContextAsync(conversationId);
+        if (conversation?.ContextItem == null)
+            return null;
+
+        var orderRefMessage = await _messageRepo.GetLatestOrderReferenceAsync(conversationId);
+
+        return await BuildOrderReferenceFromConversation(conversation, orderRefMessage?.Id ?? 0, 0);
+    }
+
+    // ── Private Helper for Order Reference ────────────────────────────────────
+
+    private async Task<OrderReferenceDTO> BuildOrderReferenceFromConversation(Conversation conversation, int messageId, int currentUserId)
+    {
+        var item = conversation.ContextItem;
+        var order = conversation.Order;
+
+        var orderRef = new OrderReferenceDTO
+        {
+            MessageId = messageId,
+            ItemId = item?.Id ?? 0,
+            ItemTitle = item?.Title ?? "Unknown Item",
+            ItemImageUrl = item?.ImageUrls?.FirstOrDefault(),
+            Price = item?.Price ?? 0,
+            Condition = item?.Condition ?? "Unknown",
+            Size = item?.Size,
+            Category = item?.Category ?? "Unknown",
+            OrderId = order?.Id,
+            ConversationId = conversation.Id,
+            SellerId = item?.UserId ?? 0,
+            SellerName = item?.User?.Email?.Split('@')[0] ?? "Unknown",
+            IsConfirmedOrder = order != null,
+            FulfillmentMethod = order?.FulfillmentMethod.ToString(),
+            InquiryStatus = conversation.InquiryStatus,
+            InquiryExpiresAt = conversation.InquiryExpiresAt
+        };
+
+        // Set permission flags based on current user
+        var isSeller = item != null && item.UserId == currentUserId;
+        var isBuyer = !isSeller && (conversation.UserOneId == currentUserId || conversation.UserTwoId == currentUserId);
+
+        orderRef.CanAccept = isSeller && conversation.InquiryStatus == InquiryStatus.Pending && !conversation.IsExpired;
+        orderRef.CanDecline = isSeller && conversation.InquiryStatus == InquiryStatus.Pending && !conversation.IsExpired;
+        orderRef.CanCancel = isBuyer && conversation.InquiryStatus == InquiryStatus.Pending && !conversation.IsExpired;
+
+        return orderRef;
     }
 
     // ── Existing methods (unchanged) ──────────────────────────────────────────

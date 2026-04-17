@@ -1,0 +1,758 @@
+﻿@* Views/Chat/_OrderReferenceCard.cshtml *@
+@model ThriftLoop.DTOs.Chat.OrderReferenceDTO
+
+@{
+    var statusClass = Model.StatusClass;
+    var statusText = Model.StatusText;
+    var isPending = Model.InquiryStatus == ThriftLoop.Enums.InquiryStatus.Pending && !Model.IsExpired;
+    var isAccepted = Model.InquiryStatus == ThriftLoop.Enums.InquiryStatus.Accepted;
+    var isDeclined = Model.InquiryStatus == ThriftLoop.Enums.InquiryStatus.Declined;
+    var isExpired = Model.IsExpired || Model.InquiryStatus == ThriftLoop.Enums.InquiryStatus.Expired;
+    var isCancelled = Model.InquiryStatus == ThriftLoop.Enums.InquiryStatus.Cancelled;
+}
+
+<div class="contextual-card @(isPending ? "contextual-card--pending" : "") @(isAccepted ? "contextual-card--accepted" : "") @(isDeclined ? "contextual-card--declined" : "") @(isExpired ? "contextual-card--expired" : "") @(isCancelled ? "contextual-card--cancelled" : "")"
+     data-conversation-id="@Model.ConversationId"
+     data-message-id="@Model.MessageId"
+     data-item-id="@Model.ItemId"
+     data-inquiry-status="@Model.InquiryStatus.ToString().ToLower()"
+     id="order-ref-@Model.MessageId">
+
+    <div class="contextual-card__header">
+        <div class="contextual-card__icon">
+            @if (Model.IsConfirmedOrder)
+            {
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 7l-9 9-5-5" stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="12" cy="12" r="10" />
+                </svg>
+            }
+            else
+            {
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+            }
+        </div>
+        <div class="contextual-card__title">
+            @if (Model.IsConfirmedOrder)
+            {
+                <span>📦 Order Confirmed</span>
+            }
+            else
+            {
+                <span>📦 Item Inquiry</span>
+            }
+        </div>
+        <div class="contextual-card__status @statusClass">
+            @statusText
+        </div>
+    </div>
+
+    <div class="contextual-card__body">
+        @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+        {
+            <div class="contextual-card__image">
+                <img src="@Model.ItemImageUrl" alt="@Model.ItemTitle" />
+            </div>
+        }
+        else
+        {
+            <div class="contextual-card__image contextual-card__image--placeholder">
+                <svg width="48" height="48" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="6" y="10" width="52" height="44" rx="6" />
+                    <circle cx="22" cy="26" r="6" />
+                    <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+        }
+
+        <div class="contextual-card__details">
+            <h4 class="contextual-card__item-title">@Model.ItemTitle</h4>
+            
+            <div class="contextual-card__price">@Model.FormattedPrice</div>
+            
+            <div class="contextual-card__meta">
+                <span class="contextual-card__condition">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v4l3 3" />
+                    </svg>
+                    @Model.Condition
+                </span>
+                @if (!string.IsNullOrEmpty(Model.Size))
+                {
+                    <span class="contextual-card__size">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3h18v18H3z" />
+                            <path d="M3 9h18M9 21V3" />
+                        </svg>
+                        @Model.Size
+                    </span>
+                }
+                <span class="contextual-card__category">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16v16H4z" />
+                        <path d="M9 9h6v6H9z" />
+                    </svg>
+                    @Model.Category
+                </span>
+            </div>
+
+            <div class="contextual-card__seller">
+                <span class="contextual-card__seller-label">Seller:</span>
+                <span class="contextual-card__seller-name">@Model.SellerName</span>
+            </div>
+
+            @if (Model.IsConfirmedOrder && !string.IsNullOrEmpty(Model.FulfillmentMethod))
+            {
+                <div class="contextual-card__fulfillment">
+                    <span class="contextual-card__fulfillment-label">Fulfillment:</span>
+                    <span class="contextual-card__fulfillment-value">@Model.FulfillmentMethod</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="contextual-card__footer">
+        @if (isPending)
+        {
+            <div class="contextual-card__actions">
+                @if (Model.CanAccept)
+                {
+                    <button type="button" class="contextual-card__btn contextual-card__btn--accept" data-action="accept">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Accept
+                    </button>
+                }
+                @if (Model.CanDecline)
+                {
+                    <button type="button" class="contextual-card__btn contextual-card__btn--decline" data-action="decline">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                        Decline
+                    </button>
+                }
+                @if (Model.CanCancel)
+                {
+                    <button type="button" class="contextual-card__btn contextual-card__btn--cancel" data-action="cancel">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        Cancel Inquiry
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="contextual-card__expiry">
+            @if (isPending && !string.IsNullOrEmpty(Model.ExpirationText))
+            {
+                <span class="contextual-card__expiry-text">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    @Model.ExpirationText
+                </span>
+            }
+            else if (isAccepted)
+            {
+                <span class="contextual-card__expiry-text contextual-card__expiry-text--success">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Ready to proceed
+                </span>
+            }
+            else if (isDeclined)
+            {
+                <span class="contextual-card__expiry-text contextual-card__expiry-text--error">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Seller declined
+                </span>
+            }
+            else if (isExpired)
+            {
+                <span class="contextual-card__expiry-text contextual-card__expiry-text--warning">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    Inquiry expired
+                </span>
+            }
+            else if (isCancelled)
+            {
+                <span class="contextual-card__expiry-text contextual-card__expiry-text--muted">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    Cancelled
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Contextual Card - Centered in chat, distinct from bubbles */
+    .contextual-card {
+        max-width: 380px;
+        margin: 16px auto;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+        overflow: hidden;
+        transition: all 0.2s ease;
+        border: 1px solid #e9ecef;
+    }
+
+        .contextual-card:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+        }
+
+    /* Status variations */
+    .contextual-card--pending {
+        border-left: 4px solid #f59e0b;
+    }
+
+    .contextual-card--accepted {
+        border-left: 4px solid #10b981;
+    }
+
+    .contextual-card--declined {
+        border-left: 4px solid #ef4444;
+    }
+
+    .contextual-card--expired {
+        border-left: 4px solid #9ca3af;
+        opacity: 0.85;
+    }
+
+    .contextual-card--cancelled {
+        border-left: 4px solid #6b7280;
+        opacity: 0.75;
+    }
+
+    /* Header */
+    .contextual-card__header {
+        display: flex;
+        align-items: center;
+        padding: 14px 16px;
+        background: #fafafa;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .contextual-card__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        margin-right: 10px;
+        color: #2d5a27;
+        background: rgba(45, 90, 39, 0.08);
+        border-radius: 8px;
+    }
+
+    .contextual-card__title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 14px;
+        color: #1a1814;
+    }
+
+    .contextual-card__status {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+        .contextual-card__status.order-reference--pending {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .contextual-card__status.order-reference--accepted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .contextual-card__status.order-reference--declined {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .contextual-card__status.order-reference--expired {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .contextual-card__status.order-reference--cancelled {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .contextual-card__status.order-reference--confirmed {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+    /* Body */
+    .contextual-card__body {
+        display: flex;
+        padding: 16px;
+        gap: 14px;
+    }
+
+    .contextual-card__image {
+        width: 90px;
+        height: 90px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #f3f4f6;
+    }
+
+        .contextual-card__image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+    .contextual-card__image--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+    }
+
+    .contextual-card__details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .contextual-card__item-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a1814;
+        margin: 0 0 4px 0;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .contextual-card__price {
+        font-size: 18px;
+        font-weight: 700;
+        color: #2d5a27;
+        margin-bottom: 8px;
+    }
+
+    .contextual-card__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        margin-bottom: 8px;
+    }
+
+    .contextual-card__condition,
+    .contextual-card__size,
+    .contextual-card__category {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.2px;
+    }
+
+    .contextual-card__seller {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+    }
+
+    .contextual-card__seller-label {
+        font-weight: 500;
+    }
+
+    .contextual-card__seller-name {
+        color: #1a1814;
+        font-weight: 500;
+    }
+
+    .contextual-card__fulfillment {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .contextual-card__fulfillment-label {
+        font-weight: 500;
+    }
+
+    .contextual-card__fulfillment-value {
+        color: #1a1814;
+    }
+
+    /* Footer */
+    .contextual-card__footer {
+        padding: 12px 16px;
+        background: #fafafa;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .contextual-card__actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .contextual-card__btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 24px;
+        font-size: 13px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .contextual-card__btn--accept {
+        background: #2d5a27;
+        color: white;
+    }
+
+        .contextual-card__btn--accept:hover {
+            background: #1f401b;
+            transform: scale(1.02);
+        }
+
+    .contextual-card__btn--decline {
+        background: white;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+
+        .contextual-card__btn--decline:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #dc2626;
+        }
+
+    .contextual-card__btn--cancel {
+        background: white;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+
+        .contextual-card__btn--cancel:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+            color: #4b5563;
+        }
+
+    .contextual-card__expiry {
+        display: flex;
+        align-items: center;
+    }
+
+    .contextual-card__expiry-text {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .contextual-card__expiry-text--success {
+        color: #10b981;
+    }
+
+    .contextual-card__expiry-text--error {
+        color: #ef4444;
+    }
+
+    .contextual-card__expiry-text--warning {
+        color: #f59e0b;
+    }
+
+    .contextual-card__expiry-text--muted {
+        color: #9ca3af;
+    }
+
+    /* Disabled state */
+    .contextual-card__btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Loading state */
+    .contextual-card--loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+        .contextual-card--loading .contextual-card__btn {
+            pointer-events: none;
+        }
+</style>
+
+<script>
+    (function() {
+        'use strict';
+        
+        const card = document.currentScript?.parentElement?.querySelector('.contextual-card');
+        if (!card) return;
+        
+        const conversationId = card.dataset.conversationId;
+        const messageId = card.dataset.messageId;
+        
+        // Handle accept button
+        const acceptBtn = card.querySelector('[data-action="accept"]');
+        if (acceptBtn) {
+            acceptBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.disabled) return;
+                
+                this.disabled = true;
+                card.classList.add('contextual-card--loading');
+                
+                try {
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    const response = await fetch('/Chat/AcceptInquiry', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({
+                            conversationId: parseInt(conversationId),
+                            messageId: parseInt(messageId),
+                            note: null
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update card UI
+                        card.classList.remove('contextual-card--pending');
+                        card.classList.add('contextual-card--accepted');
+                        
+                        const statusEl = card.querySelector('.contextual-card__status');
+                        if (statusEl) {
+                            statusEl.textContent = 'Accepted';
+                            statusEl.className = 'contextual-card__status order-reference--accepted';
+                        }
+                        
+                        // Hide action buttons
+                        const actions = card.querySelector('.contextual-card__actions');
+                        if (actions) {
+                            actions.style.display = 'none';
+                        }
+                        
+                        // Update expiry text
+                        const expiryEl = card.querySelector('.contextual-card__expiry-text');
+                        if (expiryEl) {
+                            expiryEl.innerHTML = `
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Ready to proceed
+                            `;
+                            expiryEl.className = 'contextual-card__expiry-text contextual-card__expiry-text--success';
+                        }
+                        
+                        // Trigger SignalR update for other user
+                        if (typeof window.chatConnection !== 'undefined' && window.chatConnection) {
+                            window.chatConnection.invoke('SendMessage', {
+                                conversationId: parseInt(conversationId),
+                                content: '✅ Inquiry accepted! Ready to proceed.',
+                                messageType: 2 // OrderReference
+                            }).catch(() => {});
+                        }
+                    } else {
+                        alert(result.error || 'Failed to accept inquiry.');
+                        this.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error accepting inquiry:', error);
+                    alert('An error occurred. Please try again.');
+                    this.disabled = false;
+                } finally {
+                    card.classList.remove('contextual-card--loading');
+                }
+            });
+        }
+        
+        // Handle decline button
+        const declineBtn = card.querySelector('[data-action="decline"]');
+        if (declineBtn) {
+            declineBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.disabled) return;
+                
+                if (!confirm('Are you sure you want to decline this inquiry?')) return;
+                
+                this.disabled = true;
+                card.classList.add('contextual-card--loading');
+                
+                try {
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    const response = await fetch('/Chat/DeclineInquiry', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({
+                            conversationId: parseInt(conversationId),
+                            messageId: parseInt(messageId),
+                            note: null
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        card.classList.remove('contextual-card--pending');
+                        card.classList.add('contextual-card--declined');
+                        
+                        const statusEl = card.querySelector('.contextual-card__status');
+                        if (statusEl) {
+                            statusEl.textContent = 'Declined';
+                            statusEl.className = 'contextual-card__status order-reference--declined';
+                        }
+                        
+                        const actions = card.querySelector('.contextual-card__actions');
+                        if (actions) {
+                            actions.style.display = 'none';
+                        }
+                        
+                        const expiryEl = card.querySelector('.contextual-card__expiry-text');
+                        if (expiryEl) {
+                            expiryEl.innerHTML = `
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                                Seller declined
+                            `;
+                            expiryEl.className = 'contextual-card__expiry-text contextual-card__expiry-text--error';
+                        }
+                    } else {
+                        alert(result.error || 'Failed to decline inquiry.');
+                        this.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error declining inquiry:', error);
+                    alert('An error occurred. Please try again.');
+                    this.disabled = false;
+                } finally {
+                    card.classList.remove('contextual-card--loading');
+                }
+            });
+        }
+        
+        // Handle cancel button (buyer)
+        const cancelBtn = card.querySelector('[data-action="cancel"]');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.disabled) return;
+                
+                if (!confirm('Cancel this inquiry?')) return;
+                
+                this.disabled = true;
+                card.classList.add('contextual-card--loading');
+                
+                try {
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    const response = await fetch('/Chat/CancelInquiry', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({
+                            conversationId: parseInt(conversationId),
+                            messageId: parseInt(messageId),
+                            note: null
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        card.classList.remove('contextual-card--pending');
+                        card.classList.add('contextual-card--cancelled');
+                        
+                        const statusEl = card.querySelector('.contextual-card__status');
+                        if (statusEl) {
+                            statusEl.textContent = 'Cancelled';
+                            statusEl.className = 'contextual-card__status order-reference--cancelled';
+                        }
+                        
+                        const actions = card.querySelector('.contextual-card__actions');
+                        if (actions) {
+                            actions.style.display = 'none';
+                        }
+                        
+                        const expiryEl = card.querySelector('.contextual-card__expiry-text');
+                        if (expiryEl) {
+                            expiryEl.innerHTML = `
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                Cancelled
+                            `;
+                            expiryEl.className = 'contextual-card__expiry-text contextual-card__expiry-text--muted';
+                        }
+                    } else {
+                        alert(result.error || 'Failed to cancel inquiry.');
+                        this.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error cancelling inquiry:', error);
+                    alert('An error occurred. Please try again.');
+                    this.disabled = false;
+                } finally {
+                    card.classList.remove('contextual-card--loading');
+                }
+            });
+        }
+    })();
+</script>

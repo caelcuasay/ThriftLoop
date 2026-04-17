@@ -29,6 +29,7 @@ function initializeChat(config) {
     setupSidebarToggle();
     setupNewMessageModal();
     setupMessageRetry();
+    setupInquiryActionHandlers();
 
     // Request notification permission
     requestNotificationPermission();
@@ -125,16 +126,13 @@ function registerSignalRHandlers() {
 
         if (message.conversationId === currentConversationId) {
             // Check if this is our own message (replace temp)
-            // Use multiple matching strategies
             let tempId = null;
-
-            // Strategy 1: Match by content + sender (most reliable for unique content)
             const contentKey = message.content + message.senderId;
+
             if (pendingMessages.has(contentKey)) {
                 tempId = pendingMessages.get(contentKey);
                 pendingMessages.delete(contentKey);
             } else {
-                // Strategy 2: Check all pending messages for matching content (for non-unique messages)
                 for (let [key, value] of pendingMessages) {
                     if (value.content === message.content && Date.now() - value.sentAt < 10000) {
                         tempId = value.tempId;
@@ -145,13 +143,12 @@ function registerSignalRHandlers() {
             }
 
             if (tempId) {
-                // Replace temp message with real one
                 replaceTempMessage(tempId, message);
             } else if (!message.isFromCurrentUser) {
-                // Message from other user
                 displayMessage(message);
-                // Mark as read
-                connection.invoke("MarkMessageAsRead", message.id);
+                if (connection) {
+                    connection.invoke("MarkMessageAsRead", message.id);
+                }
             }
         }
 
@@ -163,9 +160,8 @@ function registerSignalRHandlers() {
         }
     });
 
-    // Message delivered confirmation - updates the REAL message ID
+    // Message delivered confirmation
     connection.on("MessageDelivered", (messageId) => {
-        console.log("Message delivered:", messageId);
         updateMessageStatus(messageId, 'Delivered');
     });
 
@@ -182,7 +178,7 @@ function registerSignalRHandlers() {
         }
     });
 
-    // User came online
+    // User online/offline
     connection.on("UserOnline", (userId) => {
         if (userId === window.chatConfig.otherUserId) {
             updateUserOnlineStatus(true);
@@ -190,12 +186,19 @@ function registerSignalRHandlers() {
         updateConversationListOnlineStatus();
     });
 
-    // User went offline
     connection.on("UserOffline", (userId) => {
         if (userId === window.chatConfig.otherUserId) {
             updateUserOnlineStatus(false);
         }
         updateConversationListOnlineStatus();
+    });
+
+    // Inquiry status updated (new handler for contextual cards)
+    connection.on("InquiryStatusUpdated", (data) => {
+        if (data.conversationId === currentConversationId) {
+            refreshOrderReferenceCard(data);
+        }
+        refreshConversationList();
     });
 
     // New message notification
@@ -211,7 +214,7 @@ function registerSignalRHandlers() {
         updateUnreadBadge(count);
     });
 
-    // User is viewing conversation
+    // User viewing conversation
     connection.on("UserViewingConversation", (data) => {
         if (data.conversationId === currentConversationId &&
             data.userId === window.chatConfig.otherUserId) {
@@ -219,30 +222,16 @@ function registerSignalRHandlers() {
         }
     });
 
-    // Successfully joined conversation
     connection.on("JoinedConversation", (conversationId) => {
         console.log("Successfully joined conversation:", conversationId);
     });
 
-    // Left conversation
-    connection.on("LeftConversation", (conversationId) => {
-        console.log("Left conversation:", conversationId);
-    });
-
-    // Conversation marked as read
     connection.on("ConversationMarkedAsRead", (conversationId) => {
         if (conversationId === currentConversationId) {
             updateAllMessagesStatus('Read');
         }
     });
 
-    // Pong response
-    connection.on("Pong", (timestamp) => {
-        const latency = new Date() - new Date(timestamp);
-        console.log("Connection latency:", latency + "ms");
-    });
-
-    // Error handling
     connection.on("SendMessageError", (error) => {
         console.error("Message send error:", error);
         showToast(error.error || "Failed to send message", "error");
@@ -253,7 +242,6 @@ function registerSignalRHandlers() {
         showToast(message, "error");
     });
 
-    // Connection lifecycle
     connection.onreconnecting((error) => {
         console.log("Reconnecting to chat...", error);
         showConnectionStatus("Reconnecting...", "warning");
@@ -306,21 +294,12 @@ function displayMessage(message) {
     const messagesList = document.getElementById('messagesList');
     if (!messagesList) return;
 
-    // Check if message already exists (by database ID)
     if (message.id > 0 && document.getElementById(`message-${message.id}`)) {
         return;
     }
 
     const messageHtml = createMessageBubble(message);
     messagesList.insertAdjacentHTML('beforeend', messageHtml);
-
-    if (message.messageType === 1 || message.messageType === 2) {
-        setupOrderReferenceHandlers(message);
-    }
-
-    if (message.messageType === 3) {
-        setupMeetingProposalHandlers(message);
-    }
 
     if (isNearBottom) {
         scrollToBottom();
@@ -335,14 +314,10 @@ function replaceTempMessage(tempId, realMessage) {
     const tempEl = document.getElementById(`message-${tempId}`);
     if (!tempEl) return;
 
-    // Create the real message bubble
     const realHtml = createMessageBubble(realMessage);
-
-    // Replace the temp element with the real one
     tempEl.insertAdjacentHTML('afterend', realHtml);
     tempEl.remove();
 
-    // Scroll to bottom if needed
     if (isNearBottom) {
         scrollToBottom();
     }
@@ -356,7 +331,36 @@ function createMessageBubble(message) {
     const senderInitial = message.senderName ? message.senderName.charAt(0).toUpperCase() : '?';
     const messageId = message.id;
     const status = message.status ? message.status.toLowerCase() : 'sent';
+    const isOrderReference = message.messageType === 2 || message.messageType === 1;
+    const isSystemMessage = message.senderId === 0;
 
+    // System messages
+    if (isSystemMessage) {
+        return `
+            <div class="system-message" data-message-id="${messageId}" id="message-${messageId}">
+                <div class="system-message__content">
+                    <span class="system-message__icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    </span>
+                    <span class="system-message__text">${escapedContent}</span>
+                    <span class="system-message__time">${message.formattedTime || formatTime(message.sentAt)}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    // Order reference messages - delegate to server-rendered partial
+    // The server already renders these as full cards via _OrderReferenceCard.cshtml
+    if (isOrderReference && message.orderReference) {
+        // For real-time messages, we need to construct the card HTML
+        return createOrderReferenceCardHtml(message);
+    }
+
+    // Regular text message
     let html = `
         <div class="${bubbleClass}" 
              data-message-id="${messageId}" 
@@ -377,24 +381,14 @@ function createMessageBubble(message) {
 
     html += `
             <div class="message-content-wrapper">
-                ${!isOwn ? `<span class="message-sender">${escapeHtml(message.senderName)}</span>` : ''}`;
-
-    if (message.messageType === 1 || message.messageType === 2) {
-        html += createOrderReferenceContent(message);
-    } else if (message.messageType === 3) {
-        html += createMeetingProposalContent(message);
-    } else {
-        html += `
+                ${!isOwn ? `<span class="message-sender">${escapeHtml(message.senderName)}</span>` : ''}
                 <div class="message-content">
                     <p class="message-text">${escapedContent}</p>
                     <div class="message-meta">
                         <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
                         ${isOwn ? `<span class="message-status" data-status="${status}">${statusIcon}</span>` : ''}
                     </div>
-                </div>`;
-    }
-
-    html += `
+                </div>
             </div>
             ${isOwn ? '<div class="message-avatar-placeholder"></div>' : ''}
         </div>`;
@@ -402,66 +396,150 @@ function createMessageBubble(message) {
     return html;
 }
 
-function createOrderReferenceContent(message) {
+function createOrderReferenceCardHtml(message) {
     const orderRef = message.orderReference;
     if (!orderRef) return '';
 
-    const isConfirmed = message.messageType === 2;
-    const title = isConfirmed ? '✅ Order Confirmed' : '📦 Item Inquiry';
+    const isConfirmed = message.messageType === 2 || orderRef.isConfirmedOrder;
+    const isPending = orderRef.inquiryStatus === 1 && !orderRef.isExpired;
+    const isAccepted = orderRef.inquiryStatus === 2;
+    const isDeclined = orderRef.inquiryStatus === 3;
+    const isExpired = orderRef.isExpired || orderRef.inquiryStatus === 4;
+    const isCancelled = orderRef.inquiryStatus === 5;
+
+    const statusClass = orderRef.statusClass || 'order-reference--pending';
+    const statusText = orderRef.statusText || 'Awaiting Response';
+
+    let actionButtons = '';
+    if (isPending) {
+        if (orderRef.canAccept) {
+            actionButtons += `
+                <button type="button" class="contextual-card__btn contextual-card__btn--accept" data-action="accept" data-conversation-id="${orderRef.conversationId}" data-message-id="${message.id}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Accept
+                </button>
+            `;
+        }
+        if (orderRef.canDecline) {
+            actionButtons += `
+                <button type="button" class="contextual-card__btn contextual-card__btn--decline" data-action="decline" data-conversation-id="${orderRef.conversationId}" data-message-id="${message.id}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Decline
+                </button>
+            `;
+        }
+        if (orderRef.canCancel) {
+            actionButtons += `
+                <button type="button" class="contextual-card__btn contextual-card__btn--cancel" data-action="cancel" data-conversation-id="${orderRef.conversationId}" data-message-id="${message.id}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    Cancel Inquiry
+                </button>
+            `;
+        }
+    }
+
+    let expiryHtml = '';
+    if (isPending && orderRef.expirationText) {
+        expiryHtml = `
+            <span class="contextual-card__expiry-text">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                ${escapeHtml(orderRef.expirationText)}
+            </span>
+        `;
+    } else if (isAccepted) {
+        expiryHtml = `
+            <span class="contextual-card__expiry-text contextual-card__expiry-text--success">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Ready to proceed
+            </span>
+        `;
+    } else if (isDeclined) {
+        expiryHtml = `
+            <span class="contextual-card__expiry-text contextual-card__expiry-text--error">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Seller declined
+            </span>
+        `;
+    }
+
+    const cardClass = `contextual-card ${isPending ? 'contextual-card--pending' : ''} ${isAccepted ? 'contextual-card--accepted' : ''} ${isDeclined ? 'contextual-card--declined' : ''} ${isExpired ? 'contextual-card--expired' : ''} ${isCancelled ? 'contextual-card--cancelled' : ''}`;
 
     return `
-        <div class="message-content order-reference">
-            <div class="order-reference-header">
-                <span class="order-reference-title">${title}</span>
-            </div>
-            <div class="order-reference-body">
-                ${orderRef.itemImageUrl ?
-            `<img src="${orderRef.itemImageUrl}" alt="${escapeHtml(orderRef.itemTitle)}" class="order-reference-image" />` : ''
+        <div class="${cardClass}" 
+             data-conversation-id="${orderRef.conversationId}"
+             data-message-id="${message.id}"
+             data-item-id="${orderRef.itemId}"
+             data-inquiry-status="${orderRef.inquiryStatus}"
+             id="order-ref-${message.id}">
+            <div class="contextual-card__header">
+                <div class="contextual-card__icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        ${isConfirmed ?
+            '<path d="M20 7l-9 9-5-5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="10"/>' :
+            '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
         }
-                <div class="order-reference-details">
-                    <h4>${escapeHtml(orderRef.itemTitle)}</h4>
-                    <p class="order-reference-price">₱${orderRef.price.toFixed(2)}</p>
-                    <p class="order-reference-meta">${escapeHtml(orderRef.condition)}${orderRef.size ? ' • Size ' + escapeHtml(orderRef.size) : ''}</p>
+                    </svg>
+                </div>
+                <div class="contextual-card__title">
+                    ${isConfirmed ? '📦 Order Confirmed' : '📦 Item Inquiry'}
+                </div>
+                <div class="contextual-card__status ${statusClass}">
+                    ${statusText}
+                </div>
+            </div>
+            <div class="contextual-card__body">
+                ${orderRef.itemImageUrl ?
+            `<div class="contextual-card__image"><img src="${escapeHtml(orderRef.itemImageUrl)}" alt="${escapeHtml(orderRef.itemTitle)}" /></div>` :
+            `<div class="contextual-card__image contextual-card__image--placeholder">
+                        <svg width="48" height="48" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="6" y="10" width="52" height="44" rx="6" />
+                            <circle cx="22" cy="26" r="6" />
+                            <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>`
+        }
+                <div class="contextual-card__details">
+                    <h4 class="contextual-card__item-title">${escapeHtml(orderRef.itemTitle)}</h4>
+                    <div class="contextual-card__price">${orderRef.formattedPrice || '₱' + orderRef.price.toFixed(2)}</div>
+                    <div class="contextual-card__meta">
+                        <span class="contextual-card__condition">${escapeHtml(orderRef.condition)}</span>
+                        ${orderRef.size ? `<span class="contextual-card__size">${escapeHtml(orderRef.size)}</span>` : ''}
+                        <span class="contextual-card__category">${escapeHtml(orderRef.category)}</span>
+                    </div>
+                    <div class="contextual-card__seller">
+                        <span class="contextual-card__seller-label">Seller:</span>
+                        <span class="contextual-card__seller-name">${escapeHtml(orderRef.sellerName)}</span>
+                    </div>
                     ${isConfirmed && orderRef.fulfillmentMethod ?
-            `<p class="order-reference-fulfillment">Fulfillment: ${escapeHtml(orderRef.fulfillmentMethod)}</p>` : ''
+            `<div class="contextual-card__fulfillment">
+                            <span class="contextual-card__fulfillment-label">Fulfillment:</span>
+                            <span class="contextual-card__fulfillment-value">${escapeHtml(orderRef.fulfillmentMethod)}</span>
+                        </div>` : ''
         }
                 </div>
             </div>
-            ${message.content ? `<p class="message-text order-reference-message">${escapeHtml(message.content)}</p>` : ''}
-            <div class="message-meta">
-                <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
-                ${message.isFromCurrentUser ?
-            `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''
-        }
-            </div>
-        </div>
-    `;
-}
-
-function createMeetingProposalContent(message) {
-    const metadata = message.metadata || {};
-
-    return `
-        <div class="message-content meeting-proposal">
-            <div class="meeting-proposal-header">
-                <span class="meeting-proposal-icon">📍</span>
-                <span class="meeting-proposal-title">Meeting Proposal</span>
-            </div>
-            <div class="meeting-proposal-body">
-                <p class="meeting-proposal-location"><strong>Location:</strong> ${escapeHtml(metadata.location || 'TBD')}</p>
-                <p class="meeting-proposal-time"><strong>Time:</strong> ${formatDateTime(metadata.proposedTime)}</p>
-                ${metadata.notes ? `<p class="meeting-proposal-notes">${escapeHtml(metadata.notes)}</p>` : ''}
-            </div>
-            ${message.content ? `<p class="message-text meeting-proposal-message">${escapeHtml(message.content)}</p>` : ''}
-            <div class="meeting-proposal-actions">
-                <button class="btn-accept-meeting" data-message-id="${message.id}">Accept</button>
-                <button class="btn-propose-alternative" data-message-id="${message.id}">Propose Alternative</button>
-            </div>
-            <div class="message-meta">
-                <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
-                ${message.isFromCurrentUser ?
-            `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''
-        }
+            <div class="contextual-card__footer">
+                ${actionButtons ? `<div class="contextual-card__actions">${actionButtons}</div>` : ''}
+                <div class="contextual-card__expiry">
+                    ${expiryHtml}
+                </div>
             </div>
         </div>
     `;
@@ -478,7 +556,6 @@ function sendMessage(content, messageType = 0, metadata = null) {
     const conversationId = window.chatConfig.conversationId;
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 
-    // Create optimistic message
     const tempMessage = {
         id: tempId,
         conversationId: conversationId,
@@ -493,26 +570,20 @@ function sendMessage(content, messageType = 0, metadata = null) {
         metadata: metadata
     };
 
-    // Display immediately
     displayMessage(tempMessage);
 
-    // Track this message for replacement when server responds
-    // Store with multiple keys for better matching
     const contentKey = content + window.chatConfig.currentUserId;
     pendingMessages.set(contentKey, {
         tempId: tempId,
         content: content,
         sentAt: Date.now()
     });
-
-    // Also store by tempId for fallback
     pendingMessages.set(tempId, {
         tempId: tempId,
         content: content,
         sentAt: Date.now()
     });
 
-    // Send to server
     const dto = {
         conversationId: conversationId,
         content: content,
@@ -526,7 +597,6 @@ function sendMessage(content, messageType = 0, metadata = null) {
         })
         .catch(err => {
             console.error("Failed to send message:", err);
-            // Clean up pending entries
             pendingMessages.delete(contentKey);
             pendingMessages.delete(tempId);
             updateMessageStatus(tempId, 'Failed');
@@ -549,17 +619,6 @@ function updateMessageStatus(messageId, status) {
     if (status === 'Failed') {
         messageEl.style.opacity = '0.7';
         messageEl.style.cursor = 'pointer';
-        messageEl.addEventListener('click', function retryHandler(e) {
-            // Don't retry if clicking on a link inside the message
-            if (e.target.tagName === 'A') return;
-
-            const content = this.querySelector('.message-text')?.textContent;
-            if (content && confirm('Retry sending this message?')) {
-                this.removeEventListener('click', retryHandler);
-                this.remove();
-                sendMessage(content);
-            }
-        });
     } else {
         messageEl.style.opacity = '1';
         messageEl.style.cursor = '';
@@ -572,10 +631,150 @@ function updateAllMessagesStatus(status) {
         const msgId = msg.getAttribute('data-message-id');
         const senderId = parseInt(msg.getAttribute('data-sender-id'));
 
-        if (senderId === window.chatConfig.currentUserId && msgId.toString().startsWith('temp-') === false) {
+        if (senderId === window.chatConfig.currentUserId && !msgId.toString().startsWith('temp-')) {
             updateMessageStatus(msgId, status);
         }
     });
+}
+
+// ─── Inquiry Action Handlers ────────────────────────────────────────────
+
+function setupInquiryActionHandlers() {
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const conversationId = btn.dataset.conversationId;
+        const messageId = btn.dataset.messageId;
+
+        if (!conversationId || !messageId) return;
+
+        if (action === 'accept') {
+            await handleInquiryAction('AcceptInquiry', conversationId, messageId, btn);
+        } else if (action === 'decline') {
+            if (!confirm('Are you sure you want to decline this inquiry?')) return;
+            await handleInquiryAction('DeclineInquiry', conversationId, messageId, btn);
+        } else if (action === 'cancel') {
+            if (!confirm('Cancel this inquiry?')) return;
+            await handleInquiryAction('CancelInquiry', conversationId, messageId, btn);
+        }
+    });
+}
+
+async function handleInquiryAction(endpoint, conversationId, messageId, btn) {
+    const card = btn.closest('.contextual-card');
+    if (!card) return;
+
+    btn.disabled = true;
+    card.classList.add('contextual-card--loading');
+
+    try {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const response = await fetch(`/Chat/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token
+            },
+            body: JSON.stringify({
+                conversationId: parseInt(conversationId),
+                messageId: parseInt(messageId),
+                note: null
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update card UI
+            card.classList.remove('contextual-card--pending');
+
+            if (endpoint === 'AcceptInquiry') {
+                card.classList.add('contextual-card--accepted');
+                updateCardAfterAction(card, 'Accepted', 'order-reference--accepted', 'Ready to proceed', 'success');
+                showToast('Inquiry accepted! The buyer can now proceed to checkout.', 'success');
+            } else if (endpoint === 'DeclineInquiry') {
+                card.classList.add('contextual-card--declined');
+                updateCardAfterAction(card, 'Declined', 'order-reference--declined', 'Seller declined', 'error');
+                showToast('Inquiry declined.', 'info');
+            } else if (endpoint === 'CancelInquiry') {
+                card.classList.add('contextual-card--cancelled');
+                updateCardAfterAction(card, 'Cancelled', 'order-reference--cancelled', 'Cancelled', 'muted');
+                showToast('Inquiry cancelled.', 'info');
+            }
+
+            // Hide action buttons
+            const actions = card.querySelector('.contextual-card__actions');
+            if (actions) actions.style.display = 'none';
+
+            // Notify via SignalR if connected
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke('SendMessage', {
+                    conversationId: parseInt(conversationId),
+                    content: `Inquiry ${endpoint.toLowerCase().replace('inquiry', '')}ed`,
+                    messageType: 0
+                }).catch(() => { });
+            }
+        } else {
+            showToast(result.error || 'Failed to process inquiry.', 'error');
+            btn.disabled = false;
+        }
+    } catch (error) {
+        console.error(`Error in ${endpoint}:`, error);
+        showToast('An error occurred. Please try again.', 'error');
+        btn.disabled = false;
+    } finally {
+        card.classList.remove('contextual-card--loading');
+    }
+}
+
+function updateCardAfterAction(card, statusText, statusClass, expiryText, expiryClass) {
+    const statusEl = card.querySelector('.contextual-card__status');
+    if (statusEl) {
+        statusEl.textContent = statusText;
+        statusEl.className = `contextual-card__status ${statusClass}`;
+    }
+
+    const expiryEl = card.querySelector('.contextual-card__expiry-text');
+    if (expiryEl) {
+        let iconSvg = '';
+        if (expiryClass === 'success') {
+            iconSvg = '<polyline points="20 6 9 17 4 12"/>';
+        } else if (expiryClass === 'error') {
+            iconSvg = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+        } else {
+            iconSvg = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+        }
+        expiryEl.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                ${iconSvg}
+            </svg>
+            ${expiryText}
+        `;
+        expiryEl.className = `contextual-card__expiry-text contextual-card__expiry-text--${expiryClass}`;
+    }
+}
+
+function refreshOrderReferenceCard(data) {
+    const card = document.querySelector(`.contextual-card[data-conversation-id="${data.conversationId}"]`);
+    if (!card) return;
+
+    // Could fetch updated card HTML from server
+    fetch(`/Chat/GetOrderReference/${data.conversationId}`)
+        .then(res => res.json())
+        .then(orderRef => {
+            if (orderRef) {
+                // Update card with new data
+                const statusEl = card.querySelector('.contextual-card__status');
+                if (statusEl) {
+                    statusEl.textContent = orderRef.statusText;
+                    statusEl.className = `contextual-card__status ${orderRef.statusClass}`;
+                }
+                card.dataset.inquiryStatus = orderRef.inquiryStatus;
+            }
+        })
+        .catch(err => console.error('Failed to refresh order reference:', err));
 }
 
 // ─── UI Event Handlers ──────────────────────────────────────────────────
@@ -624,9 +823,7 @@ function setupMessageForm() {
 function handleTypingIndicator(isTyping) {
     if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
 
-    if (typingTimeout) {
-        clearTimeout(typingTimeout);
-    }
+    if (typingTimeout) clearTimeout(typingTimeout);
 
     connection.invoke("Typing", currentConversationId, isTyping);
 
@@ -668,7 +865,6 @@ function showTypingIndicator(text, isTyping = true) {
 function setupScrollHandling() {
     if (!messageContainer) return;
 
-    // Initial scroll to bottom after a short delay to ensure messages are rendered
     setTimeout(scrollToBottom, 200);
 
     messageContainer.addEventListener('scroll', () => {
@@ -702,7 +898,6 @@ function setupLoadMoreMessages() {
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'Loading...';
 
-        // Store current scroll height before loading
         const oldScrollHeight = messageContainer.scrollHeight;
 
         try {
@@ -714,7 +909,7 @@ function setupLoadMoreMessages() {
                 const html = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                const newMessages = doc.querySelectorAll('.message-bubble');
+                const newMessages = doc.querySelectorAll('.message-bubble, .contextual-card, .system-message');
 
                 const messagesList = document.getElementById('messagesList');
                 const firstMessage = messagesList.firstChild;
@@ -723,7 +918,6 @@ function setupLoadMoreMessages() {
                     messagesList.insertBefore(msg, firstMessage);
                 });
 
-                // Maintain scroll position after loading older messages
                 const newScrollHeight = messageContainer.scrollHeight;
                 const heightDiff = newScrollHeight - oldScrollHeight;
                 messageContainer.scrollTop = heightDiff;
@@ -797,20 +991,6 @@ function setupMessageRetry() {
                 msgEl.remove();
                 sendMessage(content);
             }
-        }
-    });
-}
-
-function setupOrderReferenceHandlers(message) {
-    // Can be extended
-}
-
-function setupMeetingProposalHandlers(message) {
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-accept-meeting')) {
-            sendMessage("I accept the proposed meeting time and location.", 0);
-        } else if (e.target.classList.contains('btn-propose-alternative')) {
-            showAlternativeProposalModal(message);
         }
     });
 }
@@ -931,30 +1111,6 @@ function updateUserOnlineStatus(isOnline) {
 
 // ─── UI Helpers ─────────────────────────────────────────────────────────
 
-function showAlternativeProposalModal(message) {
-    const location = prompt("Enter alternative meeting location:");
-    if (!location) return;
-
-    const dateStr = prompt("Enter date and time (e.g., 2024-01-15 14:30):");
-    if (!dateStr) return;
-
-    const proposedTime = new Date(dateStr);
-    if (isNaN(proposedTime.getTime())) {
-        alert("Invalid date format");
-        return;
-    }
-
-    const notes = prompt("Additional notes (optional):");
-
-    const metadata = {
-        location: location,
-        proposedTime: proposedTime.toISOString(),
-        notes: notes
-    };
-
-    sendMessage(`I propose an alternative meeting: ${location} at ${formatDateTime(proposedTime)}`, 3, metadata);
-}
-
 function showToast(message, type = 'info', duration = 5000) {
     const toast = document.getElementById('chatToast') || createToastContainer();
 
@@ -1014,9 +1170,168 @@ function createToastContainer() {
                 margin-top: 12px;
             }
             
-            .btn-retry:hover {
-                background: #1f401b;
+            .btn-retry:hover { background: #1f401b; }
+            
+            /* Contextual Card Styles (for JS-generated cards) */
+            .contextual-card {
+                max-width: 380px;
+                margin: 16px auto;
+                background: #ffffff;
+                border-radius: 16px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02);
+                overflow: hidden;
+                border: 1px solid #e9ecef;
             }
+            .contextual-card--pending { border-left: 4px solid #f59e0b; }
+            .contextual-card--accepted { border-left: 4px solid #10b981; }
+            .contextual-card--declined { border-left: 4px solid #ef4444; }
+            .contextual-card--expired { border-left: 4px solid #9ca3af; opacity: 0.85; }
+            .contextual-card--cancelled { border-left: 4px solid #6b7280; opacity: 0.75; }
+            .contextual-card--loading { opacity: 0.7; pointer-events: none; }
+            
+            .contextual-card__header {
+                display: flex;
+                align-items: center;
+                padding: 14px 16px;
+                background: #fafafa;
+                border-bottom: 1px solid #e9ecef;
+            }
+            .contextual-card__icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                margin-right: 10px;
+                color: #2d5a27;
+                background: rgba(45,90,39,0.08);
+                border-radius: 8px;
+            }
+            .contextual-card__title { flex: 1; font-weight: 600; font-size: 14px; color: #1a1814; }
+            .contextual-card__status {
+                font-size: 11px;
+                font-weight: 600;
+                padding: 4px 10px;
+                border-radius: 20px;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+            }
+            .order-reference--pending { background: #fef3c7; color: #b45309; }
+            .order-reference--accepted { background: #d1fae5; color: #065f46; }
+            .order-reference--declined { background: #fee2e2; color: #991b1b; }
+            .order-reference--expired { background: #f3f4f6; color: #4b5563; }
+            .order-reference--cancelled { background: #f3f4f6; color: #6b7280; }
+            .order-reference--confirmed { background: #dbeafe; color: #1e40af; }
+            
+            .contextual-card__body { display: flex; padding: 16px; gap: 14px; }
+            .contextual-card__image {
+                width: 90px;
+                height: 90px;
+                flex-shrink: 0;
+                border-radius: 10px;
+                overflow: hidden;
+                background: #f3f4f6;
+            }
+            .contextual-card__image img { width: 100%; height: 100%; object-fit: cover; }
+            .contextual-card__image--placeholder {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #9ca3af;
+            }
+            .contextual-card__details { flex: 1; min-width: 0; }
+            .contextual-card__item-title {
+                font-size: 15px;
+                font-weight: 700;
+                color: #1a1814;
+                margin: 0 0 4px 0;
+                line-height: 1.3;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .contextual-card__price { font-size: 18px; font-weight: 700; color: #2d5a27; margin-bottom: 8px; }
+            .contextual-card__meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 12px;
+                margin-bottom: 8px;
+                font-size: 11px;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.2px;
+            }
+            .contextual-card__seller { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+            .contextual-card__seller-label { font-weight: 500; }
+            .contextual-card__seller-name { color: #1a1814; font-weight: 500; }
+            .contextual-card__fulfillment { font-size: 12px; color: #6b7280; }
+            
+            .contextual-card__footer {
+                padding: 12px 16px;
+                background: #fafafa;
+                border-top: 1px solid #e9ecef;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .contextual-card__actions { display: flex; gap: 8px; }
+            .contextual-card__btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 16px;
+                border-radius: 24px;
+                font-size: 13px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .contextual-card__btn--accept { background: #2d5a27; color: white; }
+            .contextual-card__btn--accept:hover { background: #1f401b; }
+            .contextual-card__btn--decline {
+                background: white;
+                color: #6b7280;
+                border: 1px solid #e5e7eb;
+            }
+            .contextual-card__btn--decline:hover {
+                background: #fef2f2;
+                border-color: #fca5a5;
+                color: #dc2626;
+            }
+            .contextual-card__btn--cancel {
+                background: white;
+                color: #6b7280;
+                border: 1px solid #e5e7eb;
+            }
+            .contextual-card__expiry { display: flex; align-items: center; }
+            .contextual-card__expiry-text {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #6b7280;
+            }
+            .contextual-card__expiry-text--success { color: #10b981; }
+            .contextual-card__expiry-text--error { color: #ef4444; }
+            
+            .system-message {
+                display: flex;
+                justify-content: center;
+                margin: 12px 0;
+            }
+            .system-message__content {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 16px;
+                background: #f3f4f6;
+                border-radius: 20px;
+                font-size: 12px;
+                color: #6b7280;
+            }
+            .hidden { display: none !important; }
         `;
         document.head.appendChild(style);
     }
@@ -1108,20 +1423,6 @@ function formatTime(timestamp) {
     }
 }
 
-function formatDateTime(timestamp) {
-    if (!timestamp) return '';
-
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-    return date.toLocaleString([], {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -1207,13 +1508,6 @@ style.textContent = `
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
-    
-    .animate-spin {
-        animation: spin 1s linear infinite;
-    }
-    
-    .hidden {
-        display: none !important;
-    }
+    .animate-spin { animation: spin 1s linear infinite; }
 `;
 document.head.appendChild(style);

@@ -1,4 +1,6 @@
 ﻿// DTOs/Chat/OrderReferenceDTO.cs
+using ThriftLoop.Enums;
+
 namespace ThriftLoop.DTOs.Chat;
 
 /// <summary>
@@ -75,6 +77,55 @@ public class OrderReferenceDTO
     /// </summary>
     public string? FulfillmentMethod { get; set; }
 
+    // ── Inquiry Status (for pre-order conversations) ──────────────────────────
+
+    /// <summary>
+    /// Current status of the inquiry (Pending, Accepted, Declined, Expired, Cancelled).
+    /// </summary>
+    public InquiryStatus InquiryStatus { get; set; } = InquiryStatus.Pending;
+
+    /// <summary>
+    /// UTC timestamp when the inquiry expires.
+    /// </summary>
+    public DateTime? InquiryExpiresAt { get; set; }
+
+    /// <summary>
+    /// Whether the inquiry is still active (Pending and not expired).
+    /// </summary>
+    public bool IsActiveInquiry => !IsConfirmedOrder
+        && InquiryStatus == InquiryStatus.Pending
+        && (!InquiryExpiresAt.HasValue || InquiryExpiresAt.Value > DateTime.UtcNow);
+
+    /// <summary>
+    /// Whether the inquiry has expired.
+    /// </summary>
+    public bool IsExpired => !IsConfirmedOrder
+        && InquiryExpiresAt.HasValue
+        && InquiryExpiresAt.Value <= DateTime.UtcNow
+        && InquiryStatus == InquiryStatus.Pending;
+
+    /// <summary>
+    /// Whether the current user can accept this inquiry (seller only, pending status).
+    /// </summary>
+    public bool CanAccept { get; set; }
+
+    /// <summary>
+    /// Whether the current user can decline this inquiry (seller only, pending status).
+    /// </summary>
+    public bool CanDecline { get; set; }
+
+    /// <summary>
+    /// Whether the current user can cancel this inquiry (buyer only, pending status).
+    /// </summary>
+    public bool CanCancel { get; set; }
+
+    /// <summary>
+    /// The message ID of this order reference (for SignalR updates).
+    /// </summary>
+    public int MessageId { get; set; }
+
+    // ── Computed Properties ───────────────────────────────────────────────────
+
     /// <summary>
     /// Formatted price string (e.g., "₱500.00").
     /// </summary>
@@ -83,10 +134,69 @@ public class OrderReferenceDTO
     /// <summary>
     /// Status text to display on the card.
     /// </summary>
-    public string StatusText => IsConfirmedOrder ? "Order Confirmed" : "Awaiting Response";
+    public string StatusText
+    {
+        get
+        {
+            if (IsConfirmedOrder)
+                return "Order Confirmed";
+
+            return InquiryStatus switch
+            {
+                InquiryStatus.Pending => IsExpired ? "Inquiry Expired" : "Awaiting Response",
+                InquiryStatus.Accepted => "Accepted - Proceed to Checkout",
+                InquiryStatus.Declined => "Declined",
+                InquiryStatus.Expired => "Inquiry Expired",
+                InquiryStatus.Cancelled => "Cancelled",
+                _ => "Awaiting Response"
+            };
+        }
+    }
 
     /// <summary>
     /// CSS class for the status badge.
     /// </summary>
-    public string StatusClass => IsConfirmedOrder ? "order-reference--confirmed" : "order-reference--pending";
+    public string StatusClass
+    {
+        get
+        {
+            if (IsConfirmedOrder)
+                return "order-reference--confirmed";
+
+            return InquiryStatus switch
+            {
+                InquiryStatus.Pending => IsExpired ? "order-reference--expired" : "order-reference--pending",
+                InquiryStatus.Accepted => "order-reference--accepted",
+                InquiryStatus.Declined => "order-reference--declined",
+                InquiryStatus.Expired => "order-reference--expired",
+                InquiryStatus.Cancelled => "order-reference--cancelled",
+                _ => "order-reference--pending"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Formatted expiration time (e.g., "Expires in 23h 45m").
+    /// </summary>
+    public string? ExpirationText
+    {
+        get
+        {
+            if (!InquiryExpiresAt.HasValue || InquiryStatus != InquiryStatus.Pending)
+                return null;
+
+            var timeLeft = InquiryExpiresAt.Value - DateTime.UtcNow;
+
+            if (timeLeft.TotalSeconds <= 0)
+                return "Expired";
+
+            if (timeLeft.TotalDays >= 1)
+                return $"Expires in {(int)timeLeft.TotalDays}d {(int)timeLeft.Hours}h";
+
+            if (timeLeft.TotalHours >= 1)
+                return $"Expires in {(int)timeLeft.TotalHours}h {(int)timeLeft.Minutes}m";
+
+            return $"Expires in {(int)timeLeft.TotalMinutes}m";
+        }
+    }
 }

@@ -1,5 +1,6 @@
 ﻿// Services/Interface/IChatService.cs
 using ThriftLoop.DTOs.Chat;
+using ThriftLoop.Enums;
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Services.Interface;
@@ -108,6 +109,68 @@ public interface IChatService
     /// Checks if a conversation already has an active order or item inquiry.
     /// </summary>
     Task<bool> ConversationHasActiveContextAsync(int conversationId);
+
+    // ── Inquiry Management Methods ────────────────────────────────────────────
+
+    /// <summary>
+    /// Seller accepts an item inquiry.
+    /// Updates the inquiry status to Accepted and notifies the buyer.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <param name="messageId">The order reference message ID.</param>
+    /// <param name="sellerId">The seller's user ID (for authorization).</param>
+    /// <param name="note">Optional note from seller.</param>
+    /// <returns>The updated order reference DTO.</returns>
+    Task<InquiryActionResponseDTO> AcceptInquiryAsync(int conversationId, int messageId, int sellerId, string? note = null);
+
+    /// <summary>
+    /// Seller declines an item inquiry.
+    /// Updates the inquiry status to Declined and notifies the buyer.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <param name="messageId">The order reference message ID.</param>
+    /// <param name="sellerId">The seller's user ID (for authorization).</param>
+    /// <param name="note">Optional note from seller.</param>
+    /// <returns>The updated order reference DTO.</returns>
+    Task<InquiryActionResponseDTO> DeclineInquiryAsync(int conversationId, int messageId, int sellerId, string? note = null);
+
+    /// <summary>
+    /// Buyer cancels their own item inquiry.
+    /// Updates the inquiry status to Cancelled and notifies the seller.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <param name="messageId">The order reference message ID.</param>
+    /// <param name="buyerId">The buyer's user ID (for authorization).</param>
+    /// <returns>The updated order reference DTO.</returns>
+    Task<InquiryActionResponseDTO> CancelInquiryAsync(int conversationId, int messageId, int buyerId);
+
+    /// <summary>
+    /// Processes expired inquiries (called by background service).
+    /// Updates status to Expired for all pending inquiries past their expiration.
+    /// </summary>
+    /// <returns>Number of inquiries expired.</returns>
+    Task<int> ProcessExpiredInquiriesAsync();
+
+    /// <summary>
+    /// Gets all pending inquiries for a seller.
+    /// </summary>
+    /// <param name="sellerId">The seller's user ID.</param>
+    /// <returns>List of conversation DTOs with pending inquiries.</returns>
+    Task<List<ConversationDTO>> GetPendingInquiriesForSellerAsync(int sellerId);
+
+    /// <summary>
+    /// Gets all pending inquiries initiated by a buyer.
+    /// </summary>
+    /// <param name="buyerId">The buyer's user ID.</param>
+    /// <returns>List of conversation DTOs with pending inquiries.</returns>
+    Task<List<ConversationDTO>> GetPendingInquiriesForBuyerAsync(int buyerId);
+
+    /// <summary>
+    /// Gets the order reference message for a specific conversation.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <returns>The order reference DTO, or null if none exists.</returns>
+    Task<OrderReferenceDTO?> GetOrderReferenceForConversationAsync(int conversationId);
 }
 
 /// <summary>

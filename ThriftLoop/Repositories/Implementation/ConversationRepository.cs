@@ -1,6 +1,7 @@
 ﻿// Repositories/Implementation/ConversationRepository.cs
 using Microsoft.EntityFrameworkCore;
 using ThriftLoop.Data;
+using ThriftLoop.Enums;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 
@@ -148,7 +149,17 @@ public class ConversationRepository : IConversationRepository
                  (c.UserOneId == sellerId && c.UserTwoId == buyerId)));
 
         if (existing != null)
+        {
+            // If it's a new inquiry on an existing conversation, reset status to Pending
+            if (existing.InquiryStatus != InquiryStatus.Pending)
+            {
+                existing.InquiryStatus = InquiryStatus.Pending;
+                existing.InquiryExpiresAt = DateTime.UtcNow.AddHours(48);
+                existing.InquiryRespondedAt = null;
+                await _context.SaveChangesAsync();
+            }
             return existing;
+        }
 
         // Next, try to find any conversation between these users
         var id1 = Math.Min(buyerId, sellerId);
@@ -163,8 +174,12 @@ public class ConversationRepository : IConversationRepository
             if (generalConv.ContextItemId == null)
             {
                 generalConv.ContextItemId = itemId;
-                await _context.SaveChangesAsync();
             }
+            // Set inquiry status for this new inquiry
+            generalConv.InquiryStatus = InquiryStatus.Pending;
+            generalConv.InquiryExpiresAt = DateTime.UtcNow.AddHours(48);
+            generalConv.InquiryRespondedAt = null;
+            await _context.SaveChangesAsync();
             return generalConv;
         }
 
@@ -174,6 +189,8 @@ public class ConversationRepository : IConversationRepository
             UserOneId = id1,
             UserTwoId = id2,
             ContextItemId = itemId,
+            InquiryStatus = InquiryStatus.Pending,
+            InquiryExpiresAt = DateTime.UtcNow.AddHours(48),
             CreatedAt = DateTime.UtcNow,
             LastMessageAt = DateTime.UtcNow
         };
@@ -215,6 +232,9 @@ public class ConversationRepository : IConversationRepository
             {
                 generalConv.ContextItemId = order.ItemId;
             }
+            // Mark inquiry as accepted since order was created
+            generalConv.InquiryStatus = InquiryStatus.Accepted;
+            generalConv.InquiryRespondedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return generalConv;
         }
@@ -226,6 +246,8 @@ public class ConversationRepository : IConversationRepository
             UserTwoId = id2,
             OrderId = orderId,
             ContextItemId = order?.ItemId,
+            InquiryStatus = InquiryStatus.Accepted,
+            InquiryRespondedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
             LastMessageAt = DateTime.UtcNow
         };
@@ -271,6 +293,9 @@ public class ConversationRepository : IConversationRepository
             {
                 conversation.ContextItemId = order.ItemId;
             }
+            // Mark inquiry as accepted
+            conversation.InquiryStatus = InquiryStatus.Accepted;
+            conversation.InquiryRespondedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }
@@ -285,5 +310,88 @@ public class ConversationRepository : IConversationRepository
             .Include(c => c.ContextItem)
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == conversationId);
+    }
+
+    // ── Inquiry Management Methods ────────────────────────────────────────────
+
+    public async Task<bool> UpdateInquiryStatusAsync(int conversationId, InquiryStatus status)
+    {
+        var conversation = await _context.Conversations.FindAsync(conversationId);
+        if (conversation == null)
+            return false;
+
+        conversation.InquiryStatus = status;
+        conversation.InquiryRespondedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<Conversation>> GetExpiredPendingInquiriesAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .Include(c => c.ContextItem)
+            .Where(c => c.ContextItemId != null)
+            .Where(c => c.InquiryStatus == InquiryStatus.Pending)
+            .Where(c => c.InquiryExpiresAt != null && c.InquiryExpiresAt <= now)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<List<Conversation>> GetPendingInquiriesForSellerAsync(int sellerId)
+    {
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .Include(c => c.ContextItem)
+            .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
+            .Where(c => c.ContextItemId != null)
+            .Where(c => c.InquiryStatus == InquiryStatus.Pending)
+            .Where(c => c.InquiryExpiresAt == null || c.InquiryExpiresAt > DateTime.UtcNow)
+            .Where(c => c.UserOneId == sellerId || c.UserTwoId == sellerId)
+            .OrderByDescending(c => c.LastMessageAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<List<Conversation>> GetPendingInquiriesForBuyerAsync(int buyerId)
+    {
+        return await _context.Conversations
+            .Include(c => c.UserOne)
+            .Include(c => c.UserTwo)
+            .Include(c => c.ContextItem)
+            .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
+            .Where(c => c.ContextItemId != null)
+            .Where(c => c.InquiryStatus == InquiryStatus.Pending)
+            .Where(c => c.InquiryExpiresAt == null || c.InquiryExpiresAt > DateTime.UtcNow)
+            .Where(c => c.UserOneId == buyerId || c.UserTwoId == buyerId)
+            .OrderByDescending(c => c.LastMessageAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<bool> HasActiveInquiryAsync(int conversationId)
+    {
+        var conversation = await _context.Conversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+
+        return conversation != null
+            && conversation.ContextItemId != null
+            && conversation.InquiryStatus == InquiryStatus.Pending
+            && (!conversation.InquiryExpiresAt.HasValue || conversation.InquiryExpiresAt.Value > DateTime.UtcNow);
+    }
+
+    public async Task<InquiryStatus?> GetInquiryStatusAsync(int conversationId)
+    {
+        var conversation = await _context.Conversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+
+        return conversation?.ContextItemId != null ? conversation.InquiryStatus : null;
     }
 }

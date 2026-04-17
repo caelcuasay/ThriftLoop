@@ -1,60 +1,89 @@
 ﻿@* Views/Chat/_MessageBubble.cshtml *@
 @model ThriftLoop.DTOs.Chat.MessageDTO
+@using ThriftLoop.Enums
 
 @{
     var bubbleClass = Model.IsFromCurrentUser ? "message-bubble sent" : "message-bubble received";
     var statusIcon = Model.IsFromCurrentUser ? GetStatusIcon(Model.Status) : "";
+    var isOrderReference = Model.MessageType == MessageType.OrderReference || Model.MessageType == MessageType.OrderConfirmed;
+    var isSystemMessage = Model.SenderId == 0;
 }
 
-<div class="@bubbleClass"
-     data-message-id="@Model.Id"
-     data-sender-id="@Model.SenderId"
-     data-status="@Model.Status.ToString().ToLower()"
-     id="message-@Model.Id">
-    
-    @if (!Model.IsFromCurrentUser)
-    {
-        <div class="message-avatar">
-            @if (!string.IsNullOrEmpty(Model.SenderAvatarUrl))
-            {
-                <img src="@Model.SenderAvatarUrl" alt="@Model.SenderName" />
-            }
-            else
-            {
-                <div class="avatar-placeholder small">
-                    @Model.SenderName.Substring(0, 1).ToUpper()
-                </div>
-            }
-        </div>
-    }
-
-    <div class="message-content-wrapper">
-        @if (!Model.IsFromCurrentUser)
-        {
-            <span class="message-sender">@Model.SenderName</span>
-        }
-
-        <div class="message-content">
-            <p class="message-text">@Html.Raw(FormatMessageContent(Model.Content))</p>
-            
-            <div class="message-meta">
-                <span class="message-time">@Model.FormattedTime</span>
-                
-                @if (Model.IsFromCurrentUser)
-                {
-                    <span class="message-status" data-status="@Model.Status.ToString().ToLower()">
-                        @Html.Raw(statusIcon)
-                    </span>
-                }
-            </div>
+@if (isOrderReference && Model.OrderReference != null)
+{
+    @* Render centered contextual card for order references *@
+    <partial name="_OrderReferenceCard" model="Model.OrderReference" />
+}
+else if (isSystemMessage)
+{
+    @* Render system message (centered, subtle) *@
+    <div class="system-message" data-message-id="@Model.Id" id="message-@Model.Id">
+        <div class="system-message__content">
+            <span class="system-message__icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+            </span>
+            <span class="system-message__text">@Html.Raw(FormatMessageContent(Model.Content))</span>
+            <span class="system-message__time">@Model.FormattedTime</span>
         </div>
     </div>
+}
+else
+{
+    @* Regular text message bubble *@
+    <div class="@bubbleClass"
+         data-message-id="@Model.Id"
+         data-sender-id="@Model.SenderId"
+         data-status="@Model.Status.ToString().ToLower()"
+         id="message-@Model.Id">
+        
+        @if (!Model.IsFromCurrentUser)
+        {
+            <div class="message-avatar">
+                @if (!string.IsNullOrEmpty(Model.SenderAvatarUrl))
+                {
+                    <img src="@Model.SenderAvatarUrl" alt="@Model.SenderName" />
+                }
+                else
+                {
+                    <div class="avatar-placeholder small">
+                        @Model.SenderName.Substring(0, 1).ToUpper()
+                    </div>
+                }
+            </div>
+        }
 
-    @if (Model.IsFromCurrentUser)
-    {
-        <div class="message-avatar-placeholder"></div>
-    }
-</div>
+        <div class="message-content-wrapper">
+            @if (!Model.IsFromCurrentUser)
+            {
+                <span class="message-sender">@Model.SenderName</span>
+            }
+
+            <div class="message-content">
+                <p class="message-text">@Html.Raw(FormatMessageContent(Model.Content))</p>
+                
+                <div class="message-meta">
+                    <span class="message-time">@Model.FormattedTime</span>
+                    
+                    @if (Model.IsFromCurrentUser)
+                    {
+                        <span class="message-status" data-status="@Model.Status.ToString().ToLower()">
+                            @Html.Raw(statusIcon)
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (Model.IsFromCurrentUser)
+        {
+            <div class="message-avatar-placeholder"></div>
+        }
+    </div>
+}
 
 @functions {
     private string GetStatusIcon(ThriftLoop.Enums.MessageStatus status)
@@ -98,3 +127,44 @@
         return content;
     }
 }
+
+<style>
+    /* System message styles */
+    .system-message {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0;
+    }
+
+    .system-message__content {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        background: #f3f4f6;
+        border-radius: 20px;
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .system-message__icon {
+        display: flex;
+        align-items: center;
+        color: #9ca3af;
+    }
+
+    .system-message__text {
+        line-height: 1.4;
+    }
+
+    .system-message__time {
+        color: #9ca3af;
+        font-size: 10px;
+        margin-left: 4px;
+    }
+
+    /* Ensure contextual card doesn't inherit bubble styles */
+    .contextual-card {
+        clear: both;
+    }
+</style>

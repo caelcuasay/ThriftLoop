@@ -54,3 +54,35 @@ public enum MessageType
     /// </summary>
     PaymentReminder = 5
 }
+
+/// <summary>
+/// Status of an item inquiry conversation.
+/// Tracks the lifecycle of a buyer's inquiry about an item.
+/// </summary>
+public enum InquiryStatus
+{
+    /// <summary>
+    /// Inquiry has been sent, awaiting seller response.
+    /// </summary>
+    Pending = 1,
+
+    /// <summary>
+    /// Seller has accepted the inquiry. Buyer can proceed to checkout.
+    /// </summary>
+    Accepted = 2,
+
+    /// <summary>
+    /// Seller has declined the inquiry.
+    /// </summary>
+    Declined = 3,
+
+    /// <summary>
+    /// Inquiry expired without seller response.
+    /// </summary>
+    Expired = 4,
+
+    /// <summary>
+    /// Inquiry was cancelled by the buyer.
+    /// </summary>
+    Cancelled = 5
+}

@@ -1,4 +1,5 @@
 ﻿// Repositories/Interface/IConversationRepository.cs
+using ThriftLoop.Enums;
 using ThriftLoop.Models;
 
 namespace ThriftLoop.Repositories.Interface;
@@ -99,4 +100,49 @@ public interface IConversationRepository
     /// Gets conversation details with full context (order, item) loaded.
     /// </summary>
     Task<Conversation?> GetByIdWithContextAsync(int conversationId);
+
+    // ── Inquiry Management Methods ────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates the inquiry status of a conversation.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <param name="status">The new inquiry status.</param>
+    /// <returns>True if updated successfully.</returns>
+    Task<bool> UpdateInquiryStatusAsync(int conversationId, InquiryStatus status);
+
+    /// <summary>
+    /// Gets all conversations with pending inquiries that have expired.
+    /// Used by background service to auto-expire stale inquiries.
+    /// </summary>
+    /// <returns>List of expired pending inquiries.</returns>
+    Task<List<Conversation>> GetExpiredPendingInquiriesAsync();
+
+    /// <summary>
+    /// Gets all active inquiries for a specific seller.
+    /// </summary>
+    /// <param name="sellerId">The seller's user ID.</param>
+    /// <returns>List of conversations with pending inquiries.</returns>
+    Task<List<Conversation>> GetPendingInquiriesForSellerAsync(int sellerId);
+
+    /// <summary>
+    /// Gets all active inquiries initiated by a specific buyer.
+    /// </summary>
+    /// <param name="buyerId">The buyer's user ID.</param>
+    /// <returns>List of conversations with pending inquiries.</returns>
+    Task<List<Conversation>> GetPendingInquiriesForBuyerAsync(int buyerId);
+
+    /// <summary>
+    /// Checks if a conversation has an active (pending) inquiry.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <returns>True if the conversation has a pending inquiry.</returns>
+    Task<bool> HasActiveInquiryAsync(int conversationId);
+
+    /// <summary>
+    /// Gets the inquiry status of a conversation.
+    /// </summary>
+    /// <param name="conversationId">The conversation ID.</param>
+    /// <returns>The inquiry status, or null if not an inquiry conversation.</returns>
+    Task<InquiryStatus?> GetInquiryStatusAsync(int conversationId);
 }

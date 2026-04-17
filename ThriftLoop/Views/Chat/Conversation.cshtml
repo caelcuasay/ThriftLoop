@@ -1,4 +1,4 @@
-﻿﻿@* Views/Chat/Conversation.cshtml *@
+﻿@* Views/Chat/Conversation.cshtml *@
 @model ThriftLoop.DTOs.Chat.ConversationDetailDTO
 @{
     ViewData["Title"] = Model.OtherUserName;
@@ -277,5 +277,15 @@
     .chat-toast {
     font-family: 'DM Sans', sans-serif;
     font-size: 14px;
+    }
+
+    /* Ensure contextual cards are properly centered and spaced */
+    .messages-list .contextual-card {
+    margin: 16px auto;
+    }
+
+    /* System message spacing */
+    .system-message {
+    margin: 12px 0;
     }
 </style>

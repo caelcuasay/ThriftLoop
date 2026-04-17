@@ -1,5 +1,6 @@
 ﻿// Models/Conversation.cs
 using System.ComponentModel.DataAnnotations;
+using ThriftLoop.Enums;
 
 namespace ThriftLoop.Models;
 
@@ -31,6 +32,27 @@ public class Conversation
     /// Used for sorting the inbox.
     /// </summary>
     public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
+
+    // ── Inquiry Status (for item inquiry conversations) ────────────────────────
+
+    /// <summary>
+    /// Current status of the item inquiry. Only relevant when ContextItemId is not null.
+    /// Defaults to Pending when an inquiry is created.
+    /// </summary>
+    public InquiryStatus InquiryStatus { get; set; } = InquiryStatus.Pending;
+
+    /// <summary>
+    /// UTC timestamp when the inquiry expires. After this time, the inquiry
+    /// automatically becomes Expired if still Pending.
+    /// Default expiration is 48 hours from creation.
+    /// </summary>
+    public DateTime? InquiryExpiresAt { get; set; }
+
+    /// <summary>
+    /// UTC timestamp when the seller responded (accepted or declined).
+    /// Null if still pending.
+    /// </summary>
+    public DateTime? InquiryRespondedAt { get; set; }
 
     // ── Order Linking ──────────────────────────────────────────────────────────
 
@@ -67,4 +89,20 @@ public class Conversation
     public User UserTwo { get; set; } = null!;
 
     public ICollection<Message> Messages { get; set; } = new List<Message>();
+
+    // ── Computed Properties ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Whether this conversation is an active item inquiry (Pending and not expired).
+    /// </summary>
+    public bool IsActiveInquiry => ContextItemId.HasValue
+        && InquiryStatus == InquiryStatus.Pending
+        && (!InquiryExpiresAt.HasValue || InquiryExpiresAt.Value > DateTime.UtcNow);
+
+    /// <summary>
+    /// Whether the inquiry has expired.
+    /// </summary>
+    public bool IsExpired => InquiryExpiresAt.HasValue
+        && InquiryExpiresAt.Value <= DateTime.UtcNow
+        && InquiryStatus == InquiryStatus.Pending;
 }
