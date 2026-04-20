@@ -2,6 +2,7 @@
 // Complete Chat Functionality with SignalR Real-time Messaging
 
 let connection = null;
+window.connection = connection;
 let currentConversationId = null;
 let typingTimeout = null;
 let isNearBottom = true;
@@ -48,10 +49,8 @@ async function loadSidebarConversations() {
 
     try {
         const response = await fetch('/Chat/ConversationList');
-
         if (response.ok) {
             const html = await response.text();
-
             if (html.includes('conversation-item') || html.includes('chat-empty-state')) {
                 conversationList.innerHTML = html;
             } else {
@@ -94,11 +93,9 @@ function showSidebarError() {
 function highlightActiveConversation() {
     const currentPath = window.location.pathname;
     const match = currentPath.match(/\/Chat\/Conversation\/(\d+)/);
-
     if (match) {
         const conversationId = match[1];
         const activeItem = document.querySelector(`.conversation-item[href*="/Chat/Conversation/${conversationId}"]`);
-
         if (activeItem) {
             activeItem.classList.add('active');
         }
@@ -108,12 +105,15 @@ function highlightActiveConversation() {
 // ─── SignalR Connection ──────────────────────────────────────────────────
 
 function initializeSignalR() {
+    console.log('Initializing SignalR connection...');
     connection = new signalR.HubConnectionBuilder()
         .withUrl("/chatHub")
         .withAutomaticReconnect([0, 2000, 5000, 10000, 30000, 60000])
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
+    window.connection = connection; // Update global reference
+    console.log('SignalR connection created:', connection);
     registerSignalRHandlers();
     startConnection();
 }
@@ -121,60 +121,66 @@ function initializeSignalR() {
 function registerSignalRHandlers() {
     // Receive a new message
     connection.on("ReceiveMessage", (message) => {
-        console.log("Received message:", message);
+        try {
+            console.log("Received message:", message);
 
-        if (message.conversationId === currentConversationId) {
-            // Check if this is our own message (replace temp)
-            // Use multiple matching strategies
-            let tempId = null;
+            const isFromCurrentUser = message.senderId === window.chatConfig.currentUserId;
+            message.isFromCurrentUser = isFromCurrentUser;
 
-            // Strategy 1: Match by content + sender (most reliable for unique content)
-            const contentKey = message.content + message.senderId;
-            if (pendingMessages.has(contentKey)) {
-                tempId = pendingMessages.get(contentKey);
-                pendingMessages.delete(contentKey);
-            } else {
-                // Strategy 2: Check all pending messages for matching content (for non-unique messages)
-                for (let [key, value] of pendingMessages) {
-                    if (value.content === message.content && Date.now() - value.sentAt < 10000) {
-                        tempId = value.tempId;
-                        pendingMessages.delete(key);
-                        break;
+            if (message.conversationId === currentConversationId) {
+                let tempId = null;
+
+                // Strategy 1: Match by content + sender
+                const contentKey = message.content + message.senderId;
+                if (pendingMessages.has(contentKey)) {
+                    const pendingEntry = pendingMessages.get(contentKey);
+                    tempId = pendingEntry.tempId;
+                    pendingMessages.delete(contentKey);
+                } else {
+                    // Strategy 2: Check all pending messages for matching content
+                    for (let [key, value] of pendingMessages) {
+                        if (value.content === message.content && Date.now() - value.sentAt < 10000) {
+                            tempId = value.tempId;
+                            pendingMessages.delete(key);
+                            break;
+                        }
+                    }
+                }
+
+                console.log("TempId found:", tempId, "isFromCurrentUser:", isFromCurrentUser);
+                if (tempId) {
+                    replaceTempMessage(tempId, message);
+                } else {
+                    console.log("Displaying message directly (no temp to replace)");
+                    displayMessage(message);
+
+                    if (!isFromCurrentUser) {
+                        connection.invoke("MarkMessageAsRead", message.id);
                     }
                 }
             }
 
-            if (tempId) {
-                // Replace temp message with real one
-                replaceTempMessage(tempId, message);
-            } else if (!message.isFromCurrentUser) {
-                // Message from other user
-                displayMessage(message);
-                // Mark as read
-                connection.invoke("MarkMessageAsRead", message.id);
+            refreshConversationList();
+            updateUnreadBadge();
+
+            if (message.conversationId !== currentConversationId && !isFromCurrentUser) {
+                showBrowserNotification(message);
             }
-        }
-
-        refreshConversationList();
-        updateUnreadBadge();
-
-        if (message.conversationId !== currentConversationId && !message.isFromCurrentUser) {
-            showBrowserNotification(message);
+        } catch (err) {
+            console.error("ERROR in ReceiveMessage handler:", err);
+            console.error("Message that caused error:", message);
         }
     });
 
-    // Message delivered confirmation - updates the REAL message ID
     connection.on("MessageDelivered", (messageId) => {
         console.log("Message delivered:", messageId);
         updateMessageStatus(messageId, 'Delivered');
     });
 
-    // Message read confirmation
     connection.on("MessageRead", (messageId) => {
         updateMessageStatus(messageId, 'Read');
     });
 
-    // User typing indicator
     connection.on("UserTyping", (data) => {
         if (data.conversationId === currentConversationId &&
             data.userId !== window.chatConfig.currentUserId) {
@@ -182,7 +188,6 @@ function registerSignalRHandlers() {
         }
     });
 
-    // User came online
     connection.on("UserOnline", (userId) => {
         if (userId === window.chatConfig.otherUserId) {
             updateUserOnlineStatus(true);
@@ -190,7 +195,6 @@ function registerSignalRHandlers() {
         updateConversationListOnlineStatus();
     });
 
-    // User went offline
     connection.on("UserOffline", (userId) => {
         if (userId === window.chatConfig.otherUserId) {
             updateUserOnlineStatus(false);
@@ -198,7 +202,6 @@ function registerSignalRHandlers() {
         updateConversationListOnlineStatus();
     });
 
-    // New message notification
     connection.on("NewMessageNotification", (data) => {
         updateUnreadBadge(data.unreadCount);
         if (data.conversationId !== currentConversationId) {
@@ -206,12 +209,10 @@ function registerSignalRHandlers() {
         }
     });
 
-    // Unread count update
     connection.on("UnreadCountUpdate", (count) => {
         updateUnreadBadge(count);
     });
 
-    // User is viewing conversation
     connection.on("UserViewingConversation", (data) => {
         if (data.conversationId === currentConversationId &&
             data.userId === window.chatConfig.otherUserId) {
@@ -219,30 +220,25 @@ function registerSignalRHandlers() {
         }
     });
 
-    // Successfully joined conversation
     connection.on("JoinedConversation", (conversationId) => {
         console.log("Successfully joined conversation:", conversationId);
     });
 
-    // Left conversation
     connection.on("LeftConversation", (conversationId) => {
         console.log("Left conversation:", conversationId);
     });
 
-    // Conversation marked as read
     connection.on("ConversationMarkedAsRead", (conversationId) => {
         if (conversationId === currentConversationId) {
             updateAllMessagesStatus('Read');
         }
     });
 
-    // Pong response
     connection.on("Pong", (timestamp) => {
         const latency = new Date() - new Date(timestamp);
         console.log("Connection latency:", latency + "ms");
     });
 
-    // Error handling
     connection.on("SendMessageError", (error) => {
         console.error("Message send error:", error);
         showToast(error.error || "Failed to send message", "error");
@@ -253,7 +249,20 @@ function registerSignalRHandlers() {
         showToast(message, "error");
     });
 
-    // Connection lifecycle
+    connection.on("ContextCardUpdated", (contextCard) => {
+        if (window.contextCardHandler && window.contextCardHandler.updateContextCardUI) {
+            window.contextCardHandler.updateContextCardUI(contextCard);
+        } else {
+            console.error("ContextCard handler or updateContextCardUI function not available!");
+        }
+    });
+
+    connection.on("ContextCardStatusChanged", (data) => {
+        if (data.conversationId === window.chatConfig?.conversationId) {
+            refreshConversationList();
+        }
+    });
+
     connection.onreconnecting((error) => {
         console.log("Reconnecting to chat...", error);
         showConnectionStatus("Reconnecting...", "warning");
@@ -285,6 +294,9 @@ async function startConnection() {
             await connection.invoke("MarkConversationAsRead", currentConversationId);
         }
 
+        const sendBtn = document.getElementById('sendMessageBtn');
+        if (sendBtn) sendBtn.disabled = false;
+
         setTimeout(() => hideConnectionStatus(), 3000);
 
         setInterval(() => {
@@ -292,7 +304,6 @@ async function startConnection() {
                 connection.invoke("Ping").catch(() => { });
             }
         }, 60000);
-
     } catch (err) {
         console.error("SignalR Connection Error:", err);
         showConnectionStatus("Connection failed. Retrying...", "error");
@@ -300,62 +311,120 @@ async function startConnection() {
     }
 }
 
-// ─── Message Display & Handling ─────────────────────────────────────────
-
 function displayMessage(message) {
-    const messagesList = document.getElementById('messagesList');
-    if (!messagesList) return;
+    try {
+        const messagesList = document.getElementById('messagesList');
+        if (!messagesList) {
+            console.error("displayMessage: messagesList not found");
+            return;
+        }
 
-    // Check if message already exists (by database ID)
-    if (message.id > 0 && document.getElementById(`message-${message.id}`)) {
-        return;
-    }
+        if (message.id > 0 && document.getElementById(`message-${message.id}`)) {
+            console.log("displayMessage: message already exists, skipping");
+            return;
+        }
 
-    const messageHtml = createMessageBubble(message);
-    messagesList.insertAdjacentHTML('beforeend', messageHtml);
+        console.log("displayMessage: creating bubble for message id:", message.id);
+        const messageHtml = createMessageBubble(message);
 
-    if (message.messageType === 1 || message.messageType === 2) {
-        setupOrderReferenceHandlers(message);
-    }
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messageHtml;
+        const messageEl = tempDiv.firstElementChild;
 
-    if (message.messageType === 3) {
-        setupMeetingProposalHandlers(message);
-    }
+        messagesList.appendChild(messageEl);
 
-    if (isNearBottom) {
-        scrollToBottom();
-    }
+        if (message.messageType === 1 || message.messageType === 2) {
+            setupOrderReferenceHandlers(message);
+        }
 
-    if (!message.isFromCurrentUser && connection) {
-        connection.invoke("MarkMessageAsRead", message.id);
+        if (message.messageType === 3) {
+            setupMeetingProposalHandlers(message);
+        }
+
+        if (isNearBottom) {
+            scrollToBottom();
+        }
+
+        if (!message.isFromCurrentUser && connection) {
+            connection.invoke("MarkMessageAsRead", message.id);
+        }
+    } catch (err) {
+        console.error("ERROR in displayMessage:", err);
+        console.error("Message that caused error:", message);
     }
 }
 
 function replaceTempMessage(tempId, realMessage) {
+    console.log("replaceTempMessage: looking for temp element:", tempId);
+    console.log("replaceTempMessage: real message id:", realMessage.id);
+
     const tempEl = document.getElementById(`message-${tempId}`);
-    if (!tempEl) return;
+    if (!tempEl) {
+        console.error("replaceTempMessage: temp element NOT FOUND!");
+        displayMessage(realMessage);
+        return;
+    }
 
-    // Create the real message bubble
-    const realHtml = createMessageBubble(realMessage);
+    console.log("replaceTempMessage: updating temp element in place");
 
-    // Replace the temp element with the real one
-    tempEl.insertAdjacentHTML('afterend', realHtml);
-    tempEl.remove();
+    // Update attributes in place to prevent animation cancellation invisibility bug
+    tempEl.id = `message-${realMessage.id}`;
+    tempEl.setAttribute('data-message-id', realMessage.id);
 
-    // Scroll to bottom if needed
+    const statusStr = realMessage.status ?
+        (typeof realMessage.status === 'string' ? realMessage.status : String(realMessage.status))
+        : 'Sent';
+    const statusLower = statusStr.toLowerCase();
+
+    tempEl.setAttribute('data-status', statusLower);
+
+    const timeEl = tempEl.querySelector('.message-time');
+    if (timeEl) {
+        timeEl.textContent = realMessage.formattedTime || formatTime(realMessage.sentAt);
+    }
+
+    const statusEl = tempEl.querySelector('.message-status');
+    if (statusEl) {
+        statusEl.setAttribute('data-status', statusLower);
+        statusEl.innerHTML = getStatusIcon(statusStr);
+    }
+
     if (isNearBottom) {
         scrollToBottom();
     }
+
+    console.log("replaceTempMessage: DONE");
 }
 
 function createMessageBubble(message) {
     const isOwn = message.isFromCurrentUser;
-    const bubbleClass = isOwn ? 'message-bubble sent' : 'message-bubble received';
+    const isEventBubble = message.senderId === null || message.senderId === undefined;
+    const bubbleClass = isEventBubble ? 'message-bubble event' : (isOwn ? 'message-bubble sent' : 'message-bubble received');
     const statusIcon = isOwn ? getStatusIcon(message.status) : '';
     const escapedContent = escapeHtml(message.content).replace(/\n/g, '<br>');
     const senderInitial = message.senderName ? message.senderName.charAt(0).toUpperCase() : '?';
     const messageId = message.id;
-    const status = message.status ? message.status.toLowerCase() : 'sent';
+    const status = typeof message.status === 'string'
+        ? message.status.toLowerCase()
+        : (typeof message.status === 'number' ? String(message.status).toLowerCase() : 'sent');
+
+    const displayContent = escapedContent || '&nbsp;';
+
+    // Event/Status bubble - centered, no avatar, for system messages
+    if (isEventBubble) {
+        return `
+            <div class="${bubbleClass}" 
+                 data-message-id="${messageId}" 
+                 data-sender-id=""
+                 data-status="${status}"
+                 data-message-type="${message.messageType}"
+                 id="message-${messageId}">
+                <div class="event-content">
+                    <span class="event-text">${displayContent}</span>
+                    <span class="event-time">${message.formattedTime || formatTime(message.sentAt)}</span>
+                </div>
+            </div>`;
+    }
 
     let html = `
         <div class="${bubbleClass}" 
@@ -363,7 +432,8 @@ function createMessageBubble(message) {
              data-sender-id="${message.senderId}"
              data-status="${status}"
              data-message-type="${message.messageType}"
-             id="message-${messageId}">`;
+             id="message-${messageId}"
+             style="display: flex !important;">`;
 
     if (!isOwn) {
         html += `
@@ -385,8 +455,8 @@ function createMessageBubble(message) {
         html += createMeetingProposalContent(message);
     } else {
         html += `
-                <div class="message-content">
-                    <p class="message-text">${escapedContent}</p>
+                <div class="message-content" data-is-own="${isOwn}">
+                    <p class="message-text">${displayContent}</p>
                     <div class="message-meta">
                         <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
                         ${isOwn ? `<span class="message-status" data-status="${status}">${statusIcon}</span>` : ''}
@@ -430,9 +500,7 @@ function createOrderReferenceContent(message) {
             ${message.content ? `<p class="message-text order-reference-message">${escapeHtml(message.content)}</p>` : ''}
             <div class="message-meta">
                 <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
-                ${message.isFromCurrentUser ?
-            `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''
-        }
+                ${message.isFromCurrentUser ? `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''}
             </div>
         </div>
     `;
@@ -440,7 +508,6 @@ function createOrderReferenceContent(message) {
 
 function createMeetingProposalContent(message) {
     const metadata = message.metadata || {};
-
     return `
         <div class="message-content meeting-proposal">
             <div class="meeting-proposal-header">
@@ -459,9 +526,7 @@ function createMeetingProposalContent(message) {
             </div>
             <div class="message-meta">
                 <span class="message-time">${message.formattedTime || formatTime(message.sentAt)}</span>
-                ${message.isFromCurrentUser ?
-            `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''
-        }
+                ${message.isFromCurrentUser ? `<span class="message-status">${getStatusIcon(message.status)}</span>` : ''}
             </div>
         </div>
     `;
@@ -469,6 +534,7 @@ function createMeetingProposalContent(message) {
 
 function sendMessage(content, messageType = 0, metadata = null) {
     if (!content.trim() && messageType === 0) return;
+
     if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
         showToast("Cannot send message. Reconnecting...", "error");
         startConnection();
@@ -478,7 +544,6 @@ function sendMessage(content, messageType = 0, metadata = null) {
     const conversationId = window.chatConfig.conversationId;
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 
-    // Create optimistic message
     const tempMessage = {
         id: tempId,
         conversationId: conversationId,
@@ -493,11 +558,8 @@ function sendMessage(content, messageType = 0, metadata = null) {
         metadata: metadata
     };
 
-    // Display immediately
     displayMessage(tempMessage);
 
-    // Track this message for replacement when server responds
-    // Store with multiple keys for better matching
     const contentKey = content + window.chatConfig.currentUserId;
     pendingMessages.set(contentKey, {
         tempId: tempId,
@@ -505,14 +567,12 @@ function sendMessage(content, messageType = 0, metadata = null) {
         sentAt: Date.now()
     });
 
-    // Also store by tempId for fallback
     pendingMessages.set(tempId, {
         tempId: tempId,
         content: content,
         sentAt: Date.now()
     });
 
-    // Send to server
     const dto = {
         conversationId: conversationId,
         content: content,
@@ -526,7 +586,6 @@ function sendMessage(content, messageType = 0, metadata = null) {
         })
         .catch(err => {
             console.error("Failed to send message:", err);
-            // Clean up pending entries
             pendingMessages.delete(contentKey);
             pendingMessages.delete(tempId);
             updateMessageStatus(tempId, 'Failed');
@@ -538,19 +597,21 @@ function updateMessageStatus(messageId, status) {
     const messageEl = document.getElementById(`message-${messageId}`);
     if (!messageEl) return;
 
+    const statusStr = typeof status === 'string' ? status : String(status);
+    const statusLower = statusStr.toLowerCase();
+
     const statusEl = messageEl.querySelector('.message-status');
     if (statusEl) {
-        statusEl.setAttribute('data-status', status.toLowerCase());
-        statusEl.innerHTML = getStatusIcon(status);
+        statusEl.setAttribute('data-status', statusLower);
+        statusEl.innerHTML = getStatusIcon(statusStr);
     }
 
-    messageEl.setAttribute('data-status', status.toLowerCase());
+    messageEl.setAttribute('data-status', statusLower);
 
-    if (status === 'Failed') {
+    if (statusLower === 'failed') {
         messageEl.style.opacity = '0.7';
         messageEl.style.cursor = 'pointer';
         messageEl.addEventListener('click', function retryHandler(e) {
-            // Don't retry if clicking on a link inside the message
             if (e.target.tagName === 'A') return;
 
             const content = this.querySelector('.message-text')?.textContent;
@@ -581,12 +642,16 @@ function updateAllMessagesStatus(status) {
 // ─── UI Event Handlers ──────────────────────────────────────────────────
 
 function setupMessageForm() {
+    console.log('Setting up message form.');
     const form = document.getElementById('messageForm');
     const input = document.getElementById('messageInput');
     const sendBtn = document.getElementById('sendMessageBtn');
     const charCount = document.getElementById('messageCharCount');
 
-    if (!form || !input) return;
+    if (!form || !input) {
+        console.error('Message form or input not found!');
+        return;
+    }
 
     input.addEventListener('input', () => {
         const length = input.value.length;
@@ -601,6 +666,8 @@ function setupMessageForm() {
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
+        e.stopPropagation();
+
         const content = input.value.trim();
 
         if (content && connection && connection.state === signalR.HubConnectionState.Connected) {
@@ -611,6 +678,8 @@ function setupMessageForm() {
             input.style.height = 'auto';
             handleTypingIndicator(false);
         }
+
+        return false;
     });
 
     input.addEventListener('keydown', (e) => {
@@ -635,6 +704,10 @@ function handleTypingIndicator(isTyping) {
             connection.invoke("Typing", currentConversationId, false);
         }, 3000);
     }
+}
+
+function setupTypingIndicator() {
+    console.log('Typing indicator setup complete');
 }
 
 function toggleTypingIndicator(show) {
@@ -668,7 +741,6 @@ function showTypingIndicator(text, isTyping = true) {
 function setupScrollHandling() {
     if (!messageContainer) return;
 
-    // Initial scroll to bottom after a short delay to ensure messages are rendered
     setTimeout(scrollToBottom, 200);
 
     messageContainer.addEventListener('scroll', () => {
@@ -702,7 +774,6 @@ function setupLoadMoreMessages() {
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'Loading...';
 
-        // Store current scroll height before loading
         const oldScrollHeight = messageContainer.scrollHeight;
 
         try {
@@ -723,7 +794,6 @@ function setupLoadMoreMessages() {
                     messagesList.insertBefore(msg, firstMessage);
                 });
 
-                // Maintain scroll position after loading older messages
                 const newScrollHeight = messageContainer.scrollHeight;
                 const heightDiff = newScrollHeight - oldScrollHeight;
                 messageContainer.scrollTop = heightDiff;
@@ -838,6 +908,7 @@ async function updateConversationListOnlineStatus() {
 
     for (const item of items) {
         const otherUserId = item.dataset.otherUserId;
+
         if (otherUserId) {
             try {
                 const response = await fetch(`/Chat/IsUserOnline/${otherUserId}`);
@@ -939,6 +1010,7 @@ function showAlternativeProposalModal(message) {
     if (!dateStr) return;
 
     const proposedTime = new Date(dateStr);
+
     if (isNaN(proposedTime.getTime())) {
         alert("Invalid date format");
         return;
@@ -963,6 +1035,7 @@ function showToast(message, type = 'info', duration = 5000) {
     toast.style.display = 'block';
 
     clearTimeout(window.toastTimeout);
+
     window.toastTimeout = setTimeout(() => {
         toast.style.display = 'none';
     }, duration);
@@ -976,7 +1049,7 @@ function createToastContainer() {
 
     if (!document.getElementById('chatToastStyles')) {
         const style = document.createElement('style');
-        style.id = 'chatToastStyles';
+
         style.textContent = `
             .chat-toast {
                 position: fixed;
@@ -1030,6 +1103,7 @@ function showConnectionStatus(message, type) {
     if (!statusEl) {
         statusEl = document.createElement('div');
         statusEl.id = 'connectionStatus';
+
         statusEl.style.cssText = `
             position: fixed;
             top: 70px;
@@ -1047,8 +1121,7 @@ function showConnectionStatus(message, type) {
     }
 
     statusEl.textContent = message;
-    statusEl.style.background = type === 'error' ? '#dc3545' :
-        type === 'warning' ? '#ffc107' : '#28a745';
+    statusEl.style.background = type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#28a745';
     statusEl.style.color = type === 'warning' ? '#000' : '#fff';
     statusEl.style.display = 'block';
     statusEl.style.opacity = '1';
@@ -1056,6 +1129,7 @@ function showConnectionStatus(message, type) {
 
 function hideConnectionStatus() {
     const statusEl = document.getElementById('connectionStatus');
+
     if (statusEl) {
         statusEl.style.opacity = '0';
         setTimeout(() => {
@@ -1065,9 +1139,10 @@ function hideConnectionStatus() {
 }
 
 function getStatusIcon(status) {
-    const statusLower = status ? status.toLowerCase() : 'sent';
+    const statusStr = typeof status === 'string' ? status : String(status);
+    const statusLower = statusStr ? statusStr.toLowerCase() : 'sent';
 
-    if (statusLower === 'read') {
+    if (statusLower === 'read' || statusLower === '1') {
         return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34B7F1" stroke-width="2">
             <path d="M20 6L9 17l-5-5"/><path d="M16 6l-7 7 5 5 7-7"/>
         </svg>`;
@@ -1131,15 +1206,28 @@ function escapeHtml(text) {
 
 // ─── Initialize on DOM Ready ────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', function () {
-    if (window.chatConfig) {
-        initializeChat(window.chatConfig);
+function tryInitialize() {
+    if (window.chatInitialized) {
+        console.log('Skipping initialization - already initialized');
+        return;
     }
 
-    if (document.querySelector('.chat-container') && !window.chatConfig) {
+    if (window.chatConfig) {
+        window.chatInitialized = true;
+        console.log('Initializing chat from chat.js');
+        initializeChat(window.chatConfig);
+    } else if (document.querySelector('.chat-container')) {
+        window.chatInitialized = true;
+        console.log('Initializing inbox from chat.js');
         initializeInbox();
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInitialize);
+} else {
+    tryInitialize();
+}
 
 function initializeInbox() {
     setupConversationSearch();
@@ -1150,6 +1238,7 @@ function initializeInbox() {
 
 function setupConversationSearch() {
     const searchInput = document.getElementById('conversationSearch');
+
     if (!searchInput) return;
 
     searchInput.addEventListener('input', (e) => {

@@ -7,7 +7,7 @@ using ThriftLoop.Services.Interface;
 
 namespace ThriftLoop.Hubs;
 
-[Authorize]
+//[Authorize] // Temporarily removed for debugging
 public class ChatHub : Hub
 {
     private readonly IChatService _chatService;
@@ -28,15 +28,28 @@ public class ChatHub : Hub
 
     public override async Task OnConnectedAsync()
     {
+        var user = Context.User?.Identity?.Name;
         var userId = CurrentUserId;
-        var connectionId = Context.ConnectionId;
+        
+        _logger.LogInformation("User {User} (ID: {UserId}) connected to chat hub. Connection ID: {ConnectionId}", 
+            user, userId, Context.ConnectionId);
+        
+        // Debug: Check if user is authenticated
+        if (Context.User?.Identity?.IsAuthenticated == true)
+        {
+            _logger.LogInformation("User is authenticated. User ID: {UserId}", userId);
+        }
+        else
+        {
+            _logger.LogWarning("User is NOT authenticated!");
+        }
 
         if (userId > 0)
         {
-            await _notificationService.UserConnectedAsync(userId, connectionId);
-            await Groups.AddToGroupAsync(connectionId, $"user-{userId}");
+            await _notificationService.UserConnectedAsync(userId, Context.ConnectionId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
 
-            _logger.LogInformation("User {UserId} connected to ChatHub with connection {ConnectionId}", userId, connectionId);
+            _logger.LogInformation("User {UserId} connected to ChatHub with connection {ConnectionId}", userId, Context.ConnectionId);
             await Clients.Others.SendAsync("UserOnline", userId);
         }
 
@@ -219,5 +232,45 @@ public class ChatHub : Hub
         var userId = CurrentUserId;
         await _notificationService.UpdateLastActiveTimeAsync(userId);
         await Clients.Caller.SendAsync("Pong", DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Broadcasts ContextCard updates to all clients in the conversation.
+    /// </summary>
+    public async Task NotifyContextCardUpdated(int conversationId, ContextCardDTO contextCard)
+    {
+        // Verify user has access to this conversation
+        if (!await _chatService.CanAccessConversationAsync(conversationId, CurrentUserId))
+        {
+            _logger.LogWarning("User {UserId} attempted to notify ContextCard update for unauthorized conversation {ConversationId}", 
+                CurrentUserId, conversationId);
+            return;
+        }
+
+        await Clients.Group($"conversation-{conversationId}")
+            .SendAsync("ContextCardUpdated", contextCard);
+
+        _logger.LogInformation("ContextCard {ContextCardId} update broadcast to conversation {ConversationId}", 
+            contextCard.Id, conversationId);
+    }
+
+    /// <summary>
+    /// Broadcasts ContextCard status changes to conversation participants.
+    /// </summary>
+    public async Task NotifyContextCardStatusChanged(int conversationId, string status)
+    {
+        // Verify user has access to this conversation
+        if (!await _chatService.CanAccessConversationAsync(conversationId, CurrentUserId))
+        {
+            _logger.LogWarning("User {UserId} attempted to notify ContextCard status change for unauthorized conversation {ConversationId}", 
+                CurrentUserId, conversationId);
+            return;
+        }
+
+        await Clients.Group($"conversation-{conversationId}")
+            .SendAsync("ContextCardStatusChanged", new { conversationId, status });
+
+        _logger.LogInformation("ContextCard status change '{Status}' broadcast to conversation {ConversationId}", 
+            status, conversationId);
     }
 }

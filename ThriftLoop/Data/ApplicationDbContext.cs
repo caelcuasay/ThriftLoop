@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
 using ThriftLoop.Models;
 using ThriftLoop.Enums;
+using ThriftLoop.DTOs.Chat;
 
 namespace ThriftLoop.Data;
 
@@ -29,6 +30,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<ContextCard> ContextCards => Set<ContextCard>();
 
     // ── JSON options (shared, thread-safe) ────────────────────────────────────
     private static readonly JsonSerializerOptions _jsonOpts =
@@ -340,7 +342,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(o => o.FulfillmentMethod)
                   .IsRequired()
                   .HasDefaultValue(FulfillmentMethod.Delivery);
-            entity.Property(o => o.PaymentMethod).IsRequired().HasDefaultValue(PaymentMethod.Wallet);
+            entity.Property(o => o.PaymentMethod).IsRequired().HasDefaultValue(ThriftLoop.Enums.PaymentMethod.Wallet);
             entity.Property(o => o.CashCollectedByRider).IsRequired().HasDefaultValue(false);
             entity.Property(o => o.ChatInitialized).IsRequired().HasDefaultValue(false);
             entity.Property(o => o.ChatSessionId).IsRequired(false).HasMaxLength(100).IsUnicode(false);
@@ -666,22 +668,85 @@ public class ApplicationDbContext : DbContext
 
             // Index for finding unread messages for a specific user
             entity.HasIndex(m => new { m.SenderId, m.Status })
-                  .HasDatabaseName("IX_Messages_SenderId_Status");
+                  .HasDatabaseName("IX_Messages_SenderId_Status")
+                  .HasFilter("SenderId IS NOT NULL");
 
             // Index for message type filtering
             entity.HasIndex(m => m.MessageType)
                   .HasDatabaseName("IX_Messages_MessageType");
 
-            // Foreign keys
-            entity.HasOne(m => m.Conversation)
-                  .WithMany(c => c.Messages)
-                  .HasForeignKey(m => m.ConversationId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
+            // Foreign key to sender (nullable for system messages)
             entity.HasOne(m => m.Sender)
                   .WithMany()
                   .HasForeignKey(m => m.SenderId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Context Cards
+        modelBuilder.Entity<ContextCard>(entity =>
+        {
+            entity.ToTable("ContextCards");
+            entity.HasKey(cc => cc.Id);
+            entity.Property(cc => cc.Id).ValueGeneratedOnAdd();
+
+            entity.Property(cc => cc.Status)
+                  .IsRequired()
+                  .HasDefaultValue(ContextCardStatus.Pending);
+
+            entity.Property(cc => cc.CreatedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.Property(cc => cc.ExpiresAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2");
+
+            entity.Property(cc => cc.CompletedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(cc => cc.PaymentMethod)
+                  .IsRequired(false);
+
+            entity.Property(cc => cc.MetadataJson)
+                  .IsRequired(false)
+                  .HasMaxLength(1000);
+
+            // Foreign keys
+            entity.HasOne(cc => cc.Conversation)
+                  .WithMany()
+                  .HasForeignKey(cc => cc.ConversationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(cc => cc.Item)
+                  .WithMany()
+                  .HasForeignKey(cc => cc.ItemId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(cc => cc.Seller)
+                  .WithMany()
+                  .HasForeignKey(cc => cc.SellerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(cc => cc.Buyer)
+                  .WithMany()
+                  .HasForeignKey(cc => cc.BuyerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(cc => cc.Order)
+                  .WithMany()
+                  .HasForeignKey(cc => cc.OrderId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Index for finding active context cards
+            entity.HasIndex(cc => new { cc.ConversationId, cc.Status })
+                  .HasDatabaseName("IX_ContextCards_ConversationId_Status");
+
+            // Index for expiration cleanup
+            entity.HasIndex(cc => cc.ExpiresAt)
+                  .HasDatabaseName("IX_ContextCards_ExpiresAt");
         });
     }
 }

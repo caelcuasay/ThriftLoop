@@ -2,59 +2,79 @@
 @model ThriftLoop.DTOs.Chat.MessageDTO
 
 @{
-    var bubbleClass = Model.IsFromCurrentUser ? "message-bubble sent" : "message-bubble received";
+    var bubbleClass = Model.BubbleClass;
     var statusIcon = Model.IsFromCurrentUser ? GetStatusIcon(Model.Status) : "";
 }
 
-<div class="@bubbleClass"
-     data-message-id="@Model.Id"
-     data-sender-id="@Model.SenderId"
-     data-status="@Model.Status.ToString().ToLower()"
-     id="message-@Model.Id">
-    
-    @if (!Model.IsFromCurrentUser)
-    {
-        <div class="message-avatar">
-            @if (!string.IsNullOrEmpty(Model.SenderAvatarUrl))
-            {
-                <img src="@Model.SenderAvatarUrl" alt="@Model.SenderName" />
-            }
-            else
-            {
-                <div class="avatar-placeholder small">
-                    @Model.SenderName.Substring(0, 1).ToUpper()
-                </div>
-            }
-        </div>
-    }
-
-    <div class="message-content-wrapper">
-        @if (!Model.IsFromCurrentUser)
-        {
-            <span class="message-sender">@Model.SenderName</span>
-        }
-
-        <div class="message-content">
-            <p class="message-text">@Html.Raw(FormatMessageContent(Model.Content))</p>
-            
-            <div class="message-meta">
-                <span class="message-time">@Model.FormattedTime</span>
-                
-                @if (Model.IsFromCurrentUser)
-                {
-                    <span class="message-status" data-status="@Model.Status.ToString().ToLower()">
-                        @Html.Raw(statusIcon)
-                    </span>
-                }
-            </div>
+@if (Model.IsEventBubble)
+{
+    @* Event/Status bubble - centered, no avatar, for system messages *@
+    <div class="@bubbleClass"
+         data-message-id="@Model.Id"
+         data-sender-id=""
+         data-status="@Model.Status.ToString().ToLower()"
+         data-message-type="@((int)Model.MessageType)"
+         id="message-@Model.Id">
+        <div class="event-content">
+            <span class="event-text">@Model.Content</span>
+            <span class="event-time">@Model.FormattedTime</span>
         </div>
     </div>
+}
+else
+{
+    @* Regular message bubble *@
+    <div class="@bubbleClass"
+         data-message-id="@Model.Id"
+         data-sender-id="@Model.SenderId"
+         data-status="@Model.Status.ToString().ToLower()"
+         data-message-type="@((int)Model.MessageType)"
+         id="message-@Model.Id">
+    
+        @if (!Model.IsFromCurrentUser)
+        {
+            <div class="message-avatar">
+                @if (!string.IsNullOrEmpty(Model.SenderAvatarUrl))
+                {
+                    <img src="@Model.SenderAvatarUrl" alt="@Model.SenderName" />
+                }
+                else
+                {
+                    <div class="avatar-placeholder small">
+                        @Model.SenderName.Substring(0, 1).ToUpper()
+                    </div>
+                }
+            </div>
+        }
 
-    @if (Model.IsFromCurrentUser)
-    {
-        <div class="message-avatar-placeholder"></div>
-    }
-</div>
+        <div class="message-content-wrapper">
+            @if (!Model.IsFromCurrentUser)
+            {
+                <span class="message-sender">@Model.SenderName</span>
+            }
+
+            <div class="message-content">
+                <p class="message-text">@Html.Raw(FormatMessageContent(Model.Content))</p>
+            
+                <div class="message-meta">
+                    <span class="message-time">@Model.FormattedTime</span>
+                
+                    @if (Model.IsFromCurrentUser)
+                    {
+                        <span class="message-status" data-status="@Model.Status.ToString().ToLower()">
+                            @Html.Raw(statusIcon)
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (Model.IsFromCurrentUser)
+        {
+            <div class="message-avatar-placeholder"></div>
+        }
+    </div>
+}
 
 @functions {
     private string GetStatusIcon(ThriftLoop.Enums.MessageStatus status)

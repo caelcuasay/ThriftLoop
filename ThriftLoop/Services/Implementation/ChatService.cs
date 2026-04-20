@@ -1,9 +1,11 @@
 ﻿// Services/Implementation/ChatService.cs
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using ThriftLoop.Data;
 using ThriftLoop.DTOs.Chat;
 using ThriftLoop.Enums;
+using ThriftLoop.Hubs;
 using ThriftLoop.Models;
 using ThriftLoop.Repositories.Interface;
 using ThriftLoop.Services.Interface;
@@ -18,6 +20,7 @@ public class ChatService : IChatService
     private readonly IChatNotificationService _notificationService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ChatService> _logger;
+    private readonly IHubContext<ChatHub> _hubContext;
     private static readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web);
 
     public ChatService(
@@ -26,7 +29,8 @@ public class ChatService : IChatService
         IUserRepository userRepo,
         IChatNotificationService notificationService,
         ApplicationDbContext context,
-        ILogger<ChatService> logger)
+        ILogger<ChatService> logger,
+        IHubContext<ChatHub> hubContext)
     {
         _conversationRepo = conversationRepo;
         _messageRepo = messageRepo;
@@ -34,6 +38,7 @@ public class ChatService : IChatService
         _notificationService = notificationService;
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<List<ConversationDTO>> GetUserInboxAsync(int userId, int page = 1, int pageSize = 20)
@@ -95,7 +100,7 @@ public class ChatService : IChatService
                 Id = m.Id,
                 ConversationId = m.ConversationId,
                 SenderId = m.SenderId,
-                SenderName = m.SenderId == 0 ? "System" : (m.Sender?.FullName ?? m.Sender?.Email ?? "Unknown"),
+                SenderName = m.SenderId == null ? "System" : (m.Sender?.FullName ?? m.Sender?.Email ?? "Unknown"),
                 SenderAvatarUrl = null,
                 Content = m.Content,
                 SentAt = m.SentAt,
@@ -141,6 +146,36 @@ public class ChatService : IChatService
         // Mark messages as read when user views the conversation
         await _messageRepo.MarkAllAsReadAsync(conversationId, currentUserId);
 
+        // Get context cards for this conversation
+        var contextCards = await GetContextCardsAsync(conversationId, currentUserId);
+
+        // Create ContextCard messages
+        var contextCardMessages = new List<MessageDTO>();
+        foreach (var card in contextCards)
+        {
+            var contextCardMessage = new MessageDTO
+            {
+                Id = card.Id, // Use context card ID as message ID for uniqueness
+                ConversationId = card.ConversationId,
+                SenderId = 0, // System message
+                SenderName = "System",
+                SenderAvatarUrl = null,
+                Content = $"Context Card: {card.ItemTitle}",
+                SentAt = card.CreatedAt,
+                Status = MessageStatus.Sent,
+                MessageType = MessageType.ContextCard,
+                IsFromCurrentUser = false,
+                FormattedTime = FormatMessageTime(card.CreatedAt),
+                ContextCard = card
+            };
+            contextCardMessages.Add(contextCardMessage);
+        }
+
+        // Combine regular messages with context card messages
+        var allMessages = messageDtos.Concat(contextCardMessages)
+                                    .OrderBy(m => m.SentAt)
+                                    .ToList();
+
         var detailDto = new ConversationDetailDTO
         {
             Id = conversation.Id,
@@ -150,21 +185,12 @@ public class ChatService : IChatService
             IsOtherUserOnline = isOnline,
             OtherUserLastActiveAt = lastActive,
             OtherUserActiveStatus = GetActiveStatusText(isOnline, lastActive),
-            Messages = messageDtos.OrderBy(m => m.SentAt).ToList(),
-            TotalMessageCount = totalCount,
+            Messages = allMessages,
+            TotalMessageCount = totalCount + contextCards.Count, // Include context cards in total count
             Page = page,
             PageSize = pageSize,
             HasMoreMessages = (page * pageSize) < totalCount,
-            CreatedAt = conversation.CreatedAt,
-            LinkedOrderId = conversation.OrderId,
-            ContextItemId = conversation.ContextItemId,
-            LinkedItemTitle = conversation.ContextItem?.Title ?? conversation.Order?.Item?.Title,
-            LinkedItemPrice = conversation.ContextItem?.Price ?? conversation.Order?.Item?.Price,
-            LinkedItemImageUrl = conversation.ContextItem?.ImageUrls?.FirstOrDefault() ?? conversation.Order?.Item?.ImageUrls?.FirstOrDefault(),
-            LinkedOrderStatus = conversation.Order?.Status.ToString(),
-            LinkedFulfillmentMethod = conversation.Order?.FulfillmentMethod.ToString(),
-            CanCreateOrder = CanUserCreateOrderFromConversation(conversation, currentUserId),
-            CanConfirmReceipt = CanUserConfirmReceipt(conversation, currentUserId)
+            CreatedAt = conversation.CreatedAt
         };
 
         return detailDto;
@@ -281,7 +307,7 @@ public class ChatService : IChatService
             SentAt = createdMessage.SentAt,
             Status = createdMessage.Status,
             MessageType = createdMessage.MessageType,
-            IsFromCurrentUser = true,
+            IsFromCurrentUser = false, // Neutral value - clients derive this from senderId
             FormattedTime = FormatMessageTime(createdMessage.SentAt)
         };
     }
@@ -304,6 +330,16 @@ public class ChatService : IChatService
 
         // Get or create conversation with item context
         var conversation = await _conversationRepo.GetOrCreateForItemAsync(buyerId, sellerId, itemId);
+
+        // Check if we already have a context card for this item in this conversation
+        var existingContextCards = await GetContextCardsAsync(conversation.Id, buyerId);
+        var hasExistingCard = existingContextCards.Any(cc => cc.ItemId == itemId && cc.IsActive);
+
+        if (!hasExistingCard)
+        {
+            // Create a new context card for this item inquiry
+            await CreateContextCardAsync(conversation.Id, itemId, buyerId, sellerId);
+        }
 
         // Check if we already sent an order reference for this item
         var hasOrderReference = await _messageRepo.HasOrderReferenceForItemAsync(conversation.Id, itemId);
@@ -371,7 +407,7 @@ public class ChatService : IChatService
             // Send order confirmed message (as system)
             await _messageRepo.CreateOrderReferenceMessageAsync(
                 conversation.Id,
-                0, // System
+                null, // System
                 order.ItemId,
                 orderId,
                 MessageType.OrderConfirmed);
@@ -385,7 +421,7 @@ public class ChatService : IChatService
         await _messageRepo.CreateSystemMessageAsync(
             conversation.Id,
             MessageType.OrderConfirmed,
-            $"✅ Order #{order.Id} confirmed! Please coordinate {fulfillmentText} details in this chat.",
+            $"Order #{order.Id} confirmed! Please coordinate {fulfillmentText} details in this chat.",
             orderId);
 
         await _conversationRepo.UpdateLastMessageTimeAsync(conversation.Id, DateTime.UtcNow);
@@ -425,7 +461,7 @@ public class ChatService : IChatService
             SentAt = message.SentAt,
             Status = message.Status,
             MessageType = message.MessageType,
-            IsFromCurrentUser = true,
+            IsFromCurrentUser = false, // Neutral value - clients derive this from senderId
             FormattedTime = FormatMessageTime(message.SentAt),
             OrderReference = new OrderReferenceDTO
             {
@@ -463,7 +499,7 @@ public class ChatService : IChatService
             SentAt = message.SentAt,
             Status = message.Status,
             MessageType = message.MessageType,
-            IsFromCurrentUser = true,
+            IsFromCurrentUser = false, // Neutral value - clients derive this from senderId
             FormattedTime = FormatMessageTime(message.SentAt),
             Metadata = !string.IsNullOrEmpty(message.MetadataJson)
                 ? JsonSerializer.Deserialize<Dictionary<string, object>>(message.MetadataJson, _jsonOpts)
@@ -604,32 +640,6 @@ public class ChatService : IChatService
         };
     }
 
-    private bool CanUserCreateOrderFromConversation(Conversation conversation, int currentUserId)
-    {
-        // Seller can create order from item inquiry
-        if (conversation.ContextItemId.HasValue && !conversation.OrderId.HasValue)
-        {
-            return conversation.UserOneId == currentUserId || conversation.UserTwoId == currentUserId;
-        }
-        return false;
-    }
-
-    private bool CanUserConfirmReceipt(Conversation conversation, int currentUserId)
-    {
-        if (!conversation.OrderId.HasValue)
-            return false;
-
-        var order = conversation.Order;
-        if (order == null)
-            return false;
-
-        // Buyer can confirm receipt if order is pending and fulfillment is Halfway/Pickup
-        return order.BuyerId == currentUserId &&
-               order.Status == OrderStatus.Pending &&
-               (order.FulfillmentMethod == FulfillmentMethod.Halfway ||
-                order.FulfillmentMethod == FulfillmentMethod.Pickup);
-    }
-
     private string FormatMessageTime(DateTime timestamp)
     {
         var now = DateTime.UtcNow;
@@ -665,5 +675,388 @@ public class ChatService : IChatService
         }
 
         return "Offline";
+    }
+
+    // Context Card Implementation
+
+    public async Task<ContextCardDTO> CreateContextCardAsync(int conversationId, int itemId, int buyerId, int sellerId)
+    {
+        var item = await _context.Items
+            .Include(i => i.User)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item == null)
+            throw new InvalidOperationException("Item not found.");
+
+        var buyer = await _userRepo.GetByIdAsync(buyerId);
+        var seller = await _userRepo.GetByIdAsync(sellerId);
+
+        if (buyer == null || seller == null)
+            throw new InvalidOperationException("User not found.");
+
+        var contextCard = new ContextCard
+        {
+            ConversationId = conversationId,
+            ItemId = itemId,
+            SellerId = sellerId,
+            BuyerId = buyerId,
+            Status = ContextCardStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        };
+
+        _context.ContextCards.Add(contextCard);
+        await _context.SaveChangesAsync();
+
+        // Create a message for the context card
+        var message = new Message
+        {
+            ConversationId = conversationId,
+            SenderId = null, // System message
+            Content = "Context card created",
+            MessageType = MessageType.ContextCard,
+            SentAt = DateTime.UtcNow,
+            Status = MessageStatus.Sent,
+            ReferencedItemId = itemId
+        };
+
+        var createdMessage = await _messageRepo.CreateAsync(message);
+
+        return new ContextCardDTO
+        {
+            Id = contextCard.Id,
+            ConversationId = contextCard.ConversationId,
+            ItemId = contextCard.ItemId,
+            ItemTitle = item.Title,
+            ItemPrice = item.Price,
+            ItemImageUrl = item.ImageUrls?.FirstOrDefault(),
+            Condition = item.Condition,
+            Size = item.Size,
+            Category = item.Category,
+            SellerId = contextCard.SellerId,
+            SellerName = seller.FullName ?? seller.Email,
+            BuyerId = contextCard.BuyerId,
+            BuyerName = buyer.FullName ?? buyer.Email,
+            OrderId = contextCard.OrderId,
+            Status = contextCard.Status,
+            CreatedAt = contextCard.CreatedAt,
+            ExpiresAt = contextCard.ExpiresAt,
+            CompletedAt = contextCard.CompletedAt,
+            PaymentMethod = contextCard.PaymentMethod.HasValue ? (ThriftLoop.DTOs.Chat.PaymentMethod?)contextCard.PaymentMethod.Value : null,
+            IsCurrentUserSeller = false, // Will be set by calling method
+            IsCurrentUserBuyer = false,   // Will be set by calling method
+            AvailableActions = GetAvailableActions(contextCard.Status, false, false)
+        };
+    }
+
+    public async Task<List<ContextCardDTO>> GetContextCardsAsync(int conversationId, int currentUserId)
+    {
+        var contextCards = await _context.ContextCards
+            .Include(cc => cc.Item)
+            .Include(cc => cc.Seller)
+            .Include(cc => cc.Buyer)
+            .Include(cc => cc.Order)
+            .Where(cc => cc.ConversationId == conversationId)
+            .OrderByDescending(cc => cc.CreatedAt)
+            .ToListAsync();
+
+        var result = new List<ContextCardDTO>();
+
+        foreach (var card in contextCards)
+        {
+            var dto = new ContextCardDTO
+            {
+                Id = card.Id,
+                ConversationId = card.ConversationId,
+                ItemId = card.ItemId,
+                ItemTitle = card.Item.Title,
+                ItemPrice = card.Item.Price,
+                ItemImageUrl = card.Item.ImageUrls?.FirstOrDefault(),
+                Condition = card.Item.Condition,
+                Size = card.Item.Size,
+                Category = card.Item.Category,
+                SellerId = card.SellerId,
+                SellerName = card.Seller.FullName ?? card.Seller.Email,
+                BuyerId = card.BuyerId,
+                BuyerName = card.Buyer.FullName ?? card.Buyer.Email,
+                OrderId = card.OrderId,
+                Status = card.Status,
+                CreatedAt = card.CreatedAt,
+                ExpiresAt = card.ExpiresAt,
+                CompletedAt = card.CompletedAt,
+                PaymentMethod = card.PaymentMethod.HasValue ? (ThriftLoop.DTOs.Chat.PaymentMethod?)card.PaymentMethod.Value : null,
+                IsCurrentUserSeller = currentUserId == card.SellerId,
+                IsCurrentUserBuyer = currentUserId == card.BuyerId,
+                AvailableActions = GetAvailableActions(card.Status, currentUserId == card.SellerId, currentUserId == card.BuyerId)
+            };
+
+            result.Add(dto);
+        }
+
+        return result;
+    }
+
+    public async Task<ContextCardDTO> UpdateContextCardAsync(int contextCardId, ContextCardAction action, int currentUserId, ThriftLoop.DTOs.Chat.PaymentMethod? paymentMethod = null)
+    {
+        var contextCard = await _context.ContextCards
+            .Include(cc => cc.Item)
+            .Include(cc => cc.Seller)
+            .Include(cc => cc.Buyer)
+            .Include(cc => cc.Order)
+            .FirstOrDefaultAsync(cc => cc.Id == contextCardId);
+
+        if (contextCard == null)
+            throw new InvalidOperationException("Context card not found.");
+
+        // Validate user permissions
+        if (action == ContextCardAction.Accept || action == ContextCardAction.Decline || action == ContextCardAction.ItemHandedOff)
+        {
+            if (currentUserId != contextCard.SellerId)
+                throw new UnauthorizedAccessException("Only seller can perform this action.");
+        }
+        else if (action == ContextCardAction.Cancel || action == ContextCardAction.ItemReceived || action == ContextCardAction.SelectPayment)
+        {
+            if (currentUserId != contextCard.BuyerId)
+                throw new UnauthorizedAccessException("Only buyer can perform this action.");
+        }
+
+        // Update status based on action
+        switch (action)
+        {
+            case ContextCardAction.Accept:
+                contextCard.Status = ContextCardStatus.Accepted;
+                
+                // Make item unavailable
+                contextCard.Item.Status = ItemStatus.Sold;
+                await _context.SaveChangesAsync();
+                
+                // Create order
+                var order = new Order
+                {
+                    ItemId = contextCard.ItemId,
+                    BuyerId = contextCard.BuyerId,
+                    SellerId = contextCard.SellerId,
+                    Status = OrderStatus.Pending,
+                    FulfillmentMethod = FulfillmentMethod.Halfway, // Default, can be updated later
+                    OrderDate = DateTime.UtcNow,
+                    FinalPrice = contextCard.Item.Price,
+                    DeliveryFee = 0
+                };
+                
+                _context.Orders.Add(order);
+                await _context.SaveChangesAsync();
+                
+                contextCard.OrderId = order.Id;
+                break;
+
+            case ContextCardAction.Decline:
+                contextCard.Status = ContextCardStatus.Declined;
+                break;
+
+            case ContextCardAction.Cancel:
+                contextCard.Status = ContextCardStatus.Cancelled;
+                break;
+
+            case ContextCardAction.ItemHandedOff:
+                contextCard.Status = ContextCardStatus.ItemHandedOff;
+                break;
+
+            case ContextCardAction.ItemReceived:
+                contextCard.Status = ContextCardStatus.ItemReceived;
+                break;
+
+            case ContextCardAction.SelectPayment:
+                _logger.LogInformation("SelectPayment action called with paymentMethod: {PaymentMethod}", paymentMethod);
+                
+                if (!paymentMethod.HasValue)
+                {
+                    _logger.LogWarning("Payment method is null or empty for SelectPayment action");
+                    throw new ArgumentException("Payment method is required for SelectPayment action.");
+                }
+                
+                contextCard.PaymentMethod = (ThriftLoop.Enums.PaymentMethod)paymentMethod.Value;
+                contextCard.Status = ContextCardStatus.Completed;
+                contextCard.CompletedAt = DateTime.UtcNow;
+                
+                // Update order status
+                if (contextCard.Order != null)
+                {
+                    contextCard.Order.Status = OrderStatus.Completed;
+                }
+                break;
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Send real-time SignalR notifications - one per user with their perspective
+        ContextCardDTO BuildDto(int viewerUserId) => new ContextCardDTO
+        {
+            Id = contextCard.Id,
+            ConversationId = contextCard.ConversationId,
+            ItemId = contextCard.ItemId,
+            ItemTitle = contextCard.Item.Title,
+            ItemPrice = contextCard.Item.Price,
+            ItemImageUrl = contextCard.Item.ImageUrls?.FirstOrDefault(),
+            Condition = contextCard.Item.Condition,
+            Size = contextCard.Item.Size,
+            Category = contextCard.Item.Category,
+            SellerId = contextCard.SellerId,
+            SellerName = contextCard.Seller.FullName ?? contextCard.Seller.Email,
+            BuyerId = contextCard.BuyerId,
+            BuyerName = contextCard.Buyer.FullName ?? contextCard.Buyer.Email,
+            OrderId = contextCard.OrderId,
+            Status = contextCard.Status,
+            CreatedAt = contextCard.CreatedAt,
+            ExpiresAt = contextCard.ExpiresAt,
+            CompletedAt = contextCard.CompletedAt,
+            PaymentMethod = contextCard.PaymentMethod.HasValue
+                ? (ThriftLoop.DTOs.Chat.PaymentMethod?)contextCard.PaymentMethod.Value : null,
+            IsCurrentUserSeller = viewerUserId == contextCard.SellerId,
+            IsCurrentUserBuyer = viewerUserId == contextCard.BuyerId,
+            AvailableActions = GetAvailableActions(
+                contextCard.Status,
+                viewerUserId == contextCard.SellerId,
+                viewerUserId == contextCard.BuyerId)
+        };
+
+        await _hubContext.Clients.Group($"user-{contextCard.SellerId}")
+            .SendAsync("ContextCardUpdated", BuildDto(contextCard.SellerId));
+
+        await _hubContext.Clients.Group($"user-{contextCard.BuyerId}")
+            .SendAsync("ContextCardUpdated", BuildDto(contextCard.BuyerId));
+
+        // Send notification message
+        await SendContextCardUpdateMessage(contextCard, action);
+
+        return new ContextCardDTO
+        {
+            Id = contextCard.Id,
+            ConversationId = contextCard.ConversationId,
+            ItemId = contextCard.ItemId,
+            ItemTitle = contextCard.Item.Title,
+            ItemPrice = contextCard.Item.Price,
+            ItemImageUrl = contextCard.Item.ImageUrls?.FirstOrDefault(),
+            Condition = contextCard.Item.Condition,
+            Size = contextCard.Item.Size,
+            Category = contextCard.Item.Category,
+            SellerId = contextCard.SellerId,
+            SellerName = contextCard.Seller.FullName ?? contextCard.Seller.Email,
+            BuyerId = contextCard.BuyerId,
+            BuyerName = contextCard.Buyer.FullName ?? contextCard.Buyer.Email,
+            OrderId = contextCard.OrderId,
+            Status = contextCard.Status,
+            CreatedAt = contextCard.CreatedAt,
+            ExpiresAt = contextCard.ExpiresAt,
+            CompletedAt = contextCard.CompletedAt,
+            PaymentMethod = contextCard.PaymentMethod.HasValue ? (ThriftLoop.DTOs.Chat.PaymentMethod?)contextCard.PaymentMethod.Value : null,
+            IsCurrentUserSeller = currentUserId == contextCard.SellerId,
+            IsCurrentUserBuyer = currentUserId == contextCard.BuyerId,
+            AvailableActions = GetAvailableActions(contextCard.Status, currentUserId == contextCard.SellerId, currentUserId == contextCard.BuyerId)
+        };
+    }
+
+    public async Task ProcessExpiredContextCardsAsync()
+    {
+        var expiredCards = await _context.ContextCards
+            .Where(cc => cc.Status == ContextCardStatus.Pending && cc.ExpiresAt < DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var card in expiredCards)
+        {
+            card.Status = ContextCardStatus.Expired;
+        }
+
+        if (expiredCards.Any())
+        {
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    private List<ContextCardAction> GetAvailableActions(ContextCardStatus status, bool isSeller, bool isBuyer)
+    {
+        var actions = new List<ContextCardAction>();
+
+        switch (status)
+        {
+            case ContextCardStatus.Pending:
+                if (isSeller)
+                {
+                    actions.Add(ContextCardAction.Accept);
+                    actions.Add(ContextCardAction.Decline);
+                }
+                else if (isBuyer)
+                {
+                    actions.Add(ContextCardAction.Cancel);
+                }
+                break;
+
+            case ContextCardStatus.Accepted:
+                if (isSeller)
+                {
+                    actions.Add(ContextCardAction.ItemHandedOff);
+                }
+                break;
+
+            case ContextCardStatus.ItemHandedOff:
+                if (isBuyer)
+                {
+                    actions.Add(ContextCardAction.ItemReceived);
+                }
+                break;
+
+            case ContextCardStatus.ItemReceived:
+                if (isBuyer)
+                {
+                    actions.Add(ContextCardAction.SelectPayment);
+                }
+                break;
+        }
+
+        return actions;
+    }
+
+    private async Task SendContextCardUpdateMessage(ContextCard contextCard, ContextCardAction action)
+    {
+        string messageText = action switch
+        {
+            ContextCardAction.Accept => "Seller has accepted the transaction.",
+            ContextCardAction.Decline => "Seller has declined the transaction.",
+            ContextCardAction.Cancel => "Buyer has cancelled the transaction.",
+            ContextCardAction.ItemHandedOff => "Seller has handed off the item.",
+            ContextCardAction.ItemReceived => "Buyer has received the item.",
+            ContextCardAction.SelectPayment => $"Payment method selected: {contextCard.PaymentMethod}",
+            _ => "Transaction status updated."
+        };
+
+        var message = new Message
+        {
+            ConversationId = contextCard.ConversationId,
+            SenderId = null, // System message
+            Content = messageText,
+            MessageType = MessageType.Text,
+            SentAt = DateTime.UtcNow,
+            Status = MessageStatus.Sent
+        };
+
+        await _messageRepo.CreateAsync(message);
+        await _conversationRepo.UpdateLastMessageTimeAsync(contextCard.ConversationId, DateTime.UtcNow);
+
+        // Broadcast so both clients see it instantly without a reload
+        var messageDto = new MessageDTO
+        {
+            Id = message.Id,
+            ConversationId = message.ConversationId,
+            SenderId = null,
+            SenderName = "System",
+            Content = message.Content,
+            SentAt = message.SentAt,
+            Status = message.Status,
+            MessageType = message.MessageType,
+            IsFromCurrentUser = false,
+            FormattedTime = FormatMessageTime(message.SentAt)
+        };
+
+        await _hubContext.Clients.Group($"conversation-{contextCard.ConversationId}")
+            .SendAsync("ReceiveMessage", messageDto);
     }
 }

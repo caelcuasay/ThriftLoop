@@ -1,0 +1,356 @@
+@* Views/Chat/_ContextCard.cshtml *@
+@model ThriftLoop.DTOs.Chat.ContextCardDTO
+@using ThriftLoop.DTOs.Chat
+@using ThriftLoop.Enums
+
+@* BUG FIX 4: Add data attributes for cache seeding on page load *@
+<div class="context-card" 
+     data-context-card-id="@Model.Id" 
+     data-status="@Model.Status"
+     data-expires-at="@Model.ExpiresAt.ToString("o")"
+     data-is-seller="@Model.IsCurrentUserSeller.ToString().ToLower()"
+     data-is-buyer="@Model.IsCurrentUserBuyer.ToString().ToLower()">
+    <div class="context-card-header">
+        <div class="context-card-item-info">
+            @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+            {
+                <img src="@Model.ItemImageUrl" alt="@Model.ItemTitle" class="context-card-item-image" />
+            }
+            else
+            {
+                <div class="context-card-item-placeholder">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                </div>
+            }
+            <div class="context-card-item-details">
+                <h4 class="context-card-item-title">@Model.ItemTitle</h4>
+                <div class="context-card-item-meta">
+                    <span class="context-card-price">₱@Model.ItemPrice.ToString("N2")</span>
+                    <span class="context-card-condition">@Model.Condition</span>
+                    @if (!string.IsNullOrEmpty(Model.Size))
+                    {
+                        <span class="context-card-size">Size: @Model.Size</span>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="context-card-status">
+            @switch (Model.Status)
+            {
+                case ContextCardStatus.Pending:
+                    <span class="status-badge status-pending">Pending</span>
+                    break;
+                case ContextCardStatus.Accepted:
+                    <span class="status-badge status-accepted">Accepted</span>
+                    break;
+                case ContextCardStatus.ItemHandedOff:
+                    <span class="status-badge status-handed-off">Item Handed Off</span>
+                    break;
+                case ContextCardStatus.ItemReceived:
+                    <span class="status-badge status-received">Item Received</span>
+                    break;
+                case ContextCardStatus.Completed:
+                    <span class="status-badge status-completed">Completed</span>
+                    break;
+                case ContextCardStatus.Cancelled:
+                    <span class="status-badge status-cancelled">Cancelled</span>
+                    break;
+                case ContextCardStatus.Declined:
+                    <span class="status-badge status-declined">Declined</span>
+                    break;
+                case ContextCardStatus.Expired:
+                    <span class="status-badge status-expired">Expired</span>
+                    break;
+            }
+        </div>
+    </div>
+
+    <div class="context-card-body">
+        <div class="context-card-participants">
+            <div class="participant-info">
+                <span class="participant-label">Seller:</span>
+                <span class="participant-name">@Model.SellerName</span>
+            </div>
+            <div class="participant-info">
+                <span class="participant-label">Buyer:</span>
+                <span class="participant-name">@Model.BuyerName</span>
+            </div>
+        </div>
+
+        @if (Model.Status != ContextCardStatus.Completed && Model.Status != ContextCardStatus.Cancelled && 
+             Model.Status != ContextCardStatus.Declined && Model.Status != ContextCardStatus.Expired)
+        {
+            <div class="context-card-timer">
+                @if (Model.Status == ContextCardStatus.Pending)
+                {
+                    <span class="timer-text">Expires in: <strong>@Model.TimeRemaining</strong></span>
+                }
+                else
+                {
+                    <span class="timer-text">Transaction in progress</span>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="context-card-actions">
+        @if (Model.IsCurrentUserSeller)
+        {
+            @switch (Model.Status)
+            {
+                case ContextCardStatus.Pending:
+                    <button type="button" class="btn btn-success btn-sm context-card-action" 
+                            data-action="accept" data-context-card-id="@Model.Id">
+                        Accept
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm context-card-action" 
+                            data-action="decline" data-context-card-id="@Model.Id">
+                        Decline
+                    </button>
+                    break;
+                case ContextCardStatus.Accepted:
+                    <button type="button" class="btn btn-primary btn-sm context-card-action" 
+                            data-action="item-handed-off" data-context-card-id="@Model.Id">
+                        Item Handed Off
+                    </button>
+                    break;
+                case ContextCardStatus.ItemHandedOff:
+                case ContextCardStatus.ItemReceived:
+                    <span class="action-text">Waiting for buyer to confirm receipt</span>
+                    break;
+            }
+        }
+        else if (Model.IsCurrentUserBuyer)
+        {
+            @switch (Model.Status)
+            {
+                case ContextCardStatus.Pending:
+                    <button type="button" class="btn btn-secondary btn-sm context-card-action" 
+                            data-action="cancel" data-context-card-id="@Model.Id">
+                        Cancel
+                    </button>
+                    break;
+                case ContextCardStatus.Accepted:
+                    <span class="action-text">Waiting for seller to hand off item</span>
+                    break;
+                case ContextCardStatus.ItemHandedOff:
+                    <button type="button" class="btn btn-primary btn-sm context-card-action" 
+                            data-action="item-received" data-context-card-id="@Model.Id">
+                        Item Received
+                    </button>
+                    break;
+                case ContextCardStatus.ItemReceived:
+                    <div class="payment-selection">
+                        <p class="payment-prompt">Select payment method:</p>
+                        <div class="payment-options">
+                            <button type="button" class="btn btn-outline-primary btn-sm payment-option" 
+                                    data-payment="wallet" data-context-card-id="@Model.Id">
+                                <i class="fas fa-wallet"></i> Wallet
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm payment-option" 
+                                    data-payment="cash" data-context-card-id="@Model.Id">
+                                <i class="fas fa-money-bill-wave"></i> Cash
+                            </button>
+                        </div>
+                    </div>
+                    break;
+            }
+        }
+    </div>
+</div>
+
+<style>
+.context-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.context-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.context-card-item-info {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+}
+
+.context-card-item-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #f3f4f6;
+}
+
+.context-card-item-placeholder {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+}
+
+.context-card-item-details {
+    flex: 1;
+}
+
+.context-card-item-title {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.3;
+}
+
+.context-card-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.context-card-price {
+    color: #059669;
+    font-weight: 600;
+}
+
+.context-card-condition, .context-card-size {
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.context-card-status {
+    margin-left: 12px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-accepted { background: #d1fae5; color: #065f46; }
+.status-handed-off { background: #dbeafe; color: #1e40af; }
+.status-received { background: #e0e7ff; color: #3730a3; }
+.status-completed { background: #f3f4f6; color: #374151; }
+.status-cancelled, .status-declined, .status-expired { 
+    background: #fee2e2; color: #991b1b; 
+}
+
+.context-card-body {
+    margin-bottom: 16px;
+}
+
+.context-card-participants {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.participant-info {
+    display: flex;
+    gap: 4px;
+}
+
+.participant-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.participant-name {
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.context-card-timer {
+    text-align: center;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.timer-text strong {
+    color: #dc2626;
+}
+
+.context-card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-text {
+    color: #6b7280;
+    font-size: 13px;
+    font-style: italic;
+}
+
+.payment-selection {
+    text-align: center;
+    width: 100%;
+}
+
+.payment-prompt {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.payment-options {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.payment-option {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 80px;
+}
+
+.context-card[data-status="completed"] .context-card-actions,
+.context-card[data-status="cancelled"] .context-card-actions,
+.context-card[data-status="declined"] .context-card-actions,
+.context-card[data-status="expired"] .context-card-actions {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+    margin-top: 12px;
+    justify-content: center;
+}
+
+.context-card[data-status="completed"] .action-text,
+.context-card[data-status="cancelled"] .action-text,
+.context-card[data-status="declined"] .action-text,
+.context-card[data-status="expired"] .action-text {
+    color: #6b7280;
+    font-size: 13px;
+}
+</style>

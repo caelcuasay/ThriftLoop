@@ -71,7 +71,7 @@ public interface IMessageRepository
     /// <returns>The created message.</returns>
     Task<Message> CreateOrderReferenceMessageAsync(
         int conversationId,
-        int senderId,
+        int? senderId,
         int itemId,
         int? orderId = null,
         MessageType messageType = MessageType.OrderReference,

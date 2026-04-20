@@ -17,9 +17,9 @@ public class Message
     public int ConversationId { get; set; }
 
     /// <summary>
-    /// The user who sent this message.
+    /// The user who sent this message. Null for system messages.
     /// </summary>
-    public int SenderId { get; set; }
+    public int? SenderId { get; set; }
 
     /// <summary>
     /// The text content of the message.

@@ -143,7 +143,7 @@ public class MessageRepository : IMessageRepository
 
     public async Task<Message> CreateOrderReferenceMessageAsync(
         int conversationId,
-        int senderId,
+        int? senderId,
         int itemId,
         int? orderId = null,
         MessageType messageType = MessageType.OrderReference,
@@ -184,11 +184,11 @@ public class MessageRepository : IMessageRepository
         int? orderId = null,
         string? metadataJson = null)
     {
-        // System messages have SenderId = 0 (or could use a special system user ID)
+        // System messages have null SenderId
         var message = new Message
         {
             ConversationId = conversationId,
-            SenderId = 0, // System user
+            SenderId = null, // System message
             Content = content,
             MessageType = messageType,
             ReferencedOrderId = orderId,

@@ -568,6 +568,38 @@
     align-items: center;
 }
 
+/* Event/Status Bubble - Centered system messages */
+.message-bubble.event {
+    align-self: center;
+    max-width: 80%;
+    margin: 8px 0;
+}
+
+.event-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    background-color: transparent;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.event-text {
+    font-size: 13px;
+    color: #65676b;
+    background-color: #f0f2f5;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-weight: 500;
+}
+
+.event-time {
+    font-size: 11px;
+    color: #8e8e8e;
+    margin-top: 4px;
+}
+
 /* Typing Indicator */
 .typing-indicator {
     display: flex;
@@ -920,4 +952,35 @@
         width: 95%;
         max-height: 95vh;
     }
+}
+
+/* Ensure sent messages are always visible */
+.message-bubble.sent {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.message-bubble.sent .message-content {
+    background-color: #0095f6 !important;
+    color: white !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.message-bubble.sent .message-text {
+    color: white !important;
+    visibility: visible !important;
+}
+
+.message-bubble.received .message-content {
+    background-color: #efefef !important;
+    color: #262626 !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.message-bubble.received .message-text {
+    color: #262626 !important;
+    visibility: visible !important;
 }

@@ -52,5 +52,10 @@ public enum MessageType
     /// <summary>
     /// System reminder about pending payment or action needed.
     /// </summary>
-    PaymentReminder = 5
+    PaymentReminder = 5,
+
+    /// <summary>
+    /// Context detail card for item transactions.
+    /// </summary>
+    ContextCard = 6
 }

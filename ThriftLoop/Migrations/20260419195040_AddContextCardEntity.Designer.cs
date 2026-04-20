@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ThriftLoop.Data;
 
@@ -11,9 +12,11 @@ using ThriftLoop.Data;
 namespace ThriftLoop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260419195040_AddContextCardEntity")]
+    partial class AddContextCardEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -461,7 +464,7 @@ namespace ThriftLoop.Migrations
                     b.Property<int?>("ReferencedOrderId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("SenderId")
+                    b.Property<int>("SenderId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("SentAt")
@@ -487,8 +490,7 @@ namespace ThriftLoop.Migrations
                         .HasDatabaseName("IX_Messages_ConversationId_SentAt");
 
                     b.HasIndex("SenderId", "Status")
-                        .HasDatabaseName("IX_Messages_SenderId_Status")
-                        .HasFilter("SenderId IS NOT NULL");
+                        .HasDatabaseName("IX_Messages_SenderId_Status");
 
                     b.ToTable("Messages", (string)null);
                 });
@@ -1176,7 +1178,8 @@ namespace ThriftLoop.Migrations
                     b.HasOne("ThriftLoop.Models.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Conversation");
 

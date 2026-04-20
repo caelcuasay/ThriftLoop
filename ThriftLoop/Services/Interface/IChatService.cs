@@ -108,6 +108,28 @@ public interface IChatService
     /// Checks if a conversation already has an active order or item inquiry.
     /// </summary>
     Task<bool> ConversationHasActiveContextAsync(int conversationId);
+
+    // Context Card Methods
+    
+    /// <summary>
+    /// Creates a new context card for an item inquiry.
+    /// </summary>
+    Task<ContextCardDTO> CreateContextCardAsync(int conversationId, int itemId, int buyerId, int sellerId);
+
+    /// <summary>
+    /// Gets all context cards for a conversation.
+    /// </summary>
+    Task<List<ContextCardDTO>> GetContextCardsAsync(int conversationId, int currentUserId);
+
+    /// <summary>
+    /// Updates a context card status and performs the corresponding action.
+    /// </summary>
+    Task<ContextCardDTO> UpdateContextCardAsync(int contextCardId, ContextCardAction action, int currentUserId, PaymentMethod? paymentMethod = null);
+
+    /// <summary>
+    /// Processes context card expiration (marks expired cards as expired).
+    /// </summary>
+    Task ProcessExpiredContextCardsAsync();
 }
 
 /// <summary>

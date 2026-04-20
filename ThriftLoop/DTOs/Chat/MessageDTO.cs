@@ -12,7 +12,7 @@ public class MessageDTO
 
     public int ConversationId { get; set; }
 
-    public int SenderId { get; set; }
+    public int? SenderId { get; set; }
 
     /// <summary>
     /// Display name of the sender.
@@ -55,6 +55,12 @@ public class MessageDTO
     public OrderReferenceDTO? OrderReference { get; set; }
 
     /// <summary>
+    /// Context card data for item transactions.
+    /// Null for regular text messages.
+    /// </summary>
+    public ContextCardDTO? ContextCard { get; set; }
+
+    /// <summary>
     /// Additional metadata for rich message types.
     /// Example for MeetingProposal: {"location":"SM North","time":"2026-04-20T15:00:00Z"}
     /// </summary>
@@ -63,8 +69,15 @@ public class MessageDTO
     /// <summary>
     /// Helper property to check if this is a system message.
     /// </summary>
-    public bool IsSystemMessage => MessageType == MessageType.OrderConfirmed ||
-                                   MessageType == MessageType.PaymentReminder;
+    public bool IsSystemMessage => SenderId == null ||
+                                   MessageType == MessageType.OrderConfirmed ||
+                                   MessageType == MessageType.PaymentReminder ||
+                                   MessageType == MessageType.ContextCard;
+
+    /// <summary>
+    /// Helper property to check if this is an event/status bubble (centered, no avatar).
+    /// </summary>
+    public bool IsEventBubble => SenderId == null;
 
     /// <summary>
     /// Helper property to check if this message has rich content.
@@ -78,6 +91,8 @@ public class MessageDTO
     {
         get
         {
+            if (IsEventBubble)
+                return "message-bubble event";
             if (IsSystemMessage)
                 return "message-bubble system";
 
