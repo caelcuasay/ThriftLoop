@@ -1,0 +1,89 @@
+/* Likes Page Styles - Matches Home Page Design */
+
+.likes-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.likes-page__title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    color: var(--c-text, #111118);
+}
+
+.likes-page__filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-border, #e2ddd6);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--color-text, #1a1814);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+}
+
+.filter-btn:hover {
+    border-color: var(--color-primary, #2d5a27);
+    color: var(--color-primary, #2d5a27);
+}
+
+.filter-btn--active {
+    background: var(--color-primary, #2d5a27);
+    border-color: var(--color-primary, #2d5a27);
+    color: #fff;
+}
+
+.filter-btn--active:hover {
+    background: color-mix(in srgb, var(--color-primary, #2d5a27) 90%, black);
+    color: #fff;
+}
+
+.likes-page__empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--color-muted, #6b6560);
+    font-family: 'DM Sans', sans-serif;
+}
+
+.likes-page__empty svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.likes-page__empty p {
+    font-size: 1.125rem;
+    margin-bottom: 1.5rem;
+}
+
+/* fy-card status badge for unavailable items */
+.fy-card__status-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* Override card styles for likes page */
+.likes-page__grid {
+    --min-col: 220px;
+}

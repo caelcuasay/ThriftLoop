@@ -54,79 +54,8 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/Shop.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
-    <style>
-            /* Discount display styles for details page */
-            .detail-price-block {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            }
-
-            .detail-price-row {
-                display: flex;
-                align-items: baseline;
-                gap: 12px;
-                flex-wrap: wrap;
-            }
-
-            .detail-price-original {
-                font-size: 1.1rem;
-                color: #9ca3af;
-                text-decoration: line-through;
-                font-weight: 400;
-            }
-
-            .detail-price-current {
-                font-size: 2rem;
-                font-weight: 700;
-                color: #1a1814;
-            }
-
-            .detail-discount-badge {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: #fee2e2;
-                color: #b91c1c;
-                font-size: 0.85rem;
-                font-weight: 600;
-                padding: 4px 12px;
-                border-radius: 24px;
-                line-height: 1;
-                white-space: nowrap;
-            }
-
-            .detail-discount-badge--inline {
-                margin-left: 0;
-            }
-
-            .detail-discount-expiry {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                margin-top: 8px;
-                font-size: 0.8rem;
-                color: #b91c1c;
-                font-weight: 500;
-            }
-
-                .detail-discount-expiry svg {
-                    flex-shrink: 0;
-                }
-
-            .detail-price-label {
-                font-size: 0.875rem;
-                color: #6b7280;
-            }
-
-            .detail-price-original-wrapper {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-    </style>
 </head>
-<body>
+<body class="shop-detail-page">
     @await Html.PartialAsync("_Navbar")
 
     <div class="detail-shell">
@@ -250,7 +179,7 @@
                     </span>
                     @if (hasDiscount)
                     {
-                        <span class="detail-discount-badge" style="margin-left: auto;">
+                        <span class="detail-discount-badge" style="margin-left:auto;">
                             -@(Model.DiscountPercentage?.ToString("F0"))% OFF
                         </span>
                     }
@@ -419,7 +348,7 @@
                                 class="tl-btn tl-btn--primary detail-actions__btn"
                                 id="buyNowBtn"
                                 disabled
-                                style="width:100%; padding:13px 20px; font-size:.9rem">
+>
                             <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
                                 <path d="M0 1.75A.75.75 0 01.75 1h1.628a1.75 1.75 0 011.734 1.51L4.358 4h9.109a.75.75 0 01.72.96l-1.5 5.25a.75.75 0 01-.72.54H5.744l.239 1.185A.25.25 0 006.22 12h7.28a.75.75 0 010 1.5H6.22a1.75 1.75 0 01-1.717-1.424L2.637 2.773A.25.25 0 002.395 2.5H.75A.75.75 0 010 1.75zM6 14.5a1 1 0 112 0 1 1 0 01-2 0zm6.5-1a1 1 0 100 2 1 1 0 000-2z" />
                             </svg>
@@ -429,7 +358,7 @@
                                 class="tl-btn tl-btn--ghost detail-actions__btn"
                                 id="addToCartBtn"
                                 disabled
-                                style="width:100%; padding:13px 20px; font-size:.9rem; margin-top:8px;">
+>
                             <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" aria-hidden="true">
                                 <path d="M.75 1a.75.75 0 000 1.5h1.256c.374.001.714.226.88.576l4.677 9.709a.75.75 0 001.346 0l3.15-6.532H9.25a.75.75 0 000-1.5h3a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0V4.81l-3.286 6.822a2.25 2.25 0 01-4.028 0L1.318 3.346A2.25 2.25 0 01.006 2.249V1.75A.75.75 0 01.75 1zM5.5 13a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM12 13a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                             </svg>

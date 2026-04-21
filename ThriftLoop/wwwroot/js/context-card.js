@@ -1,296 +1,236 @@
 // wwwroot/js/context-card.js
-// Context Card functionality for chat conversations
+// Handles ContextCard button actions and real-time UI updates via SignalR.
 
-window.contextCardHandler = {
-    contextCardDataCache: new Map(),
+(function () {
+    'use strict';
 
-    // Map incoming integer enums back to expected string values
-    // MUST match backend ContextCardStatus enum values (starting at 1)
-    normalizeStatus: function(status) {
-        if (!status && status !== 0) return '';
-        if (typeof status === 'string' && isNaN(parseInt(status))) return status; // Already a string
+    // ── Helpers ────────────────────────────────────────────────────────────
 
-        const statusMap = {
-            1: 'Pending',
-            2: 'Accepted',
-            3: 'ItemHandedOff',
-            4: 'ItemReceived',
-            5: 'Completed',
-            6: 'Cancelled',
-            7: 'Declined',
-            8: 'Expired'
-        };
-        return statusMap[parseInt(status)] || status.toString();
-    },
+    /**
+     * Maps the string action label from data-action attributes to the
+     * PascalCase enum value expected by the server.
+     */
+    const ACTION_MAP = {
+        'accept': 'Accept',
+        'decline': 'Decline',
+        'cancel': 'Cancel',
+        'item-handed-off': 'ItemHandedOff',
+        'item-received': 'ItemReceived',
+    };
 
-    // MUST match backend ContextCardAction enum values (starting at 1)
-    updateContextCard: function(contextCardId, action, paymentMethod = null) {
-        const actionMap = {
-            'accept':          1,
-            'decline':         2,
-            'cancel':          3,
-            'item-handed-off': 4,
-            'item-received':   5,
-            'SelectPayment':   6
-        };
+    const PAYMENT_MAP = {
+        'wallet': 'Wallet',
+        'cash': 'Cash',
+    };
 
-        const actionValue = actionMap[action];
-        if (actionValue === undefined) {
-            console.error('Unknown action:', action);
-            return Promise.reject(new Error('Unknown action: ' + action));
-        }
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
 
-        const data = { action: actionValue };
-        if (paymentMethod) {
-            data.paymentMethod = paymentMethod;
-        }
+    // ── API call ───────────────────────────────────────────────────────────
 
-        return fetch(`/api/ContextCard/${contextCardId}`, {
+    async function callUpdateApi(contextCardId, action, paymentMethod = null) {
+        const body = { action };
+        if (paymentMethod) body.paymentMethod = paymentMethod;
+
+        const response = await fetch(`/api/ContextCard/${contextCardId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                'RequestVerificationToken': getAntiForgeryToken(),
             },
-            body: JSON.stringify(data)
-        })
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 403) throw new Error('You are not authorized to perform this action.');
-                else if (response.status === 404) throw new Error('Context card not found.');
-                throw new Error('Failed to update context card.');
-            }
-            return response.json();
-        })
-        .then(updatedCard => {
-            this.updateContextCardUI(updatedCard);
-            return updatedCard;
-        })
-        .catch(error => {
-            console.error('Error updating context card:', error);
-            alert(error.message || 'Failed to update context card. Please try again.');
-            throw error;
+            body: JSON.stringify(body),
         });
-    },
 
-    updateContextCardUI: function(contextCard) {
-        const cardElement = document.querySelector(`[data-context-card-id="${contextCard.id}"]`);
-        if (!cardElement) return;
-
-        this.contextCardDataCache.set(contextCard.id, contextCard);
-
-        // Use the normalizer to ensure we have a string
-        const statusString = this.normalizeStatus(contextCard.status);
-        contextCard.normalizedStatus = statusString; // Cache it for the action builder
-
-        const statusBadge = cardElement.querySelector('.status-badge');
-        if (statusBadge && statusString) {
-            // Converts "ItemHandedOff" to "item-handed-off" for CSS matching
-            const cssClass = statusString.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-            statusBadge.className = `status-badge status-${cssClass}`;
-            statusBadge.textContent = this.formatStatus(statusString);
-        } else if (statusBadge) {
-            statusBadge.className = 'status-badge';
-            statusBadge.textContent = '';
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || `HTTP ${response.status}`);
         }
 
-        const timerElement = cardElement.querySelector('.timer-text');
-        if (timerElement) {
-            if (statusString === 'Pending') {
-                // Let updateTimers interval handle the countdown text
-            } else if (statusString === 'Completed') {
-                timerElement.textContent = 'Transaction completed';
-            } else if (['Cancelled', 'Declined', 'Expired'].includes(statusString)) {
-                timerElement.textContent = `Transaction ${statusString.toLowerCase()}`;
-            } else {
-                timerElement.textContent = 'Transaction in progress';
-            }
-        }
+        return response.json(); // Returns ContextCardDTO
+    }
 
-        this.updateActions(cardElement, contextCard);
+    // ── DOM rendering ──────────────────────────────────────────────────────
 
-        cardElement.setAttribute('data-status', statusString);
-        cardElement.setAttribute('data-expires-at', contextCard.expiresAt);
-        cardElement.setAttribute('data-is-seller', contextCard.isCurrentUserSeller);
-        cardElement.setAttribute('data-is-buyer', contextCard.isCurrentUserBuyer);
-    },
+    function statusBadgeHtml(status) {
+        const map = {
+            Pending: '<span class="status-badge status-pending">Pending</span>',
+            Accepted: '<span class="status-badge status-accepted">Accepted</span>',
+            ItemHandedOff: '<span class="status-badge status-handed-off">Item Handed Off</span>',
+            ItemReceived: '<span class="status-badge status-received">Item Received</span>',
+            Completed: '<span class="status-badge status-completed">Completed</span>',
+            Cancelled: '<span class="status-badge status-cancelled">Cancelled</span>',
+            Declined: '<span class="status-badge status-declined">Declined</span>',
+            Expired: '<span class="status-badge status-expired">Expired</span>',
+        };
+        return map[status] ?? `<span class="status-badge">${status}</span>`;
+    }
 
-    updateActions: function(cardElement, contextCard) {
-        const actionsContainer = cardElement.querySelector('.context-card-actions');
-        if (!actionsContainer) return;
+    function actionsHtml(card) {
+        const id = card.id;
+        const s = card.isCurrentUserSeller;
+        const b = card.isCurrentUserBuyer;
 
-        actionsContainer.innerHTML = '';
-        const statusString = contextCard.normalizedStatus || this.normalizeStatus(contextCard.status);
-
-        if (contextCard.isCurrentUserSeller) {
-            switch (statusString) {
+        if (s) {
+            switch (card.status) {
                 case 'Pending':
-                    actionsContainer.innerHTML = `
-                        <button type="button" class="btn btn-success btn-sm context-card-action" data-action="accept" data-context-card-id="${contextCard.id}">Accept</button>
-                        <button type="button" class="btn btn-danger btn-sm context-card-action" data-action="decline" data-context-card-id="${contextCard.id}">Decline</button>
-                    `;
-                    break;
+                    return `
+                        <button type="button" class="btn btn-success btn-sm context-card-action"
+                                data-action="accept" data-context-card-id="${id}">Accept</button>
+                        <button type="button" class="btn btn-danger btn-sm context-card-action"
+                                data-action="decline" data-context-card-id="${id}">Decline</button>`;
                 case 'Accepted':
-                    actionsContainer.innerHTML = `
-                        <button type="button" class="btn btn-primary btn-sm context-card-action" data-action="item-handed-off" data-context-card-id="${contextCard.id}">Item Handed Off</button>
-                    `;
-                    break;
+                    return `
+                        <button type="button" class="btn btn-primary btn-sm context-card-action"
+                                data-action="item-handed-off" data-context-card-id="${id}">Item Handed Off</button>`;
                 case 'ItemHandedOff':
                 case 'ItemReceived':
-                    actionsContainer.innerHTML = '<span class="action-text">Waiting for buyer to confirm receipt</span>';
-                    break;
+                    return `<span class="action-text">Waiting for buyer to confirm receipt</span>`;
             }
-        } else if (contextCard.isCurrentUserBuyer) {
-            switch (statusString) {
+        } else if (b) {
+            switch (card.status) {
                 case 'Pending':
-                    actionsContainer.innerHTML = `
-                        <button type="button" class="btn btn-secondary btn-sm context-card-action" data-action="cancel" data-context-card-id="${contextCard.id}">Cancel</button>
-                    `;
-                    break;
+                    return `
+                        <button type="button" class="btn btn-secondary btn-sm context-card-action"
+                                data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
                 case 'Accepted':
-                    actionsContainer.innerHTML = '<span class="action-text">Waiting for seller to hand off item</span>';
-                    break;
+                    return `<span class="action-text">Waiting for seller to hand off item</span>`;
                 case 'ItemHandedOff':
-                    actionsContainer.innerHTML = `
-                        <button type="button" class="btn btn-primary btn-sm context-card-action" data-action="item-received" data-context-card-id="${contextCard.id}"><i class="fas fa-check"></i> Item Received</button>
-                    `;
-                    break;
+                    return `
+                        <button type="button" class="btn btn-primary btn-sm context-card-action"
+                                data-action="item-received" data-context-card-id="${id}">Item Received</button>`;
                 case 'ItemReceived':
-                    actionsContainer.innerHTML = `
+                    return `
                         <div class="payment-selection">
                             <p class="payment-prompt">Select payment method:</p>
                             <div class="payment-options">
-                                <button type="button" class="btn btn-outline-primary btn-sm payment-option" data-payment="wallet" data-context-card-id="${contextCard.id}"><i class="fas fa-wallet"></i> Wallet</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm payment-option" data-payment="cash" data-context-card-id="${contextCard.id}"><i class="fas fa-money-bill-wave"></i> Cash</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm payment-option"
+                                        data-payment="wallet" data-context-card-id="${id}">
+                                    <i class="fas fa-wallet"></i> Wallet
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm payment-option"
+                                        data-payment="cash" data-context-card-id="${id}">
+                                    <i class="fas fa-money-bill-wave"></i> Cash
+                                </button>
                             </div>
-                        </div>
-                    `;
-                    break;
+                        </div>`;
             }
         }
+        return ''; // Terminal states: Completed / Declined / Cancelled / Expired
+    }
 
-        if (['Completed', 'Cancelled', 'Declined', 'Expired'].includes(statusString)) {
-            actionsContainer.innerHTML = `<span class="action-text">Transaction ${statusString.toLowerCase()}</span>`;
+    // ── UI update (called by SignalR + locally after API response) ─────────
+
+    /**
+     * Mutates the existing .context-card DOM element in place so there is
+     * no flash/full-replace.  Exposed on window.contextCardHandler so chat.js
+     * can call it when SignalR fires "ContextCardUpdated".
+     *
+     * @param {object} card  ContextCardDTO from the server (camelCase).
+     */
+    function updateContextCardUI(card) {
+        const cardEl = document.querySelector(`.context-card[data-context-card-id="${card.id}"]`);
+        if (!cardEl) {
+            console.warn('[ContextCard] Element not found for id:', card.id);
+            return;
         }
 
-        this.attachEventListeners();
-    },
+        // Sync data attributes
+        cardEl.dataset.status = card.status;
+        cardEl.dataset.expiresAt = card.expiresAt;
+        cardEl.dataset.isSeller = String(card.isCurrentUserSeller);
+        cardEl.dataset.isBuyer = String(card.isCurrentUserBuyer);
 
-    formatStatus: function(status) {
-        return status.replace(/([A-Z])/g, ' $1').trim();
-    },
+        // Status badge
+        const statusEl = cardEl.querySelector('.context-card-status');
+        if (statusEl) statusEl.innerHTML = statusBadgeHtml(card.status);
 
-    attachEventListeners: function() {
-        document.querySelectorAll('.context-card-action').forEach(button => {
-            button.removeEventListener('click', this.handleContextCardAction);
-            button.addEventListener('click', this.handleContextCardAction.bind(this));
+        // Timer section – hide once in a terminal state
+        const timerEl = cardEl.querySelector('.context-card-timer');
+        if (timerEl) {
+            const terminal = ['Completed', 'Cancelled', 'Declined', 'Expired'];
+            timerEl.style.display = terminal.includes(card.status) ? 'none' : '';
+        }
+
+        // Action buttons
+        const actionsEl = cardEl.querySelector('.context-card-actions');
+        if (actionsEl) {
+            actionsEl.innerHTML = actionsHtml(card);
+            bindButtons(cardEl);
+        }
+
+        console.log('[ContextCard] UI updated for card', card.id, '→', card.status);
+    }
+
+    // ── Button wiring ──────────────────────────────────────────────────────
+
+    function bindButtons(cardEl) {
+        // Action buttons (accept / decline / cancel / item-handed-off / item-received)
+        cardEl.querySelectorAll('.context-card-action').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const action = ACTION_MAP[this.dataset.action];
+                if (!action) return;
+                const cardId = parseInt(this.dataset.contextCardId, 10);
+
+                disableButtons(cardEl);
+                try {
+                    const updated = await callUpdateApi(cardId, action);
+                    // Optimistic local update; SignalR will also fire for the other user.
+                    updateContextCardUI(updated);
+                } catch (err) {
+                    console.error('[ContextCard] Action failed:', err);
+                    alert('Could not perform action: ' + err.message);
+                    enableButtons(cardEl);
+                }
+            });
         });
 
-        document.querySelectorAll('.payment-option').forEach(button => {
-            button.removeEventListener('click', this.handlePaymentSelection);
-            button.addEventListener('click', this.handlePaymentSelection.bind(this));
-        });
-    },
+        // Payment option buttons (wallet / cash)
+        cardEl.querySelectorAll('.payment-option').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const payment = PAYMENT_MAP[this.dataset.payment];
+                if (!payment) return;
+                const cardId = parseInt(this.dataset.contextCardId, 10);
 
-    handleContextCardAction: function(event) {
-        event.preventDefault();
-        const button = event.target.closest('.context-card-action');
-        if (!button) return;
-
-        const contextCardId = parseInt(button.getAttribute('data-context-card-id'));
-        const action = button.getAttribute('data-action');
-
-        if (!contextCardId || !action) return;
-
-        button.disabled = true;
-        const originalText = button.textContent;
-        button.textContent = 'Processing...';
-
-        this.updateContextCard(contextCardId, action)
-            .catch(() => {
-                button.disabled = false;
-                button.textContent = originalText;
-            });
-    },
-
-    handlePaymentSelection: function(event) {
-        event.preventDefault();
-        const button = event.target.closest('.payment-option');
-        if (!button) return;
-
-        const contextCardId = parseInt(button.getAttribute('data-context-card-id'));
-        const paymentMethod = button.getAttribute('data-payment');
-
-        if (!contextCardId || !paymentMethod) return;
-
-        // MUST match backend PaymentMethod enum: Wallet = 1, Cash = 2
-        const paymentMethodEnum = paymentMethod === 'wallet' ? 1 : 2;
-
-        document.querySelectorAll('.payment-option').forEach(btn => btn.disabled = true);
-
-        this.updateContextCard(contextCardId, 'SelectPayment', paymentMethodEnum)
-            .catch(() => {
-                document.querySelectorAll('.payment-option').forEach(btn => btn.disabled = false);
-            });
-    },
-
-    updateTimers: function() {
-        document.querySelectorAll('.context-card[data-status="Pending"]').forEach(card => {
-            const contextCardId = parseInt(card.getAttribute('data-context-card-id'));
-            const timerElement = card.querySelector('.timer-text');
-
-            if (timerElement) {
-                const contextCardData = this.contextCardDataCache.get(contextCardId);
-                let expiresAt;
-
-                if (contextCardData && contextCardData.expiresAt) {
-                    expiresAt = new Date(contextCardData.expiresAt);
-                } else {
-                    const expiresAtAttr = card.getAttribute('data-expires-at');
-                    if (expiresAtAttr) expiresAt = new Date(expiresAtAttr);
+                disableButtons(cardEl);
+                try {
+                    const updated = await callUpdateApi(cardId, 'SelectPayment', payment);
+                    updateContextCardUI(updated);
+                } catch (err) {
+                    console.error('[ContextCard] Payment selection failed:', err);
+                    alert('Could not select payment: ' + err.message);
+                    enableButtons(cardEl);
                 }
-
-                if (expiresAt) {
-                    const remaining = expiresAt - new Date();
-                    if (remaining > 0) {
-                        const hours = Math.floor(remaining / (1000 * 60 * 60));
-                        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        timerElement.innerHTML = `Expires in: <strong>${hours}h ${minutes}m</strong>`;
-                    } else {
-                        window.location.reload();
-                    }
-                }
-            }
+            });
         });
     }
-};
 
-// Initialize context card handlers on DOM ready
-document.addEventListener('DOMContentLoaded', function() {
-    if (!window.contextCardHandler) return;
+    function disableButtons(cardEl) {
+        cardEl.querySelectorAll('button').forEach(b => (b.disabled = true));
+    }
 
-    window.contextCardHandler.attachEventListeners();
+    function enableButtons(cardEl) {
+        cardEl.querySelectorAll('button').forEach(b => (b.disabled = false));
+    }
 
-    // Seed the cache from server-rendered context cards
-    document.querySelectorAll('.context-card').forEach(card => {
-        const id = parseInt(card.getAttribute('data-context-card-id'));
-        const expiresAt = card.getAttribute('data-expires-at');
-        const status = card.getAttribute('data-status');
-        const isSeller = card.getAttribute('data-is-seller') === 'true';
-        const isBuyer = card.getAttribute('data-is-buyer') === 'true';
+    // ── Page init ──────────────────────────────────────────────────────────
 
-        if (id && expiresAt) {
-            window.contextCardHandler.contextCardDataCache.set(id, {
-                id: id,
-                status: status,
-                expiresAt: expiresAt,
-                isCurrentUserSeller: isSeller,
-                isCurrentUserBuyer: isBuyer
-            });
-        }
-    });
+    function initialize() {
+        document.querySelectorAll('.context-card').forEach(cardEl => bindButtons(cardEl));
+        console.log('[ContextCard] Initialized', document.querySelectorAll('.context-card').length, 'card(s)');
+    }
 
-    // Update timers every 5 seconds for real-time countdown
-    setInterval(() => {
-        window.contextCardHandler.updateTimers();
-    }, 5000);
-});
+    // Expose the public interface consumed by chat.js
+    window.contextCardHandler = {
+        updateContextCardUI,
+        contextCardDataCache: new Map(), // kept for compatibility with testSignalRConnection()
+    };
+
+    // Run after DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+        initialize();
+    }
+
+})();

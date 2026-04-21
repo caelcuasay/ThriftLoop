@@ -7,7 +7,7 @@ using ThriftLoop.Services.Interface;
 
 namespace ThriftLoop.Hubs;
 
-//[Authorize] // Temporarily removed for debugging
+[Authorize] // Re-enabled for proper auth propagation
 public class ChatHub : Hub
 {
     private readonly IChatService _chatService;

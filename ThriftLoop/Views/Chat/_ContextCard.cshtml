@@ -354,3 +354,209 @@
     font-size: 13px;
 }
 </style>
+
+<script>
+    // Inline ContextCard JavaScript – loaded once per page even if partial renders multiple times
+    (function () {
+        'use strict';
+
+        if (window.contextCardHandler) return; // Already initialized
+
+        const ACTION_MAP = {
+            'accept': 'Accept',
+            'decline': 'Decline',
+            'cancel': 'Cancel',
+            'item-handed-off': 'ItemHandedOff',
+            'item-received': 'ItemReceived',
+        };
+
+        const PAYMENT_MAP = {
+            'wallet': 'Wallet',
+            'cash': 'Cash',
+        };
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+
+        async function callUpdateApi(contextCardId, action, paymentMethod = null) {
+            const body = { action };
+            if (paymentMethod) body.paymentMethod = paymentMethod;
+
+            const response = await fetch(`/api/ContextCard/${contextCardId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken(),
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || `HTTP ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        function statusBadgeHtml(status) {
+            const map = {
+                Pending: '<span class="status-badge status-pending">Pending</span>',
+                Accepted: '<span class="status-badge status-accepted">Accepted</span>',
+                ItemHandedOff: '<span class="status-badge status-handed-off">Item Handed Off</span>',
+                ItemReceived: '<span class="status-badge status-received">Item Received</span>',
+                Completed: '<span class="status-badge status-completed">Completed</span>',
+                Cancelled: '<span class="status-badge status-cancelled">Cancelled</span>',
+                Declined: '<span class="status-badge status-declined">Declined</span>',
+                Expired: '<span class="status-badge status-expired">Expired</span>',
+            };
+            return map[status] ?? `<span class="status-badge">${status}</span>`;
+        }
+
+        function actionsHtml(card) {
+            const id = card.id;
+            const s = card.isCurrentUserSeller;
+            const b = card.isCurrentUserBuyer;
+
+            if (s) {
+                switch (card.status) {
+                    case 'Pending':
+                        return `
+                            <button type="button" class="btn btn-success btn-sm context-card-action"
+                                    data-action="accept" data-context-card-id="${id}">Accept</button>
+                            <button type="button" class="btn btn-danger btn-sm context-card-action"
+                                    data-action="decline" data-context-card-id="${id}">Decline</button>`;
+                    case 'Accepted':
+                        return `
+                            <button type="button" class="btn btn-primary btn-sm context-card-action"
+                                    data-action="item-handed-off" data-context-card-id="${id}">Item Handed Off</button>`;
+                    case 'ItemHandedOff':
+                    case 'ItemReceived':
+                        return `<span class="action-text">Waiting for buyer to confirm receipt</span>`;
+                }
+            } else if (b) {
+                switch (card.status) {
+                    case 'Pending':
+                        return `
+                            <button type="button" class="btn btn-secondary btn-sm context-card-action"
+                                    data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
+                    case 'Accepted':
+                        return `<span class="action-text">Waiting for seller to hand off item</span>`;
+                    case 'ItemHandedOff':
+                        return `
+                            <button type="button" class="btn btn-primary btn-sm context-card-action"
+                                    data-action="item-received" data-context-card-id="${id}">Item Received</button>`;
+                    case 'ItemReceived':
+                        return `
+                            <div class="payment-selection">
+                                <p class="payment-prompt">Select payment method:</p>
+                                <div class="payment-options">
+                                    <button type="button" class="btn btn-outline-primary btn-sm payment-option"
+                                            data-payment="wallet" data-context-card-id="${id}">
+                                        <i class="fas fa-wallet"></i> Wallet
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm payment-option"
+                                            data-payment="cash" data-context-card-id="${id}">
+                                        <i class="fas fa-money-bill-wave"></i> Cash
+                                    </button>
+                                </div>
+                            </div>`;
+                }
+            }
+            return '';
+        }
+
+        function updateContextCardUI(card) {
+            const cardEl = document.querySelector(`.context-card[data-context-card-id="${card.id}"]`);
+            if (!cardEl) {
+                console.warn('[ContextCard] Element not found for id:', card.id);
+                return;
+            }
+
+            cardEl.dataset.status = card.status;
+            cardEl.dataset.expiresAt = card.expiresAt;
+            cardEl.dataset.isSeller = String(card.isCurrentUserSeller);
+            cardEl.dataset.isBuyer = String(card.isCurrentUserBuyer);
+
+            const statusEl = cardEl.querySelector('.context-card-status');
+            if (statusEl) statusEl.innerHTML = statusBadgeHtml(card.status);
+
+            const timerEl = cardEl.querySelector('.context-card-timer');
+            if (timerEl) {
+                const terminal = ['Completed', 'Cancelled', 'Declined', 'Expired'];
+                timerEl.style.display = terminal.includes(card.status) ? 'none' : '';
+            }
+
+            const actionsEl = cardEl.querySelector('.context-card-actions');
+            if (actionsEl) {
+                actionsEl.innerHTML = actionsHtml(card);
+                bindButtons(cardEl);
+            }
+
+            console.log('[ContextCard] UI updated for card', card.id, '→', card.status);
+        }
+
+        function bindButtons(cardEl) {
+            cardEl.querySelectorAll('.context-card-action').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const action = ACTION_MAP[this.dataset.action];
+                    if (!action) return;
+                    const cardId = parseInt(this.dataset.contextCardId, 10);
+
+                    disableButtons(cardEl);
+                    try {
+                        const updated = await callUpdateApi(cardId, action);
+                        updateContextCardUI(updated);
+                    } catch (err) {
+                        console.error('[ContextCard] Action failed:', err);
+                        alert('Could not perform action: ' + err.message);
+                        enableButtons(cardEl);
+                    }
+                });
+            });
+
+            cardEl.querySelectorAll('.payment-option').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const payment = PAYMENT_MAP[this.dataset.payment];
+                    if (!payment) return;
+                    const cardId = parseInt(this.dataset.contextCardId, 10);
+
+                    disableButtons(cardEl);
+                    try {
+                        const updated = await callUpdateApi(cardId, 'SelectPayment', payment);
+                        updateContextCardUI(updated);
+                    } catch (err) {
+                        console.error('[ContextCard] Payment selection failed:', err);
+                        alert('Could not select payment: ' + err.message);
+                        enableButtons(cardEl);
+                    }
+                });
+            });
+        }
+
+        function disableButtons(cardEl) {
+            cardEl.querySelectorAll('button').forEach(b => (b.disabled = true));
+        }
+
+        function enableButtons(cardEl) {
+            cardEl.querySelectorAll('button').forEach(b => (b.disabled = false));
+        }
+
+        function initialize() {
+            document.querySelectorAll('.context-card').forEach(cardEl => bindButtons(cardEl));
+            console.log('[ContextCard] Initialized', document.querySelectorAll('.context-card').length, 'card(s)');
+        }
+
+        window.contextCardHandler = {
+            updateContextCardUI,
+            contextCardDataCache: new Map(),
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
+        }
+    })();
+</script>

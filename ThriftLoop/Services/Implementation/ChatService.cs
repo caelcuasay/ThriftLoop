@@ -888,8 +888,8 @@ public class ChatService : IChatService
 
         await _context.SaveChangesAsync();
 
-        // Send real-time SignalR notifications - one per user with their perspective
-        ContextCardDTO BuildDto(int viewerUserId) => new ContextCardDTO
+        // ── Send one update to the whole conversation group ──────────────────────
+        var broadcastDto = new ContextCardDTO
         {
             Id = contextCard.Id,
             ConversationId = contextCard.ConversationId,
@@ -911,19 +911,15 @@ public class ChatService : IChatService
             CompletedAt = contextCard.CompletedAt,
             PaymentMethod = contextCard.PaymentMethod.HasValue
                 ? (ThriftLoop.DTOs.Chat.PaymentMethod?)contextCard.PaymentMethod.Value : null,
-            IsCurrentUserSeller = viewerUserId == contextCard.SellerId,
-            IsCurrentUserBuyer = viewerUserId == contextCard.BuyerId,
-            AvailableActions = GetAvailableActions(
-                contextCard.Status,
-                viewerUserId == contextCard.SellerId,
-                viewerUserId == contextCard.BuyerId)
+            // IsCurrentUserSeller/Buyer intentionally left false here;
+            // client resolves these from SellerId/BuyerId vs its own currentUserId
+            IsCurrentUserSeller = false,
+            IsCurrentUserBuyer = false,
+            AvailableActions = new List<ContextCardAction>()
         };
 
-        await _hubContext.Clients.Group($"user-{contextCard.SellerId}")
-            .SendAsync("ContextCardUpdated", BuildDto(contextCard.SellerId));
-
-        await _hubContext.Clients.Group($"user-{contextCard.BuyerId}")
-            .SendAsync("ContextCardUpdated", BuildDto(contextCard.BuyerId));
+        await _hubContext.Clients.Group($"conversation-{contextCard.ConversationId}")
+            .SendAsync("ContextCardUpdated", broadcastDto);
 
         // Send notification message
         await SendContextCardUpdateMessage(contextCard, action);

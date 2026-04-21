@@ -21,13 +21,21 @@ using ThriftLoop.Services.Implementation;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── MVC ───────────────────────────────────────────────────────────────────────
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.MaximumReceiveMessageSize = 32 * 1024; // 32 KB
+})
+.AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 
 // ── Database (EF Core + SQL Server) ──────────────────────────────────────────
@@ -52,6 +60,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
+
         options.ExpireTimeSpan = TimeSpan.FromHours(2);
     })
 
@@ -133,6 +142,7 @@ app.UseStaticFiles(new StaticFileOptions
             ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
             ctx.Context.Response.Headers.Append("Pragma", "no-cache");
             ctx.Context.Response.Headers.Append("Expires", "0");
+
         }
         // For CSS/JS files, use versioning (already handled by asp-append-version)
         else if (ctx.Context.Request.Path.StartsWithSegments("/css") ||

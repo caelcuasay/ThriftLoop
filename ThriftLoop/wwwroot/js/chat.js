@@ -250,10 +250,17 @@ function registerSignalRHandlers() {
     });
 
     connection.on("ContextCardUpdated", (contextCard) => {
-        if (window.contextCardHandler && window.contextCardHandler.updateContextCardUI) {
+        // Resolve role client-side — don't rely on flags from a broadcast payload
+        const myId = window.chatConfig?.currentUserId;
+        contextCard.isCurrentUserSeller = (myId === contextCard.sellerId);
+        contextCard.isCurrentUserBuyer = (myId === contextCard.buyerId);
+
+        if (window.contextCardHandler?.updateContextCardUI) {
             window.contextCardHandler.updateContextCardUI(contextCard);
         } else {
-            console.error("ContextCard handler or updateContextCardUI function not available!");
+            console.warn('[ContextCard] Handler not ready — reloading context cards');
+            // Fallback: if no card exists in DOM yet, reload the message list area
+            location.reload();
         }
     });
 

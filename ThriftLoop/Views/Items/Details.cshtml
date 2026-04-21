@@ -53,14 +53,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Items.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ItemDetails.css" asp-append-version="true" />
 </head>
 <body>
     @await Html.PartialAsync("_Navbar")
 
     <div class="detail-shell">
-
         <nav class="detail-breadcrumb" aria-label="Breadcrumb">
             <a asp-action="Index" asp-controller="Home" class="detail-breadcrumb__link">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -71,7 +70,6 @@
         </nav>
 
         <div class="detail-grid">
-
             <aside class="detail-img-col">
                 <div class="detail-gallery">
                     <div class="detail-img-frame" id="galleryMain">
@@ -189,7 +187,6 @@
                     }
                 </div>
 
-                @* Fulfillment Options Display (show what seller allows) *@
                 <div class="detail-fulfillment-badges">
                     @if (Model.AllowDelivery)
                     {
@@ -253,7 +250,7 @@
                                 </svg>
                             </div>
                             <div class="steal-countdown-card__body">
-                                <p class="steal-countdown-card__label">Steal window closed — finalise window open</p>
+                                <p class="steal-countdown-card__label">Finalise window open</p>
                                 <p class="steal-countdown-card__timer"
                                        id="finalizeTimer"
                                        data-ends-at="@(DateTime.SpecifyKind(Model.FinalizeDeadline!.Value, DateTimeKind.Utc).ToString("O"))">
@@ -278,15 +275,15 @@
                             <p class="steal-countdown-card__sub">
                                 @if (isCurrentWinner)
                                 {
-                                    @:Complete your checkout below, or cancel to restore the item to the previous holder.
+                                    @:Complete your checkout below, or cancel to restore the item.
                                 }
                                 else if (isOriginalGetter)
                                 {
-                                    @:Someone is stealing your item. If they cancel checkout, your reservation will be fully restored.
+                                    @:Someone is stealing your item. If they cancel, it returns to you.
                                 }
                                 else
                                 {
-                                    @:A buyer is completing a steal purchase. If they cancel, the item returns to its previous holder.
+                                    @:A buyer is completing a steal purchase.
                                 }
                             </p>
                         </div>
@@ -315,7 +312,7 @@
                         <span class="detail-fact__label">Listed</span>
                         <span class="detail-fact__value">
                             <time datetime="@Model.CreatedAt.ToString("yyyy-MM-dd")">
-                                @Model.CreatedAt.ToString("MMMM d, yyyy")
+                                @Model.CreatedAt.ToString("MMM d, yyyy")
                             </time>
                         </span>
                     </div>
@@ -363,15 +360,15 @@
                     <div class="detail-actions">
                         <a asp-action="Edit" asp-controller="Items" asp-route-id="@Model.Id"
                                class="detail-btn detail-btn--edit">
-                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                 <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                             </svg>
                             Edit Listing
                         </a>
                         <a asp-action="Delete" asp-controller="Items" asp-route-id="@Model.Id"
                                class="detail-btn detail-btn--delete">
-                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
+                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
                             </svg>
                             Delete Listing
                         </a>
@@ -402,7 +399,6 @@
                     {
                         @if (Model.Status != ItemStatus.Sold)
                         {
-                            @* Fulfillment Method Selection *@
                             <div class="detail-fulfillment-section">
                                 <label class="detail-fulfillment-label">How would you like to receive this item?</label>
                                 <div class="detail-fulfillment-options">
@@ -467,7 +463,6 @@
                                 </div>
                             </div>
 
-                            @* Price breakdown *@
                             <div class="detail-price-breakdown" id="priceBreakdown">
                                 <div class="detail-breakdown-row">
                                     <span>Item price</span>
@@ -483,25 +478,22 @@
                                 </div>
                             </div>
 
-                            @* Dynamic Action Button - changes based on selected fulfillment method *@
                             <div class="detail-actions">
-                                @* Buy Now form (for Delivery) *@
                                 <form asp-action="BuyNow" asp-controller="Items" method="get" id="buyNowForm" style="display: none;">
                                     <input type="hidden" name="id" value="@Model.Id" />
                                     <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput" value="@defaultFulfillmentMethod" />
                                     <button type="submit" class="detail-btn detail-btn--buy">
-                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                             <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                         </svg>
                                         Buy Now
                                     </button>
                                 </form>
 
-                                @* Contact Seller form (for Halfway/Pickup) *@
                                 <form asp-action="ContactSeller" asp-controller="Items" method="get" id="contactSellerForm" style="display: none;">
                                     <input type="hidden" name="id" value="@Model.Id" />
                                     <button type="submit" class="detail-btn detail-btn--contact">
-                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                             <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-2.5l-3.5 3-3.5-3H4a2 2 0 01-2-2V5z" />
                                         </svg>
                                         Contact Seller
@@ -527,7 +519,7 @@
                             <form asp-action="GetItem" asp-controller="Item" asp-route-id="@Model.Id" method="post" class="get-item-form">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="detail-btn detail-btn--get" data-get-item>
-                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                         <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                                     </svg>
                                     Get this Item
@@ -537,7 +529,6 @@
                         <p class="detail-steal-explainer">
                             Claiming this item reserves it at the base price. Another buyer can Steal it
                             — adding ₱50 — within the @Model.StealDurationHours-hour window.
-                            If no one steals it, the item is yours to finalise.
                         </p>
                     }
                     else if (Model.Status == ItemStatus.Reserved)
@@ -549,7 +540,7 @@
                                 <div class="detail-actions">
                                     <a asp-action="Checkout" asp-controller="Orders" asp-route-itemId="@Model.Id"
                                            class="detail-btn detail-btn--complete">
-                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                                         </svg>
@@ -557,18 +548,17 @@
                                     </a>
                                 </div>
                                 <p class="detail-steal-explainer detail-steal-explainer--winner">
-                                    The steal window has closed — the item is yours! Finalise your
-                                    purchase before your 2-hour grace period expires.
+                                    The steal window has closed — the item is yours!
                                 </p>
                             }
                             else
                             {
-                                <div class="detail-actions detail-actions--waiting">
+                                <div class="detail-actions--waiting">
                                     <div class="detail-winner-notice">
-                                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                                         </svg>
-                                        <span>You hold this item at <strong>₱@Model.Price.ToString("N2")</strong>. Watch the countdown — if no one steals it, you can finalise once the timer hits zero.</span>
+                                        <span>You hold this item at <strong>₱@Model.Price.ToString("N2")</strong>.</span>
                                     </div>
                                 </div>
 
@@ -584,7 +574,7 @@
                                         </button>
                                     </form>
                                     <p class="detail-cancel-get-note">
-                                        Cancelling releases your reservation and returns the item to available so anyone can claim it.
+                                        Cancelling releases your reservation.
                                     </p>
                                 </div>
                             }
@@ -597,7 +587,7 @@
                                     <form asp-action="StealItem" asp-controller="Item" asp-route-id="@Model.Id" method="post" class="steal-item-form">
                                         @Html.AntiForgeryToken()
                                         <button type="submit" class="detail-btn detail-btn--steal" data-steal-item>
-                                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                                                 <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
                                             </svg>
@@ -607,16 +597,14 @@
                                     </form>
                                 </div>
                                 <p class="detail-steal-explainer">
-                                    Someone has already claimed this item. Steal it now — the price
-                                    jumps by ₱50. You'll be sent to checkout to complete the purchase.
-                                    You can cancel the steal at checkout if you change your mind.
+                                    Someone has already claimed this item. Steal it now — the price jumps by ₱50.
                                 </p>
                             }
                             else if (Model.IsInFinalizeWindow)
                             {
-                                <div class="detail-actions detail-actions--waiting">
+                                <div class="detail-actions--waiting">
                                     <div class="detail-locked-notice">
-                                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
                                         </svg>
                                         <span>The steal window has closed. The original buyer is finalising their purchase.</span>
@@ -638,7 +626,7 @@
                             <div class="detail-actions">
                                 <a asp-action="Checkout" asp-controller="Orders" asp-route-itemId="@Model.Id"
                                        class="detail-btn detail-btn--complete">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="16" height="16">
                                         <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                                         <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                                     </svg>
@@ -646,29 +634,28 @@
                                 </a>
                             </div>
                             <p class="detail-steal-explainer detail-steal-explainer--winner">
-                                You stole this item at ₱@Model.Price.ToString("N2"). Complete your
-                                purchase to secure it — or cancel at checkout to return it to available.
+                                You stole this item at ₱@Model.Price.ToString("N2"). Complete your purchase to secure it.
                             </p>
                         }
                         else if (isOriginalGetter)
                         {
-                            <div class="detail-actions detail-actions--waiting">
+                            <div class="detail-actions--waiting">
                                 <div class="detail-winner-notice">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
                                     </svg>
-                                    <span>Someone is stealing your item at the higher price. If they don't complete checkout, your reservation will be fully restored automatically.</span>
+                                    <span>Someone is stealing your item. If they don't complete checkout, your reservation will be restored.</span>
                                 </div>
                             </div>
                         }
                         else
                         {
-                            <div class="detail-actions detail-actions--waiting">
+                            <div class="detail-actions--waiting">
                                 <div class="detail-locked-notice">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                                         <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
                                     </svg>
-                                    <span>A buyer is completing a steal purchase. If they cancel, the item returns to its previous holder.</span>
+                                    <span>A buyer is completing a steal purchase.</span>
                                 </div>
                             </div>
                         }
@@ -676,8 +663,8 @@
 
                     @if (TempData["InfoMessage"] is string infoMsg)
                     {
-                        <div class="create-toast create-toast--info" data-auto-hide>
-                            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                        <div class="create-toast" data-auto-hide>
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
                             </svg>
                             @infoMsg
@@ -697,7 +684,7 @@
                 </svg>
             </div>
             <h3 class="hiw-modal__title">How "Get" Works</h3>
-            <ul class="hiw-steps hiw-steps--get">
+            <ul class="hiw-steps">
                 <li class="hiw-step">
                     <span class="hiw-step__num">1</span>
                     <span class="hiw-step__text"><strong>Claim the item</strong> at the listed price</span>
@@ -708,7 +695,7 @@
                 </li>
                 <li class="hiw-step">
                     <span class="hiw-step__num">3</span>
-                    <span class="hiw-step__text">If no one steals, you have <strong>2 hours to finalise</strong> your purchase</span>
+                    <span class="hiw-step__text">If no one steals, you have <strong>2 hours to finalise</strong></span>
                 </li>
             </ul>
             <div class="hiw-modal__note">
@@ -734,7 +721,7 @@
                 </svg>
             </div>
             <h3 class="hiw-modal__title">How "Steal" Works</h3>
-            <ul class="hiw-steps hiw-steps--steal">
+            <ul class="hiw-steps">
                 <li class="hiw-step">
                     <span class="hiw-step__num">1</span>
                     <span class="hiw-step__text"><strong>Steal the item</strong> by paying the current price +₱50</span>
@@ -749,7 +736,7 @@
                 </li>
             </ul>
             <div class="hiw-modal__note">
-                If you cancel at checkout, the item returns to the previous holder at the original price.
+                If you cancel at checkout, the item returns to the previous holder.
             </div>
             <div class="hiw-modal__actions">
                 <button type="button" class="hiw-modal__proceed hiw-modal__proceed--steal" id="hiwStealProceed">Got it — Steal Item</button>
@@ -761,176 +748,17 @@
         </div>
     </div>
 
-    <style>
-            /* Fulfillment badges */
-            .detail-fulfillment-badges {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                margin: 0.75rem 0 0.5rem;
-            }
-
-            .fulfillment-badge {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.25rem;
-                padding: 0.25rem 0.75rem;
-                border-radius: 999px;
-                font-size: 0.75rem;
-                font-weight: 500;
-                background: #f3f4f6;
-                color: #4b5563;
-            }
-
-            .fulfillment-badge--delivery {
-                background: #e0f2fe;
-                color: #0369a1;
-            }
-
-            .fulfillment-badge--halfway {
-                background: #fef3c7;
-                color: #b45309;
-            }
-
-            .fulfillment-badge--pickup {
-                background: #dcfce7;
-                color: #15803d;
-            }
-
-            /* Fulfillment Options Styles */
-            .detail-fulfillment-section {
-                margin: 1.25rem 0 1rem;
-            }
-
-            .detail-fulfillment-label {
-                display: block;
-                font-size: 0.9rem;
-                font-weight: 600;
-                margin-bottom: 0.75rem;
-                color: #1a1814;
-            }
-
-            .detail-fulfillment-options {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .detail-fulfillment-option {
-                cursor: pointer;
-                display: block;
-            }
-
-            .detail-fulfillment-radio {
-                display: none;
-            }
-
-            .detail-fulfillment-option__content {
-                display: flex;
-                align-items: center;
-                gap: 0.75rem;
-                padding: 0.75rem 1rem;
-                border: 1.5px solid #e2ddd6;
-                border-radius: 10px;
-                transition: all 0.15s;
-            }
-
-            .detail-fulfillment-option--selected .detail-fulfillment-option__content,
-            .detail-fulfillment-radio:checked + .detail-fulfillment-option__content {
-                border-color: #2d5a27;
-                background: rgba(45, 90, 39, 0.02);
-            }
-
-            .detail-fulfillment-option__icon {
-                flex-shrink: 0;
-                color: #6b7280;
-            }
-
-            .detail-fulfillment-option--selected .detail-fulfillment-option__icon,
-            .detail-fulfillment-radio:checked + .detail-fulfillment-option__content .detail-fulfillment-option__icon {
-                color: #2d5a27;
-            }
-
-            .detail-fulfillment-option__info {
-                flex: 1;
-            }
-
-            .detail-fulfillment-option__title {
-                display: block;
-                font-weight: 600;
-                font-size: 0.9rem;
-                color: #1a1814;
-            }
-
-            .detail-fulfillment-option__description {
-                display: block;
-                font-size: 0.75rem;
-                color: #6b7280;
-                margin-top: 0.125rem;
-            }
-
-            /* Price Breakdown */
-            .detail-price-breakdown {
-                background: #f8f7f5;
-                border-radius: 10px;
-                padding: 1rem;
-                margin-bottom: 1.25rem;
-            }
-
-            .detail-breakdown-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 0.25rem 0;
-                font-size: 0.9rem;
-                color: #4b5563;
-            }
-
-            .detail-breakdown-row--total {
-                margin-top: 0.5rem;
-                padding-top: 0.5rem;
-                border-top: 1px solid #e2ddd6;
-                font-weight: 700;
-                font-size: 1rem;
-                color: #1a1814;
-            }
-
-            /* Contact Seller Button */
-            .detail-btn--contact {
-                width: 100%;
-                justify-content: center;
-                padding: 0.875rem 1.5rem;
-                font-size: 1rem;
-                background: #0095f6;
-                color: white;
-                border: none;
-            }
-
-                .detail-btn--contact:hover {
-                    background: #0074cc;
-                }
-
-            /* Fulfillment Hint */
-            .detail-fulfillment-hint {
-                margin-top: 0.75rem;
-                font-size: 0.8rem;
-                color: #6b7280;
-                text-align: center;
-            }
-    </style>
-
     <script>
             window.itemDetailsData = {
                 itemId: @Model.Id,
                 imageUrls: @Json.Serialize(Model.ImageUrls),
-                stealEndsAt: '@(Model.StealEndsAt.HasValue ? DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O") : "")',
-                finalizeDeadline: '@(Model.FinalizeDeadline.HasValue ? DateTime.SpecifyKind(Model.FinalizeDeadline.Value, DateTimeKind.Utc).ToString("O") : "")'
+                stealEndsAt: '@(Model.StealEndsAt.HasValue? DateTime.SpecifyKind(Model.StealEndsAt.Value, DateTimeKind.Utc).ToString("O") : "")',
+                finalizeDeadline: '@(Model.FinalizeDeadline.HasValue? DateTime.SpecifyKind(Model.FinalizeDeadline.Value, DateTimeKind.Utc).ToString("O") : "")'
             };
 
-            // Fulfillment method selection - switches between Buy Now and Contact Seller
             (function() {
                 'use strict';
-            
+        
                 const fulfillmentRadios = document.querySelectorAll('.detail-fulfillment-radio');
                 const fulfillmentInput = document.getElementById('fulfillmentMethodInput');
                 const deliveryFeeRow = document.getElementById('deliveryFeeRow');
@@ -939,42 +767,36 @@
                 const buyNowForm = document.getElementById('buyNowForm');
                 const contactSellerForm = document.getElementById('contactSellerForm');
                 const fulfillmentHint = document.getElementById('fulfillmentHint');
-            
+        
                 const itemPrice = @Model.Price;
                 const deliveryFee = 50.00;
-            
+        
                 function updateFulfillmentUI(method) {
-                    // Update option selection styling
                     fulfillmentOptions.forEach(function(opt) {
                         opt.classList.remove('detail-fulfillment-option--selected');
                     });
-                
+            
                     const selectedOption = document.querySelector('.detail-fulfillment-option[data-method="' + method + '"]');
                     if (selectedOption) {
                         selectedOption.classList.add('detail-fulfillment-option--selected');
                     }
-                
+            
                     const isDelivery = method === 'Delivery';
                     const isHalfway = method === 'Halfway';
-                    const isPickup = method === 'Pickup';
-                
-                    // Show/hide delivery fee row
+            
                     if (deliveryFeeRow) {
                         deliveryFeeRow.style.display = isDelivery ? 'flex' : 'none';
                     }
-                
-                    // Calculate and update total price
+            
                     const total = isDelivery ? itemPrice + deliveryFee : itemPrice;
                     if (totalPriceDisplay) {
                         totalPriceDisplay.textContent = '₱' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
                     }
-                
-                    // Update hidden input
+            
                     if (fulfillmentInput) {
                         fulfillmentInput.value = method;
                     }
-                
-                    // Toggle between Buy Now and Contact Seller forms
+            
                     if (buyNowForm && contactSellerForm) {
                         if (isDelivery) {
                             buyNowForm.style.display = 'block';
@@ -993,14 +815,14 @@
                         }
                     }
                 }
-            
+        
                 if (fulfillmentRadios.length > 0) {
                     fulfillmentRadios.forEach(function(radio) {
                         radio.addEventListener('change', function() {
                             updateFulfillmentUI(radio.value);
                         });
                     });
-                
+            
                     fulfillmentOptions.forEach(function(opt) {
                         opt.addEventListener('click', function(e) {
                             const radio = this.querySelector('.detail-fulfillment-radio');
@@ -1010,13 +832,11 @@
                             }
                         });
                     });
-                
-                    // Initialize UI with default selection
+            
                     const checkedFulfillment = document.querySelector('.detail-fulfillment-radio:checked');
                     if (checkedFulfillment) {
                         updateFulfillmentUI(checkedFulfillment.value);
                     } else {
-                        // Default to first available option
                         const firstOption = document.querySelector('.detail-fulfillment-radio');
                         if (firstOption) {
                             firstOption.checked = true;

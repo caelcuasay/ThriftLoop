@@ -115,12 +115,9 @@ def get_feature_variants(feature: str) -> list:
         singular,                   # Singular (chat)
         plural,                    # Plural (chats)
         feature.lower(),           # lowercase (chat)
-        feature.upper(),           # UPPERCASE (CHAT)
         feature.capitalize(),      # Capitalized (Chat)
         singular.capitalize(),     # Singular capitalized (Chat)
         plural.capitalize(),       # Plural capitalized (Chats)
-        feature.replace('_', ''),  # No underscores
-        feature.replace('-', ''),  # No hyphens
     ]
     
     # Add camelCase and PascalCase variations
@@ -136,7 +133,6 @@ def search_for_feature_files(feature: str, cwd: Path, exclude_patterns: list) ->
     """Comprehensive search for all files related to a feature."""
     feature_files = set()
     variants = get_feature_variants(feature)
-    singular = normalize_feature_name(feature)
     
     print(f"     Searching with variants: {', '.join(variants[:5])}{'...' if len(variants) > 5 else ''}")
     
@@ -217,22 +213,9 @@ def search_for_feature_files(feature: str, cwd: Path, exclude_patterns: list) ->
     
     return feature_files
 
-def find_related_files_from_content(feature_files: set, cwd: Path, exclude_patterns: list) -> set:
-    """Analyze already found files to discover more related files."""
+def find_related_files_from_content(feature_files: set, cwd: Path, exclude_patterns: list, feature_variants: set) -> set:
+    """Analyze already found files to discover more related files - but only those matching the feature."""
     additional_files = set()
-    variants = set()
-    
-    # Extract feature names from found files
-    for file in feature_files:
-        name_without_ext = file.stem
-        # Remove common suffixes
-        for suffix in ['Controller', 'Service', 'Repository', 'Hub', 'Model', 'Dto', 'ViewModel', 
-                      'View', 'Component', 'Page', 'Handler', 'Validator', 'Middleware']:
-            if name_without_ext.endswith(suffix):
-                feature_name = name_without_ext[:-len(suffix)]
-                variants.add(feature_name)
-                variants.add(feature_name.lower())
-                variants.add(feature_name.capitalize())
     
     # Parse file contents for references to other files
     for file in feature_files:
@@ -240,78 +223,42 @@ def find_related_files_from_content(feature_files: set, cwd: Path, exclude_patte
             try:
                 content = file.read_text(encoding='utf-8')
                 
-                # Find interface implementations
-                interfaces = re.findall(r':\s*(I[A-Z][a-zA-Z0-9]+)', content)
-                for interface in interfaces:
-                    impl_name = interface[1:]  # Remove 'I'
-                    # Search for the implementation
-                    for impl_file in cwd.rglob(f'*{impl_name}.cs'):
-                        if any(ex in impl_file.parts for ex in EXCLUDE_DIRS):
-                            continue
-                        if not should_exclude_file(impl_file, exclude_patterns):
-                            additional_files.add(impl_file)
+                # Find constructor injections - only keep those that match feature variants
+                constructor_match = re.search(r'public\s+\w+\s*\(([^)]*)\)', content)
+                if constructor_match:
+                    params_text = constructor_match.group(1)
+                    # Look for interface parameters
+                    interface_matches = re.findall(r'I(\w+)\s+\w+', params_text)
+                    for interface_name in interface_matches:
+                        # Only include if the interface name contains a feature variant
+                        if any(variant.lower() in interface_name.lower() for variant in feature_variants):
+                            # Search for the implementation
+                            for impl_file in cwd.rglob(f'*{interface_name}.cs'):
+                                if any(ex in impl_file.parts for ex in EXCLUDE_DIRS):
+                                    continue
+                                if not should_exclude_file(impl_file, exclude_patterns):
+                                    additional_files.add(impl_file)
                 
-                # Find constructor injections
-                constructor_params = re.findall(r'\(\s*([^)]+)\s*\)', content)
-                for params in constructor_params[:1]:  # Usually first one is constructor
-                    for param in params.split(','):
-                        param = param.strip()
-                        if 'I' in param:
-                            # Extract interface name
-                            interface_match = re.search(r'I[A-Z][a-zA-Z0-9]+', param)
-                            if interface_match:
-                                interface_name = interface_match.group(0)
-                                impl_name = interface_name[1:]
-                                
-                                # Search for the service/repository
-                                for impl_file in cwd.rglob(f'*{impl_name}.cs'):
-                                    if any(ex in impl_file.parts for ex in EXCLUDE_DIRS):
-                                        continue
-                                    if not should_exclude_file(impl_file, exclude_patterns):
-                                        additional_files.add(impl_file)
-                
-                # Find DbSet references
+                # Find DbSet references - but only for models matching our feature
                 dbsets = re.findall(r'DbSet<([^>]+)>', content)
                 for dbset in dbsets:
                     model_name = dbset.strip()
-                    for model_file in cwd.rglob(f'*{model_name}.cs'):
-                        if 'Models' in model_file.parts or 'Entities' in model_file.parts:
-                            if not should_exclude_file(model_file, exclude_patterns):
-                                additional_files.add(model_file)
+                    # Only include if the model name contains a feature variant
+                    if any(variant.lower() in model_name.lower() for variant in feature_variants):
+                        for model_file in cwd.rglob(f'*{model_name}.cs'):
+                            if 'Models' in model_file.parts or 'Entities' in model_file.parts:
+                                if not should_exclude_file(model_file, exclude_patterns):
+                                    additional_files.add(model_file)
                 
-                # Find using statements for related namespaces
-                usings = re.findall(r'using\s+([^;]+);', content)
-                for ns in usings:
-                    if any(variant.lower() in ns.lower() for variant in variants):
-                        # This namespace might contain related files
-                        ns_parts = ns.split('.')
-                        for i, part in enumerate(ns_parts):
-                            if any(variant.lower() in part.lower() for variant in variants):
-                                # Search for files in this namespace path
-                                search_path = cwd.joinpath(*ns_parts[:i+1])
-                                if search_path.exists():
-                                    for file_in_ns in search_path.rglob('*.cs'):
-                                        if not should_exclude_file(file_in_ns, exclude_patterns):
-                                            additional_files.add(file_in_ns)
-                
-                # Find SignalR Hub references
+                # Find SignalR Hub references - only matching our feature
                 hub_references = re.findall(r'IHubContext<([^>]+)>', content)
-                hub_references.extend(re.findall(r'HubConnection.*?url:\s*["\']([^"\']+)["\']', content))
                 for hub_ref in hub_references:
-                    hub_name = hub_ref.split('/')[-1].replace('Hub', '')
-                    if hub_name:
-                        for hub_file in cwd.rglob(f'*{hub_name}Hub.cs'):
+                    hub_name = hub_ref.strip()
+                    # Only include if the hub name contains a feature variant
+                    if any(variant.lower() in hub_name.lower() for variant in feature_variants):
+                        for hub_file in cwd.rglob(f'*{hub_name}.cs'):
                             if not should_exclude_file(hub_file, exclude_patterns):
                                 additional_files.add(hub_file)
-                
-                # Find AutoMapper Profile references
-                if 'CreateMap' in content:
-                    map_types = re.findall(r'CreateMap<([^,>]+),\s*([^>]+)>', content)
-                    for source, dest in map_types:
-                        for type_name in [source.strip(), dest.strip()]:
-                            for type_file in cwd.rglob(f'*{type_name}.cs'):
-                                if not should_exclude_file(type_file, exclude_patterns):
-                                    additional_files.add(type_file)
                 
             except Exception:
                 pass  # Silently skip parsing errors
@@ -324,17 +271,13 @@ def find_related_files_from_content(feature_files: set, cwd: Path, exclude_patte
                 script_srcs = re.findall(r'src=["\']([^"\']+)["\']', content)
                 for src in script_srcs:
                     if not src.startswith(('http://', 'https://', '//')):
-                        js_file = wwwroot / src.lstrip('/')
-                        if js_file.exists() and not should_exclude_file(js_file, exclude_patterns):
-                            additional_files.add(js_file)
-                
-                # Find CSS references
-                link_hrefs = re.findall(r'href=["\']([^"\']+\.css)["\']', content)
-                for href in link_hrefs:
-                    if not href.startswith(('http://', 'https://', '//')):
-                        css_file = wwwroot / href.lstrip('/')
-                        if css_file.exists() and not should_exclude_file(css_file, exclude_patterns):
-                            additional_files.add(css_file)
+                        # Check if the script name contains feature variant
+                        src_path = Path(src)
+                        if any(variant.lower() in src_path.stem.lower() for variant in feature_variants):
+                            wwwroot = cwd / 'wwwroot'
+                            js_file = wwwroot / src.lstrip('/')
+                            if js_file.exists() and not should_exclude_file(js_file, exclude_patterns):
+                                additional_files.add(js_file)
                 
             except Exception:
                 pass
@@ -346,6 +289,14 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
     cwd = Path.cwd()
     feature_files = set()
     exclude_patterns = exclude_patterns or []
+    all_variants = set()
+    
+    # Collect all variants for all features
+    for feature in feature_names:
+        variants = get_feature_variants(feature)
+        all_variants.update(variants)
+        all_variants.add(feature.lower())
+        all_variants.add(feature.capitalize())
     
     # Always include these core files (unless excluded)
     for filename in ALWAYS_INCLUDE:
@@ -371,7 +322,7 @@ def resolve_features(feature_names: list, exclude_patterns: list = None) -> set:
         
         # Step 2: Find related files by analyzing content of found files
         print(f"     🔗 Analyzing dependencies...")
-        related_files = find_related_files_from_content(feature_files, cwd, exclude_patterns)
+        related_files = find_related_files_from_content(feature_files, cwd, exclude_patterns, all_variants)
         
         new_files = related_files - feature_files
         if new_files:
