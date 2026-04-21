@@ -70,4 +70,11 @@ public interface IWalletService
     /// </summary>
     Task<bool> RequestWithdrawalAsync(
         int userId, decimal amount, WithdrawalMethod method, string? reference);
+
+    /// <summary>
+    /// Transfers <paramref name="amount"/> directly from buyer's available Balance
+    /// to seller's Balance (wallet-to-wallet payment without escrow).
+    /// Throws <see cref="InvalidOperationException"/> if buyer has insufficient funds.
+    /// </summary>
+    Task TransferWalletToWalletAsync(int orderId, int buyerId, int sellerId, decimal amount);
 }

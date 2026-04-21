@@ -158,12 +158,24 @@
                 case ContextCardStatus.ItemReceived:
                     <div class="payment-selection">
                         <p class="payment-prompt">Select payment method:</p>
+                        <div class="wallet-balance-info">
+                            <span class="balance-label">Your Balance:</span>
+                            <span class="balance-amount @(Model.HasEnoughBalance ? "balance-ok" : "balance-low")">
+                                ₱@Model.BuyerWalletBalance.ToString("N2")
+                            </span>
+                            @if (!Model.HasEnoughBalance)
+                            {
+                                <span class="balance-warning">(Insufficient funds)</span>
+                            }
+                        </div>
                         <div class="payment-options">
-                            <button type="button" class="btn btn-outline-primary btn-sm payment-option" 
-                                    data-payment="wallet" data-context-card-id="@Model.Id">
+                            <button type="button" class="btn btn-outline-primary btn-sm payment-option @(Model.HasEnoughBalance ? "" : "disabled")"
+                                    data-payment="wallet" data-context-card-id="@Model.Id"
+                                    @(Model.HasEnoughBalance ? "" : "disabled")
+                                    title="@(Model.HasEnoughBalance ? "Pay with Wallet" : $"Need ₱{(Model.ItemPrice - Model.BuyerWalletBalance):N2} more")">
                                 <i class="fas fa-wallet"></i> Wallet
                             </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm payment-option" 
+                            <button type="button" class="btn btn-outline-primary btn-sm payment-option"
                                     data-payment="cash" data-context-card-id="@Model.Id">
                                 <i class="fas fa-money-bill-wave"></i> Cash
                             </button>
@@ -346,6 +358,49 @@
     align-items: center;
     gap: 4px;
     min-width: 80px;
+}
+
+.payment-option:disabled,
+.payment-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.wallet-balance-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    padding: 8px;
+    background: #f9fafb;
+    border-radius: 8px;
+}
+
+.balance-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.balance-amount {
+    font-weight: 600;
+}
+
+.balance-ok {
+    color: #059669;
+}
+
+.balance-low {
+    color: #dc2626;
+}
+
+.balance-warning {
+    color: #dc2626;
+    font-size: 11px;
+    font-style: italic;
 }
 
 .context-card[data-status="completed"] .context-card-actions,
@@ -539,16 +594,32 @@
                 btn.addEventListener('click', async function () {
                     const payment = PAYMENT_MAP[this.dataset.payment];
                     if (!payment) return;
-                    const cardId = parseInt(this.dataset.contextCardId, 10);
 
-                    disableButtons(cardEl);
+                    // Skip if button is disabled
+                    if (this.disabled || this.classList.contains('disabled')) {
+                        return;
+                    }
+
+                    const cardId = parseInt(this.dataset.contextCardId, 10);
+                    const targetCardEl = document.querySelector(`.context-card[data-context-card-id="${cardId}"]`);
+                    const itemPrice = targetCardEl?.querySelector('.context-card-price')?.textContent || '';
+
+                    // Confirmation dialog for Wallet payment
+                    if (payment === 'Wallet') {
+                        const confirmed = confirm(`Confirm Wallet Payment\n\nYou are about to pay ${itemPrice} from your wallet.\n\nThis action cannot be undone.\n\nDo you want to proceed?`);
+                        if (!confirmed) {
+                            return; // User cancelled
+                        }
+                    }
+
+                    disableButtons(targetCardEl);
                     try {
                         const updated = await callUpdateApi(cardId, 'SelectPayment', payment);
                         updateContextCardUI(updated);
                     } catch (err) {
                         console.error('[ContextCard] Payment selection failed:', err);
                         alert('Could not select payment: ' + err.message);
-                        enableButtons(cardEl);
+                        enableButtons(targetCardEl);
                     }
                 });
             });

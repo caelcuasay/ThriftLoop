@@ -186,6 +186,49 @@ public class WalletService : IWalletService
             actualRelease, buyerId, sellerId, orderId);
     }
 
+    /// <inheritdoc />
+    public async Task TransferWalletToWalletAsync(int orderId, int buyerId, int sellerId, decimal amount)
+    {
+        var buyerWallet = await GetOrCreateWalletAsync(buyerId);
+        var sellerWallet = await GetOrCreateWalletAsync(sellerId);
+
+        // Verify buyer has sufficient available balance
+        if (buyerWallet.Balance < amount)
+        {
+            throw new InvalidOperationException(
+                $"Insufficient wallet balance. Required: ₱{amount:N2}, Available: ₱{buyerWallet.Balance:N2}");
+        }
+
+        // Debit buyer's available balance
+        buyerWallet.Balance -= amount;
+        buyerWallet.UpdatedAt = DateTime.UtcNow;
+
+        // Credit seller's balance
+        sellerWallet.Balance += amount;
+        sellerWallet.UpdatedAt = DateTime.UtcNow;
+
+        await _walletRepo.UpdateAsync(buyerWallet);
+        await _walletRepo.UpdateAsync(sellerWallet);
+
+        // Record the wallet-to-wallet transaction
+        await _txRepo.AddAsync(new Transaction
+        {
+            OrderId = orderId,
+            FromUserId = buyerId,
+            ToUserId = sellerId,
+            ToRiderId = null,
+            Amount = amount,
+            Type = TransactionType.WalletPayment,
+            Status = TransactionStatus.Completed,
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow
+        });
+
+        _logger.LogInformation(
+            "WalletPayment ₱{Amount} from User {BuyerId} → User {SellerId} for Order {OrderId}.",
+            amount, buyerId, sellerId, orderId);
+    }
+
     // ── Cash on Delivery ───────────────────────────────────────────────────
 
     /// <inheritdoc />

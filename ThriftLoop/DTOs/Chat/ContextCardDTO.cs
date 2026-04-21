@@ -70,7 +70,17 @@ public class ContextCardDTO
     /// Whether the current user is the buyer in this transaction.
     /// </summary>
     public bool IsCurrentUserBuyer { get; set; }
-    
+
+    /// <summary>
+    /// Buyer's current wallet balance (only populated for buyer view).
+    /// </summary>
+    public decimal BuyerWalletBalance { get; set; }
+
+    /// <summary>
+    /// Whether the buyer has enough balance to pay for this item.
+    /// </summary>
+    public bool HasEnoughBalance => BuyerWalletBalance >= ItemPrice;
+
     /// <summary>
     /// Available actions for the current user based on their role and card status.
     /// </summary>
