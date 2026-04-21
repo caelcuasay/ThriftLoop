@@ -20,7 +20,7 @@ using ThriftLoop.Repositories.Interface;
 
 using ThriftLoop.Services.Interface;
 
-
+using ThriftLoop.Services.WalletManagement.Interface;
 
 namespace ThriftLoop.Services.Implementation;
 
@@ -44,45 +44,29 @@ public class ChatService : IChatService
 
     private readonly IHubContext<ChatHub> _hubContext;
 
+    private readonly IWalletService _walletService; // Added IWalletService field
+
     private static readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web);
 
-
-
     public ChatService(
-
         IConversationRepository conversationRepo,
-
         IMessageRepository messageRepo,
-
         IUserRepository userRepo,
-
         IChatNotificationService notificationService,
-
         ApplicationDbContext context,
-
         ILogger<ChatService> logger,
-
-        IHubContext<ChatHub> hubContext)
-
+        IHubContext<ChatHub> hubContext,
+        IWalletService walletService) // Added IWalletService parameter
     {
-
         _conversationRepo = conversationRepo;
-
         _messageRepo = messageRepo;
-
         _userRepo = userRepo;
-
         _notificationService = notificationService;
-
         _context = context;
-
         _logger = logger;
-
         _hubContext = hubContext;
-
+        _walletService = walletService; // Assigned IWalletService parameter
     }
-
-
 
     public async Task<List<ConversationDTO>> GetUserInboxAsync(int userId, int page = 1, int pageSize = 20)
 
@@ -679,34 +663,6 @@ public class ChatService : IChatService
             // Create a new context card for this item inquiry
 
             await CreateContextCardAsync(conversation.Id, itemId, buyerId, sellerId);
-
-        }
-
-
-
-        // Check if we already sent an order reference for this item
-
-        var hasOrderReference = await _messageRepo.HasOrderReferenceForItemAsync(conversation.Id, itemId);
-
-
-
-        if (!hasOrderReference)
-
-        {
-
-            // Send order reference message (as system or buyer)
-
-            await _messageRepo.CreateOrderReferenceMessageAsync(
-
-                conversation.Id,
-
-                buyerId,
-
-                itemId,
-
-                orderId: null,
-
-                messageType: MessageType.OrderReference);
 
         }
 
@@ -1428,7 +1384,7 @@ public class ChatService : IChatService
 
             SenderId = null, // System message
 
-            Content = "Context card created",
+            Content = "Inquiry Created",
 
             MessageType = MessageType.ContextCard,
 
@@ -1530,6 +1486,26 @@ public class ChatService : IChatService
 
         {
 
+            var isCurrentUserBuyer = currentUserId == card.BuyerId;
+
+            decimal buyerWalletBalance = 0;
+
+            
+
+            // Get buyer's wallet balance if current user is the buyer
+
+            if (isCurrentUserBuyer)
+
+            {
+
+                var buyerWallet = await _walletService.GetOrCreateWalletAsync(card.BuyerId);
+
+                buyerWalletBalance = buyerWallet.Balance;
+
+            }
+
+
+
             var dto = new ContextCardDTO
 
             {
@@ -1574,9 +1550,11 @@ public class ChatService : IChatService
 
                 IsCurrentUserSeller = currentUserId == card.SellerId,
 
-                IsCurrentUserBuyer = currentUserId == card.BuyerId,
+                IsCurrentUserBuyer = isCurrentUserBuyer,
 
-                AvailableActions = GetAvailableActions(card.Status, currentUserId == card.SellerId, currentUserId == card.BuyerId)
+                BuyerWalletBalance = buyerWalletBalance,
+
+                AvailableActions = GetAvailableActions(card.Status, currentUserId == card.SellerId, isCurrentUserBuyer)
 
             };
 
@@ -1778,7 +1756,55 @@ public class ChatService : IChatService
 
                 }
 
+                
+
+                // Process wallet payment - transfer funds from buyer to seller
+
+                if (paymentMethod.Value == ThriftLoop.DTOs.Chat.PaymentMethod.Wallet)
+
+                {
+
+                    _logger.LogInformation("Processing wallet payment for ContextCard {ContextCardId}: Buyer {BuyerId} paying Seller {SellerId} ₱{Amount}",
+
+                        contextCard.Id, contextCard.BuyerId, contextCard.SellerId, contextCard.Item.Price);
+
+                    
+
+                    // Check buyer has sufficient balance
+
+                    var buyerWallet = await _walletService.GetOrCreateWalletAsync(contextCard.BuyerId);
+
+                    if (buyerWallet.Balance < contextCard.Item.Price)
+
+                    {
+
+                        throw new InvalidOperationException($"Insufficient wallet balance. Required: ₱{contextCard.Item.Price:N2}, Available: ₱{buyerWallet.Balance:N2}");
+
+                    }
+
+                    
+
+                    // Transfer funds: buyer -> seller (direct wallet-to-wallet transfer)
+
+                    await _walletService.TransferWalletToWalletAsync(
+
+                        contextCard.OrderId ?? 0,
+
+                        contextCard.BuyerId,
+
+                        contextCard.SellerId,
+
+                        contextCard.Item.Price);
+
+                    
+
+                    _logger.LogInformation("Wallet payment completed successfully for ContextCard {ContextCardId}", contextCard.Id);
+
+                }
+
                 break;
+
+
 
         }
 
@@ -2068,7 +2094,9 @@ public class ChatService : IChatService
 
             ContextCardAction.ItemReceived => "Buyer has received the item.",
 
-            ContextCardAction.SelectPayment => $"Payment method selected: {contextCard.PaymentMethod}",
+            ContextCardAction.SelectPayment => contextCard.PaymentMethod == ThriftLoop.Enums.PaymentMethod.Wallet
+                ? "Wallet"
+                : $"Payment method selected: {contextCard.PaymentMethod}",
 
             _ => "Transaction status updated."
 

@@ -29,7 +29,13 @@ public enum TransactionType
     /// <summary>Funds added to a wallet (demo top-up or future payment gateway).</summary>
     TopUp,
 
-    DeliveryFeePayment
+    DeliveryFeePayment,
+
+    /// <summary>
+    /// Direct wallet-to-wallet payment without escrow.
+    /// Funds moved from buyer Balance → seller Balance.
+    /// </summary>
+    WalletPayment
 
 }
 
