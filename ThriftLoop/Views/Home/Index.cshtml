@@ -9,6 +9,30 @@
 
     var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
     ViewBag.MaxPrice = maxPrice;
+
+    // Helper to get location preview - skip last 3 parts, if 4+ remain skip first part
+    string GetLocationPreview(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return "Unknown";
+
+        var parts = address.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim())
+                           .Where(p => !string.IsNullOrWhiteSpace(p))
+                           .ToList();
+
+        if (parts.Count <= 3)
+            return address.Trim(); // Too short, return as-is
+
+        // Skip last 3 parts (country, region, province)
+        var remaining = parts.Take(parts.Count - 3).ToList();
+
+        // If 4+ parts remain, skip the first one (street address detail)
+        if (remaining.Count >= 4)
+            remaining = remaining.Skip(1).ToList();
+
+        return string.Join(", ", remaining);
+    }
 }
 
 <!DOCTYPE html>
@@ -118,6 +142,41 @@
 
             .fy-card--sold .fy-card__discount-expiry {
                 color: #9ca3af;
+            }
+
+            /* Location display */
+            .fy-card__top {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .fy-card__location-row {
+                margin-top: 8px;
+                display: flex;
+                align-items: center;
+            }
+
+            .fy-card__location {
+                font-size: 0.75rem;
+                color: var(--color-muted, #6b6560);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+
+            .fy-card__category {
+                font-size: 0.75rem;
+                color: var(--color-primary, #6d4c3d);
+                font-weight: 500;
+            }
+
+            .fy-card__date {
+                font-size: 0.75rem;
+                color: var(--color-muted, #9ca3af);
+                margin-left: auto;
             }
     </style>
 </head>
@@ -357,6 +416,18 @@
                                             </div>
                                         }
                                     }
+                                </div>
+                                @* ── LOCATION DISPLAY SECTION ───────────────────────────────────────── *@
+                                @{
+                                    var locationAddress = isShopItem
+                                        ? item.Shop?.StoreAddress
+                                        : item.User?.Address;
+                                    var locationPreview = GetLocationPreview(locationAddress);
+                                }
+                                <div class="fy-card__location-row">
+                                    <span class="fy-card__location" title="@(isShopItem ? item.Shop?.StoreAddress : item.User?.Address)">
+                                        @locationPreview
+                                    </span>
                                 </div>
                             </div>
 

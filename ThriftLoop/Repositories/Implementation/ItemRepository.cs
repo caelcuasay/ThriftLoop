@@ -50,6 +50,8 @@ public class ItemRepository : IItemRepository
     public async Task<IReadOnlyList<Item>> GetAllAsync()
         => await _context.Items
                          .AsNoTracking()
+                         .Include(i => i.User)
+                         .Include(i => i.Shop)
                          .Where(i => i.Status != ItemStatus.Sold && i.Status != ItemStatus.Disabled)
                          .OrderByDescending(i => i.CreatedAt)
                          .ToListAsync();

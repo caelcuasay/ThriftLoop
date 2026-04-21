@@ -7,25 +7,45 @@
     var statusFilter = Context.Request.Query["status"].ToString();
 }
 
-<div class="admin-approvals">
+@section Styles {
+    <link rel="stylesheet" href="~/css/Admin.css" asp-append-version="true" />
+}
+
+<div class="admin-dashboard">
     <div class="admin-header">
         <div>
+            <p class="admin-header__eyebrow">Commerce</p>
             <h1>Seller Approvals</h1>
             <p>Review and process seller applications</p>
+        </div>
+        <div class="admin-header__actions">
+            <span class="stat-badge" style="background: #f3f4f6; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #374151;">@Model.Count() applications</span>
         </div>
     </div>
 
     <!-- Status Filters -->
-    <div class="filter-tabs">
-        <a asp-action="SellerApprovals" asp-route-status="" class="filter-tab @(string.IsNullOrEmpty(statusFilter) ? "active" : "")">All</a>
-        <a asp-action="SellerApprovals" asp-route-status="Pending" class="filter-tab @(statusFilter == "Pending" ? "active" : "")">Pending</a>
-        <a asp-action="SellerApprovals" asp-route-status="Approved" class="filter-tab @(statusFilter == "Approved" ? "active" : "")">Approved</a>
-        <a asp-action="SellerApprovals" asp-route-status="Rejected" class="filter-tab @(statusFilter == "Rejected" ? "active" : "")">Rejected</a>
+    <div class="recent-card" style="margin-bottom: 24px;">
+        <div class="recent-card__header">
+            <h2>Filter by Status</h2>
+        </div>
+        <div style="padding: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <a asp-action="SellerApprovals" asp-route-status="" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(string.IsNullOrEmpty(statusFilter) ? "background: #2d1b69; color: white;" : "background: #f3f4f6; color: #374151;")">All</a>
+            <a asp-action="SellerApprovals" asp-route-status="Pending" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Pending" ? "background: #fef3c7; color: #92400e;" : "background: #f3f4f6; color: #374151;")">Pending</a>
+            <a asp-action="SellerApprovals" asp-route-status="Approved" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Approved" ? "background: #ecfdf5; color: #065f46;" : "background: #f3f4f6; color: #374151;")">Approved</a>
+            <a asp-action="SellerApprovals" asp-route-status="Rejected" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Rejected" ? "background: #fef2f2; color: #991b1b;" : "background: #f3f4f6; color: #374151;")">Rejected</a>
+        </div>
     </div>
 
     <!-- Applications Table -->
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="recent-card">
+        <div class="recent-card__header">
+            <h2>All Applications</h2>
+        </div>
+        <table class="recent-table">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -41,33 +61,47 @@
                 @foreach (var app in Model)
                 {
                     <tr>
-                        <td>@app.Id</td>
-                        <td>@app.User?.Email</td>
-                        <td>@app.ShopName</td>
-                        <td class="truncate">@(app.Bio ?? "—")</td>
-                        <td>@app.AppliedAt.ToString("yyyy-MM-dd")</td>
+                        <td><span style="color: #9ca3af; font-size: 0.9rem;">#@app.Id</span></td>
+                        <td style="font-weight: 500;">@app.User?.Email</td>
+                        <td style="font-weight: 600; color: #111827;">@app.ShopName</td>
+                        <td style="color: #6b7280; font-size: 0.9rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@(app.Bio ?? "—")</td>
+                        <td style="color: #6b7280; font-size: 0.9rem;">@app.AppliedAt.ToString("MMM d, yyyy")</td>
                         <td>
-                            <span class="status-badge status-@app.ApplicationStatus.ToString().ToLower()">@app.ApplicationStatus</span>
+                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+                                @(app.ApplicationStatus == ApplicationStatus.Pending ? "background: #fef3c7; color: #92400e;" : 
+                                  app.ApplicationStatus == ApplicationStatus.Approved ? "background: #ecfdf5; color: #065f46;" : 
+                                  "background: #fef2f2; color: #991b1b;")">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: 
+                                    @(app.ApplicationStatus == ApplicationStatus.Pending ? "#f59e0b" : 
+                                      app.ApplicationStatus == ApplicationStatus.Approved ? "#10b981" : "#ef4444");"></span>
+                                @app.ApplicationStatus
+                            </span>
                         </td>
                         <td>
                             @if (app.ApplicationStatus == ApplicationStatus.Pending)
                             {
-                                <div class="action-group">
-                                    <form method="post" asp-action="ApproveSeller" class="inline-form">
+                                <div style="display: flex; gap: 8px;">
+                                    <form method="post" asp-action="ApproveSeller" class="inline-form" style="display: flex;">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="applicationId" value="@app.Id" />
-                                        <button type="submit" class="action-btn btn-approve" onclick="return confirm('Approve @app.ShopName?')">Approve</button>
+                                        <button type="submit" onclick="return confirm('Approve @app.ShopName?')"
+                                                style="padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: #ecfdf5; color: #065f46;"
+                                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Approve</button>
                                     </form>
-                                    <form method="post" asp-action="RejectSeller" class="inline-form">
+                                    <form method="post" asp-action="RejectSeller" class="inline-form" style="display: flex;">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="applicationId" value="@app.Id" />
-                                        <button type="submit" class="action-btn btn-reject" onclick="return confirm('Reject @app.ShopName?')">Reject</button>
+                                        <button type="submit" onclick="return confirm('Reject @app.ShopName?')"
+                                                style="padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: #fef2f2; color: #dc2626;"
+                                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Reject</button>
                                     </form>
                                 </div>
                             }
                             else
                             {
-                                <span class="action-disabled">@(app.ApplicationStatus == ApplicationStatus.Approved ? "Approved" : "Rejected")</span>
+                                <span style="color: #9ca3af; font-size: 0.85rem; font-weight: 500;">
+                                    @(app.ApplicationStatus == ApplicationStatus.Approved ? "✓ Approved" : "✕ Rejected")
+                                </span>
                             }
                         </td>
                     </tr>
@@ -78,8 +112,8 @@
 
     @if (!Model.Any())
     {
-        <div class="empty-state">
-            <p>No seller applications found.</p>
+        <div class="recent-card" style="text-align: center; padding: 60px;">
+            <p style="color: #6b7280; font-size: 1rem;">No seller applications found.</p>
         </div>
     }
 </div>

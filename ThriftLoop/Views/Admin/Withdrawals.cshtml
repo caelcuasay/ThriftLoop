@@ -7,25 +7,45 @@
     var statusFilter = Context.Request.Query["status"].ToString();
 }
 
-<div class="admin-withdrawals">
+@section Styles {
+    <link rel="stylesheet" href="~/css/Admin.css" asp-append-version="true" />
+}
+
+<div class="admin-dashboard">
     <div class="admin-header">
         <div>
+            <p class="admin-header__eyebrow">Payments</p>
             <h1>Withdrawal Management</h1>
             <p>Process and track seller withdrawal requests</p>
+        </div>
+        <div class="admin-header__actions">
+            <span class="stat-badge" style="background: #f3f4f6; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #374151;">@Model.Count() withdrawals</span>
         </div>
     </div>
 
     <!-- Status Filters -->
-    <div class="filter-tabs">
-        <a asp-action="Withdrawals" asp-route-status="" class="filter-tab @(string.IsNullOrEmpty(statusFilter) ? "active" : "")">All</a>
-        <a asp-action="Withdrawals" asp-route-status="Requested" class="filter-tab @(statusFilter == "Requested" ? "active" : "")">Requested</a>
-        <a asp-action="Withdrawals" asp-route-status="Processed" class="filter-tab @(statusFilter == "Processed" ? "active" : "")">Processed</a>
-        <a asp-action="Withdrawals" asp-route-status="Completed" class="filter-tab @(statusFilter == "Completed" ? "active" : "")">Completed</a>
+    <div class="recent-card" style="margin-bottom: 24px;">
+        <div class="recent-card__header">
+            <h2>Filter by Status</h2>
+        </div>
+        <div style="padding: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <a asp-action="Withdrawals" asp-route-status="" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(string.IsNullOrEmpty(statusFilter) ? "background: #2d1b69; color: white;" : "background: #f3f4f6; color: #374151;")">All</a>
+            <a asp-action="Withdrawals" asp-route-status="Requested" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Requested" ? "background: #fef3c7; color: #92400e;" : "background: #f3f4f6; color: #374151;")">Requested</a>
+            <a asp-action="Withdrawals" asp-route-status="Processed" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Processed" ? "background: #dbeafe; color: #1e40af;" : "background: #f3f4f6; color: #374151;")">Processed</a>
+            <a asp-action="Withdrawals" asp-route-status="Completed" 
+               style="padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: all 0.2s; @(statusFilter == "Completed" ? "background: #ecfdf5; color: #065f46;" : "background: #f3f4f6; color: #374151;")">Completed</a>
+        </div>
     </div>
 
     <!-- Withdrawals Table -->
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="recent-card">
+        <div class="recent-card__header">
+            <h2>All Withdrawals</h2>
+        </div>
+        <table class="recent-table">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -42,35 +62,47 @@
                 @foreach (var wd in Model)
                 {
                     <tr>
-                        <td>@wd.Id</td>
-                        <td>@wd.User?.Email</td>
-                        <td class="amount">₱@wd.Amount.ToString("N2")</td>
-                        <td>@(wd.Method == WithdrawalMethod.BankTransfer ? "Bank Transfer" : "Pickup")</td>
-                        <td>@(wd.Reference ?? "—")</td>
-                        <td>@wd.RequestedAt.ToString("yyyy-MM-dd")</td>
+                        <td><span style="color: #9ca3af; font-size: 0.9rem;">#@wd.Id</span></td>
+                        <td style="font-weight: 500;">@wd.User?.Email</td>
+                        <td style="font-weight: 600; color: #059669;">₱@wd.Amount.ToString("N2")</td>
+                        <td style="color: #6b7280; font-size: 0.9rem;">@(wd.Method == WithdrawalMethod.BankTransfer ? "Bank Transfer" : "Pickup")</td>
+                        <td style="color: #6b7280; font-size: 0.9rem;">@(wd.Reference ?? "—")</td>
+                        <td style="color: #6b7280; font-size: 0.9rem;">@wd.RequestedAt.ToString("MMM d, yyyy")</td>
                         <td>
-                            <span class="status-badge status-@wd.Status.ToString().ToLower()">@wd.Status</span>
+                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+                                @(wd.Status == WithdrawalStatus.Requested ? "background: #fef3c7; color: #92400e;" : 
+                                  wd.Status == WithdrawalStatus.Processed ? "background: #dbeafe; color: #1e40af;" : 
+                                  "background: #ecfdf5; color: #065f46;")">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: 
+                                    @(wd.Status == WithdrawalStatus.Requested ? "#f59e0b" : 
+                                      wd.Status == WithdrawalStatus.Processed ? "#3b82f6" : "#10b981");"></span>
+                                @wd.Status
+                            </span>
                         </td>
                         <td>
                             @if (wd.Status == WithdrawalStatus.Requested)
                             {
-                                <form method="post" asp-action="ProcessWithdrawal" class="inline-form">
+                                <form method="post" asp-action="ProcessWithdrawal" class="inline-form" style="display: flex;">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="withdrawalId" value="@wd.Id" />
-                                    <button type="submit" class="action-btn btn-process">Mark Processed</button>
+                                    <button type="submit" 
+                                            style="padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: #dbeafe; color: #1e40af;"
+                                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Mark Processed</button>
                                 </form>
                             }
                             else if (wd.Status == WithdrawalStatus.Processed)
                             {
-                                <form method="post" asp-action="CompleteWithdrawal" class="inline-form">
+                                <form method="post" asp-action="CompleteWithdrawal" class="inline-form" style="display: flex;">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="withdrawalId" value="@wd.Id" />
-                                    <button type="submit" class="action-btn btn-complete">Mark Completed</button>
+                                    <button type="submit" 
+                                            style="padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: #ecfdf5; color: #065f46;"
+                                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Mark Completed</button>
                                 </form>
                             }
                             else
                             {
-                                <span class="action-disabled">—</span>
+                                <span style="color: #9ca3af; font-size: 0.9rem;">—</span>
                             }
                         </td>
                     </tr>
@@ -81,8 +113,8 @@
 
     @if (!Model.Any())
     {
-        <div class="empty-state">
-            <p>No withdrawals found.</p>
+        <div class="recent-card" style="text-align: center; padding: 60px;">
+            <p style="color: #6b7280; font-size: 1rem;">No withdrawals found.</p>
         </div>
     }
 </div>

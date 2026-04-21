@@ -59,7 +59,7 @@ public class ContextCardController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Unauthorized access to context card: {ContextCardId}", contextCardId);
-            return Forbid("You are not authorized to perform this action.");
+            return StatusCode(403, "You are not authorized to perform this action.");
         }
         catch (ArgumentException ex)
         {
@@ -89,7 +89,7 @@ public class ContextCardController : ControllerBase
             // Check if user can access the conversation
             if (!await _chatService.CanAccessConversationAsync(conversationId, currentUserId))
             {
-                return Forbid("You are not a participant in this conversation.");
+                return StatusCode(403, "You are not a participant in this conversation.");
             }
 
             var contextCards = await _chatService.GetContextCardsAsync(conversationId, currentUserId);
@@ -117,7 +117,7 @@ public class ContextCardController : ControllerBase
             // Check if user can access the conversation
             if (!await _chatService.CanAccessConversationAsync(request.ConversationId, currentUserId))
             {
-                return Forbid("You are not a participant in this conversation.");
+                return StatusCode(403, "You are not a participant in this conversation.");
             }
 
             var contextCard = await _chatService.CreateContextCardAsync(

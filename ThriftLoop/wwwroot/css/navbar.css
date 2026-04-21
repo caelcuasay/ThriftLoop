@@ -27,6 +27,9 @@
 
 /* ── Logo ───────────────────────────────────────────────────── */
 .tl-nav__logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-size: 1.15rem;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -34,6 +37,13 @@
     text-decoration: none;
     flex-shrink: 0;
     margin-right: auto;
+}
+
+.tl-nav__infinity {
+    width: 28px;
+    height: 28px;
+    display: block;
+    flex-shrink: 0;
 }
 
 /* ── Centre links ───────────────────────────────────────────── */

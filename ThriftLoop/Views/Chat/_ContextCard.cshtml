@@ -117,6 +117,10 @@
                             data-action="item-handed-off" data-context-card-id="@Model.Id">
                         Item Handed Off
                     </button>
+                    <button type="button" class="btn btn-secondary btn-sm context-card-action" 
+                            data-action="cancel" data-context-card-id="@Model.Id">
+                        Cancel
+                    </button>
                     break;
                 case ContextCardStatus.ItemHandedOff:
                 case ContextCardStatus.ItemReceived:
@@ -136,11 +140,19 @@
                     break;
                 case ContextCardStatus.Accepted:
                     <span class="action-text">Waiting for seller to hand off item</span>
+                    <button type="button" class="btn btn-secondary btn-sm context-card-action" 
+                            data-action="cancel" data-context-card-id="@Model.Id">
+                        Cancel
+                    </button>
                     break;
                 case ContextCardStatus.ItemHandedOff:
                     <button type="button" class="btn btn-primary btn-sm context-card-action" 
                             data-action="item-received" data-context-card-id="@Model.Id">
                         Item Received
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm context-card-action" 
+                            data-action="cancel" data-context-card-id="@Model.Id">
+                        Cancel
                     </button>
                     break;
                 case ContextCardStatus.ItemReceived:
@@ -430,7 +442,9 @@
                     case 'Accepted':
                         return `
                             <button type="button" class="btn btn-primary btn-sm context-card-action"
-                                    data-action="item-handed-off" data-context-card-id="${id}">Item Handed Off</button>`;
+                                    data-action="item-handed-off" data-context-card-id="${id}">Item Handed Off</button>
+                            <button type="button" class="btn btn-secondary btn-sm context-card-action"
+                                    data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
                     case 'ItemHandedOff':
                     case 'ItemReceived':
                         return `<span class="action-text">Waiting for buyer to confirm receipt</span>`;
@@ -442,11 +456,16 @@
                             <button type="button" class="btn btn-secondary btn-sm context-card-action"
                                     data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
                     case 'Accepted':
-                        return `<span class="action-text">Waiting for seller to hand off item</span>`;
+                        return `
+                            <span class="action-text">Waiting for seller to hand off item</span>
+                            <button type="button" class="btn btn-secondary btn-sm context-card-action"
+                                    data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
                     case 'ItemHandedOff':
                         return `
                             <button type="button" class="btn btn-primary btn-sm context-card-action"
-                                    data-action="item-received" data-context-card-id="${id}">Item Received</button>`;
+                                    data-action="item-received" data-context-card-id="${id}">Item Received</button>
+                            <button type="button" class="btn btn-secondary btn-sm context-card-action"
+                                    data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
                     case 'ItemReceived':
                         return `
                             <div class="payment-selection">

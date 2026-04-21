@@ -30,6 +30,13 @@ public class HomeController : BaseController
     /// </summary>
     public async Task<IActionResult> Index()
     {
+        // Redirect admins to admin dashboard
+        if (User.Identity?.IsAuthenticated == true && User.IsInRole("Admin"))
+        {
+            _logger.LogInformation("Admin attempted to access Home/Index, redirecting to Admin dashboard.");
+            return RedirectToAction("Index", "Admin");
+        }
+
         // Redirect riders to their dashboard
         if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
         {

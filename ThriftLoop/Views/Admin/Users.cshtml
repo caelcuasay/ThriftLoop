@@ -6,34 +6,47 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<div class="admin-users">
+@section Styles {
+    <link rel="stylesheet" href="~/css/Admin.css" asp-append-version="true" />
+}
+
+<div class="admin-dashboard">
     <div class="admin-header">
         <div>
+            <p class="admin-header__eyebrow">User Directory</p>
             <h1>User Management</h1>
             <p>Manage user accounts, roles, and status</p>
         </div>
-        <div class="admin-stats-badge">@Model.TotalCount total users</div>
+        <div class="admin-header__actions">
+            <span class="stat-badge" style="background: #f3f4f6; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #374151;">@Model.TotalCount total users</span>
+        </div>
     </div>
 
-    <!-- Filters -->
-    <form method="get" asp-action="Users" class="filter-form">
-        <div class="filter-row">
-            <input type="text" name="search" placeholder="Search by email..." value="@Model.SearchTerm" class="filter-input" />
-            <select name="role" class="filter-select">
+    <!-- Filters Card -->
+    <div class="recent-card" style="margin-bottom: 24px;">
+        <div class="recent-card__header">
+            <h2>Filters</h2>
+        </div>
+        <form method="get" asp-action="Users" style="padding: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <input type="text" name="search" placeholder="Search by email..." value="@Model.SearchTerm" style="flex: 1; min-width: 200px; padding: 10px 14px; border: 1px solid #e2ddd6; border-radius: 8px; font-size: 0.9rem;" />
+            <select name="role" style="padding: 10px 14px; border: 1px solid #e2ddd6; border-radius: 8px; font-size: 0.9rem; background: white;">
                 <option value="">All Roles</option>
                 @foreach (var role in ThriftLoop.ViewModels.Admin.UserManagementViewModel.RoleFilters.Where(r => r != "All"))
-                    {
+                {
                     <option value="@role" selected="@(Model.RoleFilter == role)">@role</option>
                 }
             </select>
-            <button type="submit" class="btn-filter">Filter</button>
-            <a asp-action="Users" class="btn-clear">Clear</a>
-        </div>
-    </form>
+            <button type="submit" class="admin-header__btn admin-header__btn--primary" style="border: none; cursor: pointer;">Filter</button>
+            <a asp-action="Users" class="admin-header__btn admin-header__btn--ghost">Clear</a>
+        </form>
+    </div>
 
     <!-- Users Table -->
-    <div class="table-container">
-        <table class="admin-table">
+    <div class="recent-card">
+        <div class="recent-card__header">
+            <h2>All Users</h2>
+        </div>
+        <table class="recent-table">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -48,13 +61,13 @@
                 @foreach (var user in Model.Users)
                 {
                     <tr>
-                        <td>@user.Id</td>
-                        <td>@user.Email</td>
+                        <td><span style="color: #9ca3af; font-size: 0.9rem;">#@user.Id</span></td>
+                        <td style="font-weight: 500;">@user.Email</td>
                         <td>
-                            <form method="post" asp-action="UpdateUserRole" class="inline-form">
+                            <form method="post" asp-action="UpdateUserRole" class="inline-form" style="display: flex;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="userId" value="@user.Id" />
-                                <select name="newRole" class="role-select" onchange="this.form.submit()">
+                                <select name="newRole" onchange="this.form.submit()" style="padding: 6px 10px; border: 1px solid #e2ddd6; border-radius: 6px; font-size: 0.85rem; background: white; cursor: pointer;">
                                     @foreach (UserRole role in Enum.GetValues(typeof(UserRole)))
                                     {
                                         if (role == UserRole.Rider) continue;
@@ -64,18 +77,21 @@
                             </form>
                         </td>
                         <td>
-                            <span class="status-badge @(user.IsDisabled ? "status-disabled" : "status-active")">
+                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: @(user.IsDisabled ? "#fef2f2" : "#ecfdf5"); color: @(user.IsDisabled ? "#dc2626" : "#059669");">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: @(user.IsDisabled ? "#ef4444" : "#10b981");"></span>
                                 @(user.IsDisabled ? "Disabled" : "Active")
                             </span>
                         </td>
-                        <td>@user.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td style="color: #6b7280; font-size: 0.9rem;">@user.CreatedAt.ToString("MMM d, yyyy")</td>
                         <td>
                             <form method="post" asp-action="ToggleUserStatus" class="inline-form">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="userId" value="@user.Id" />
                                 <input type="hidden" name="isDisabled" value="@(!user.IsDisabled)" />
-                                <button type="submit" class="action-btn @(user.IsDisabled ? "btn-enable" : "btn-disable")"
-                                        onclick="return confirm('@(user.IsDisabled ? "Enable" : "Disable") user @user.Email?')">
+                                <button type="submit" 
+                                        onclick="return confirm('@(user.IsDisabled ? "Enable" : "Disable") user @user.Email?')"
+                                        style="padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; background: @(user.IsDisabled ? "#ecfdf5" : "#fef2f2"); color: @(user.IsDisabled ? "#059669" : "#dc2626");"
+                                        onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                                     @(user.IsDisabled ? "Enable" : "Disable")
                                 </button>
                             </form>
@@ -89,15 +105,17 @@
     <!-- Pagination -->
     @if (Model.TotalPages > 1)
     {
-        <div class="pagination">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; padding: 16px;">
             @if (Model.HasPreviousPage)
             {
-                <a asp-action="Users" asp-route-page="@(Model.CurrentPage - 1)" asp-route-search="@Model.SearchTerm" asp-route-role="@Model.RoleFilter" class="page-link">← Previous</a>
+                <a asp-action="Users" asp-route-page="@(Model.CurrentPage - 1)" asp-route-search="@Model.SearchTerm" asp-route-role="@Model.RoleFilter" 
+                   class="admin-header__btn admin-header__btn--ghost" style="text-decoration: none;">← Previous</a>
             }
-            <span class="page-current">Page @Model.CurrentPage of @Model.TotalPages</span>
+            <span style="color: #6b7280; font-size: 0.9rem;">Page <strong style="color: #111827;">@Model.CurrentPage</strong> of <strong style="color: #111827;">@Model.TotalPages</strong></span>
             @if (Model.HasNextPage)
             {
-                <a asp-action="Users" asp-route-page="@(Model.CurrentPage + 1)" asp-route-search="@Model.SearchTerm" asp-route-role="@Model.RoleFilter" class="page-link">Next →</a>
+                <a asp-action="Users" asp-route-page="@(Model.CurrentPage + 1)" asp-route-search="@Model.SearchTerm" asp-route-role="@Model.RoleFilter" 
+                   class="admin-header__btn admin-header__btn--primary" style="text-decoration: none;">Next →</a>
             }
         </div>
     }
