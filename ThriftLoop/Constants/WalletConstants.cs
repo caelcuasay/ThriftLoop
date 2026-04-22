@@ -6,7 +6,7 @@
 public static class WalletConstants
 {
     /// <summary>Starting balance credited to every new wallet (demo / seeding).</summary>
-    public const decimal InitialBalance = 1_000m;
+    public const decimal InitialBalance = 0m;
 
     /// <summary>Minimum amount a seller can request in a single withdrawal.</summary>
     public const decimal MinWithdrawalAmount = 50m;

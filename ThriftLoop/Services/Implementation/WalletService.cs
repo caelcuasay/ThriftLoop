@@ -17,7 +17,7 @@ namespace ThriftLoop.Services.WalletManagement.Implementation;
 public class WalletService : IWalletService
 {
     /// <summary>Demo seed balance for new regular Users only. Riders start at ₱0.</summary>
-    private const decimal UserSeedBalance = 1_000m;
+    private const decimal UserSeedBalance = 0m;
 
     private readonly IWalletRepository _walletRepo;
     private readonly ITransactionRepository _txRepo;
