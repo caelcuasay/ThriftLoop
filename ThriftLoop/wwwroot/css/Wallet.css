@@ -1,0 +1,1020 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Wallet.css - ThriftLoop Wallet Page Styles
+   Design System: Deep purple primary, clean cards, accessible
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-primary-dim: rgba(45,27,105,.08);
+    --c-bg: #f2f2f5;
+    --c-surface: #ffffff;
+    --c-surface-alt: #faf9fd;
+    --c-border: #e4e4ea;
+    --c-border-strong: #ccccd8;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+    --c-success: #0e6245;
+    --c-success-bg: #e8f3ef;
+    --c-error: #b91c1c;
+    --c-error-bg: #fee9e9;
+    --c-warning: #b45309;
+    --c-warning-bg: #feedd5;
+    --c-info: #1e40af;
+    --c-info-bg: #e0edff;
+    --c-shadow-sm: 0 2px 6px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --c-shadow-md: 0 4px 16px rgba(0,0,0,.1), 0 1px 4px rgba(0,0,0,.06);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.22s ease;
+}
+
+/* ── Shell & Header ─────────────────────────────────────────────────────── */
+.wlt-shell {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+}
+
+.wlt-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+}
+
+.wlt-header__title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+    margin: 0 0 4px;
+}
+
+.wlt-header__subtitle {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    color: var(--c-muted);
+    margin: 0;
+}
+
+.wlt-header__actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* ── Toast Notifications ─────────────────────────────────────────────────── */
+.wlt-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+    transition: opacity 0.4s ease;
+}
+
+.wlt-toast--success {
+    background: var(--c-success-bg);
+    border: 1px solid rgba(14, 98, 69, 0.15);
+    color: var(--c-success);
+}
+
+.wlt-toast--error {
+    background: var(--c-error-bg);
+    border: 1px solid rgba(185, 28, 28, 0.15);
+    color: var(--c-error);
+}
+
+/* ── Balance Cards ───────────────────────────────────────────────────────── */
+.wlt-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+@media (max-width: 768px) {
+    .wlt-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.wlt-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px 18px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    box-shadow: var(--c-shadow-sm);
+    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.wlt-card:hover {
+    box-shadow: var(--c-shadow-md);
+    transform: translateY(-2px);
+}
+
+.wlt-card--available {
+    border-color: rgba(45, 27, 105, 0.2);
+    background: linear-gradient(135deg, var(--c-surface) 0%, var(--c-primary-soft) 100%);
+}
+
+.wlt-card--pending {
+    border-color: rgba(180, 83, 9, 0.2);
+    background: linear-gradient(135deg, var(--c-surface) 0%, var(--c-warning-bg) 100%);
+}
+
+.wlt-card--total {
+    border-color: var(--c-border);
+}
+
+.wlt-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wlt-card--available .wlt-card__icon {
+    background: var(--c-primary-dim);
+    color: var(--c-primary);
+}
+
+.wlt-card--pending .wlt-card__icon {
+    background: rgba(180, 83, 9, 0.1);
+    color: var(--c-warning);
+}
+
+.wlt-card--total .wlt-card__icon {
+    background: rgba(75, 75, 99, 0.1);
+    color: var(--c-muted);
+}
+
+.wlt-card__icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.wlt-card__body {
+    flex: 1;
+}
+
+.wlt-card__label {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 6px;
+}
+
+.wlt-card__amount {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.625rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--c-text);
+    margin: 0 0 4px;
+}
+
+.wlt-card__hint {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted-light);
+    margin: 0;
+}
+
+/* ── Lower Two-Column Section ────────────────────────────────────────────── */
+.wlt-lower {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .wlt-lower {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Section Cards ───────────────────────────────────────────────────────── */
+.wlt-section {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--c-shadow-sm);
+}
+
+.wlt-section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-surface-alt);
+}
+
+.wlt-section__title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--c-text);
+    margin: 0;
+}
+
+.wlt-section__count {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-muted-light);
+    background: var(--c-primary-dim);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.wlt-section__cta {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color var(--transition-fast);
+}
+
+.wlt-section__cta:hover {
+    color: var(--c-primary-light);
+    text-decoration: underline;
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+.wlt-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 24px;
+    color: var(--c-muted);
+}
+
+.wlt-empty svg {
+    opacity: 0.4;
+    width: 56px;
+    height: 56px;
+}
+
+.wlt-empty p {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* ── Transaction Row ─────────────────────────────────────────────────────── */
+.wlt-tx-list {
+    padding: 8px 0;
+}
+
+.wlt-tx {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--c-border);
+    transition: background var(--transition-fast);
+}
+
+.wlt-tx:hover {
+    background: var(--c-surface-alt);
+}
+
+.wlt-tx:last-child {
+    border-bottom: none;
+}
+
+.wlt-tx__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--c-surface-alt);
+    color: var(--c-muted);
+}
+
+.wlt-tx--credit .wlt-tx__icon {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+}
+
+.wlt-tx--debit .wlt-tx__icon {
+    background: var(--c-warning-bg);
+    color: var(--c-warning);
+}
+
+.wlt-tx__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.wlt-tx__type {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin: 0 0 2px;
+}
+
+.wlt-tx__ref {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-muted);
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wlt-tx__date {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted-light);
+    margin: 0;
+}
+
+.wlt-tx__amount {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.wlt-tx__amount--credit {
+    color: var(--c-success);
+}
+
+.wlt-tx__amount--debit {
+    color: var(--c-warning);
+}
+
+/* ── Withdrawal Row ───────────────────────────────────────────────────────── */
+.wlt-wd-list {
+    padding: 8px 0;
+}
+
+.wlt-wd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--c-border);
+    transition: background var(--transition-fast);
+}
+
+.wlt-wd:hover {
+    background: var(--c-surface-alt);
+}
+
+.wlt-wd:last-child {
+    border-bottom: none;
+}
+
+.wlt-wd__method {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin: 0 0 3px;
+}
+
+.wlt-wd__ref,
+.wlt-wd__date {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    margin: 0;
+}
+
+.wlt-wd__right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.wlt-wd__amount {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin: 0;
+}
+
+/* ── Status Badges ────────────────────────────────────────────────────────── */
+.wlt-badge {
+    display: inline-block;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.wlt-badge--pending {
+    background: var(--c-warning-bg);
+    color: var(--c-warning);
+}
+
+.wlt-badge--info {
+    background: var(--c-info-bg);
+    color: var(--c-info);
+}
+
+.wlt-badge--success {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADD FUNDS PAGE STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ───────────────────────────────────────────────────────────────── */
+.addfunds-shell {
+    max-width: 520px;
+    margin: 24px auto 48px;
+    padding: 0 16px;
+}
+
+/* ── Main Card ───────────────────────────────────────────────────────────── */
+.addfunds-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    padding: 40px 32px;
+    text-align: center;
+    box-shadow: var(--c-shadow-sm);
+}
+
+.addfunds-card__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-md);
+    background: var(--c-primary-dim);
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.addfunds-card__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.addfunds-card__title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+    margin: 0 0 8px;
+}
+
+.addfunds-card__subtitle {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    color: var(--c-muted);
+    margin: 0 0 24px;
+    line-height: 1.55;
+}
+
+/* ── Alert Messages ──────────────────────────────────────────────────────── */
+.addfunds-alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.addfunds-alert--success {
+    background: var(--c-success-bg);
+    border: 1px solid rgba(14, 98, 69, 0.15);
+    color: var(--c-success);
+}
+
+.addfunds-alert--error {
+    background: var(--c-error-bg);
+    border: 1px solid rgba(185, 28, 28, 0.15);
+    color: var(--c-error);
+}
+
+/* ── Steps ───────────────────────────────────────────────────────────────── */
+.addfunds-step {
+    display: flex;
+    gap: 16px;
+    text-align: left;
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.addfunds-step:last-of-type {
+    border-bottom: none;
+    margin-bottom: 20px;
+}
+
+.addfunds-step__badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.addfunds-step__content {
+    flex: 1;
+}
+
+.addfunds-step__title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin: 0 0 6px;
+}
+
+.addfunds-step__desc {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-muted);
+    margin: 0 0 16px;
+}
+
+/* ── QR Code ─────────────────────────────────────────────────────────────── */
+.addfunds-qr-container {
+    background: var(--c-surface);
+    border: 1.5px solid var(--c-border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+}
+
+.addfunds-qr {
+    max-width: 220px;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--c-border);
+}
+
+.addfunds-qr__hint {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    margin: 12px 0 0;
+}
+
+.addfunds-qr-placeholder {
+    background: var(--c-surface-alt);
+    border: 1.5px dashed var(--c-border);
+    border-radius: var(--radius-md);
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--c-muted);
+}
+
+.addfunds-qr-placeholder svg {
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.addfunds-qr-placeholder p {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.addfunds-qr-placeholder__hint {
+    font-size: 0.75rem;
+    margin-top: 8px;
+    opacity: 0.7;
+}
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
+.addfunds-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.addfunds-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+}
+
+.addfunds-form-label {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--c-text);
+}
+
+.addfunds-form-file {
+    padding: 10px;
+    border: 1.5px dashed var(--c-border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    background: var(--c-surface);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.addfunds-form-file:focus {
+    outline: none;
+    border-color: var(--c-primary);
+}
+
+.addfunds-form-hint {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+}
+
+/* ── Preview ────────────────────────────────────────────────────────────── */
+.addfunds-preview {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    text-align: center;
+}
+
+.addfunds-preview__label {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    margin: 0 0 8px;
+}
+
+.addfunds-preview__img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--c-border);
+}
+
+.addfunds-submit {
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+/* ── Info Box ────────────────────────────────────────────────────────────── */
+.addfunds-info {
+    display: flex;
+    gap: 12px;
+    background: var(--c-info-bg);
+    border: 1px solid rgba(30, 64, 175, 0.15);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: left;
+}
+
+.addfunds-info svg {
+    flex-shrink: 0;
+    color: var(--c-info);
+    margin-top: 2px;
+}
+
+.addfunds-info div {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-info);
+}
+
+.addfunds-info strong {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.addfunds-info ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.addfunds-info li {
+    margin-bottom: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WITHDRAW PAGE STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ───────────────────────────────────────────────────────────────── */
+.wd-shell {
+    max-width: 480px;
+    margin: 24px auto 48px;
+    padding: 0 16px;
+}
+
+/* ── Main Card ───────────────────────────────────────────────────────────── */
+.wd-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    padding: 40px 32px;
+    text-align: center;
+    box-shadow: var(--c-shadow-sm);
+}
+
+.wd-card__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-md);
+    background: var(--c-primary-dim);
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.wd-card__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.wd-card__title {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+    margin: 0 0 6px;
+}
+
+.wd-card__subtitle {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    color: var(--c-muted);
+    margin: 0 0 24px;
+}
+
+.wd-card__balance {
+    color: var(--c-primary);
+}
+
+/* ── Demo Notice ─────────────────────────────────────────────────────────── */
+.wd-demo-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--c-info-bg);
+    border: 1px solid rgba(30, 64, 175, 0.15);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    text-align: left;
+    margin-bottom: 24px;
+    color: var(--c-info);
+}
+
+.wd-demo-notice svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.wd-demo-notice p {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    margin: 0;
+    line-height: 1.55;
+}
+
+/* ── Error Banner ─────────────────────────────────────────────────────────── */
+.wd-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--c-error-bg);
+    border: 1px solid rgba(185, 28, 28, 0.15);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    color: var(--c-error);
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
+.wd-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: left;
+}
+
+.wd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.wd-field__label {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--c-text);
+}
+
+.wd-field__optional {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    margin-left: 6px;
+}
+
+.wd-field__input {
+    padding: 12px 14px;
+    border: 1.5px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    color: var(--c-text);
+    background: var(--c-surface);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.wd-field__input:focus {
+    border-color: var(--c-primary);
+}
+
+.wd-field__hint {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+}
+
+.wd-field__error {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-error);
+}
+
+/* ── Amount Input ────────────────────────────────────────────────────────── */
+.wd-amount-wrap {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-surface);
+    overflow: hidden;
+    transition: border-color var(--transition-fast);
+}
+
+.wd-amount-wrap:focus-within {
+    border-color: var(--c-primary);
+}
+
+.wd-amount-wrap__sym {
+    padding: 0 14px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.1rem;
+    color: var(--c-muted);
+    border-right: 1.5px solid var(--c-border);
+}
+
+.wd-amount-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 14px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--c-text);
+    background: transparent;
+    width: 100%;
+}
+
+.wd-all-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.8125rem;
+    color: var(--c-primary);
+    cursor: pointer;
+    text-decoration: underline;
+    text-align: left;
+    transition: color var(--transition-fast);
+}
+
+.wd-all-btn:hover {
+    color: var(--c-primary-light);
+}
+
+/* ── Method Selection ─────────────────────────────────────────────────────── */
+.wd-method-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wd-method-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1.5px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-surface);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.wd-method-option:hover,
+.wd-method-option--active {
+    border-color: var(--c-primary);
+    background: var(--c-primary-soft);
+}
+
+.wd-method-radio {
+    display: none;
+}
+
+.wd-method-option__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--c-primary-dim);
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wd-method-option__name {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin: 0 0 2px;
+}
+
+.wd-method-option__hint {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+    margin: 0;
+}
+
+.wd-submit {
+    width: 100%;
+    justify-content: center;
+}

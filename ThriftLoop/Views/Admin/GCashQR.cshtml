@@ -151,65 +151,6 @@
     </div>
 </div>
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/Admin.css" asp-append-version="true" />
-    <style>
-        .admin-gcash-card__desc {
-            font-size: 0.85rem;
-            color: var(--admin-muted, #4b4b63);
-            margin-bottom: 1.25rem;
-            line-height: 1.5;
-        }
-        
-        .admin-gcash-card__highlight {
-            display: block;
-            margin-top: 0.5rem;
-            color: var(--admin-primary, #2d1b69);
-            font-weight: 500;
-        }
-        
-        .admin-gcash-account-display {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .admin-gcash-account-label {
-            font-size: 0.8rem;
-            color: #6b7280;
-            font-weight: 500;
-        }
-        
-        .admin-gcash-account-number {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--admin-primary, #2d1b69);
-            background: #f3f4f6;
-            padding: 0.75rem 1.25rem;
-            border-radius: 10px;
-            display: inline-block;
-            letter-spacing: 1px;
-            border: 1px solid #e5e7eb;
-        }
-        
-        .admin-gcash-account-meta {
-            font-size: 0.7rem;
-            color: #9ca3af;
-            margin-top: 0.25rem;
-        }
-        
-        .admin-form-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 1rem;
-        }
-        
-        .admin-gcash-current {
-            margin-bottom: 1.5rem;
-        }
-    </style>
-}
-
 @section Scripts {
     <script>
         (function() {
@@ -232,8 +173,8 @@
             }
         })();
         
-        function clearAccountNumber() {
-            if (confirm('Clear the GCash account number? Transactions will no longer be validated against a specific account.')) {
+        async function clearAccountNumber() {
+            if (await confirm('Clear the GCash account number? Transactions will no longer be validated against a specific account.')) {
                 document.getElementById('clearAccountNumberForm').submit();
             }
         }

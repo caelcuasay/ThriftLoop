@@ -50,7 +50,7 @@
                             </div>
                         }
 
-                        <span class="fy-card__condition-badge">@item.Condition</span>
+                        <span class="fy-card__condition-badge" data-condition="@item.Condition.ToString().ToUpper()">@item.Condition</span>
 
                         @if (isShopItem)
                         {
@@ -107,7 +107,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/Home.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/likes.css" asp-append-version="true" />
 }
 

@@ -450,7 +450,8 @@
                     const itemEl = btn.closest('.cart-item');
                     const cartItemId = parseInt(itemEl.dataset.cartItemId);
                     
-                    if (confirm('Remove this item from your cart?')) {
+                    // ✅ FIX: await the confirm promise
+                    if (await confirm('Remove this item from your cart?')) {
                         await removeItem(cartItemId);
                     }
                 }
@@ -502,7 +503,7 @@
             });
         });
     </script>
-}
+}   
 
 @section Styles {
     <style>
