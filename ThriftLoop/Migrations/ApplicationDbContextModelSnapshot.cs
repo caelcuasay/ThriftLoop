@@ -768,6 +768,118 @@ namespace ThriftLoop.Migrations
                     b.ToTable("SellerProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("ThriftLoop.Models.SiteSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AccountNumberUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AccountNumberUpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GCashAccountNumber")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("GCashQRCodePath")
+                        .HasMaxLength(512)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<DateTime?>("QRCodeUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("QRCodeUpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SiteSettings", (string)null);
+                });
+
+            modelBuilder.Entity("ThriftLoop.Models.TopUpRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("AccountNumberMatched")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<bool>("IsAutoApproved")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("NeedsAdminReview")
+                        .HasColumnType("bit");
+
+                    b.Property<float?>("OcrConfidence")
+                        .HasColumnType("real");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProcessedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ScreenshotPath")
+                        .HasMaxLength(512)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VoidReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReferenceNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_TopUpRequests_ReferenceNumber");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_TopUpRequests_UserId");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("IX_TopUpRequests_Status_CreatedAt");
+
+                    b.ToTable("TopUpRequests", (string)null);
+                });
+
             modelBuilder.Entity("ThriftLoop.Models.Transaction", b =>
                 {
                     b.Property<int>("Id")
@@ -1255,6 +1367,17 @@ namespace ThriftLoop.Migrations
                     b.HasOne("ThriftLoop.Models.User", "User")
                         .WithOne("SellerProfile")
                         .HasForeignKey("ThriftLoop.Models.SellerProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ThriftLoop.Models.TopUpRequest", b =>
+                {
+                    b.HasOne("ThriftLoop.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

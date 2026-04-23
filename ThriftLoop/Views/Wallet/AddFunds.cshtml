@@ -1,4 +1,5 @@
-﻿@{
+﻿@model ThriftLoop.ViewModels.AddFundsViewModel
+@{
     ViewData["Title"] = "Add Funds";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -22,73 +23,112 @@
             </svg>
         </div>
 
-        <h1 class="addfunds-card__title">Add Funds</h1>
+        <h1 class="addfunds-card__title">Add Funds via GCash</h1>
         <p class="addfunds-card__subtitle">
-            Top up your ThriftLoop wallet to pay for items instantly with escrow protection.
+            Scan the QR code with GCash, send money, then upload your receipt screenshot.
         </p>
 
-        @* ── Demo top-up (real gateway placeholder) ──────────────────────── *@
-        <div class="addfunds-demo-notice">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-            </svg>
-            <p>
-                <strong>Demo mode:</strong> This is a placeholder. In production this page will
-                integrate with GCash, Maya, or a bank transfer gateway. For now, entering an
-                amount will directly credit your wallet.
-            </p>
-        </div>
+        @if (TempData["SuccessMessage"] is string successMsg)
+        {
+            <div class="addfunds-alert addfunds-alert--success" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
+                @successMsg
+            </div>
+        }
 
         @if (TempData["ErrorMessage"] is string errMsg)
         {
-            <div class="addfunds-alert" role="alert">@errMsg</div>
+            <div class="addfunds-alert addfunds-alert--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8 5a1 1 0 100-2 1 1 0 000 2zm0-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                @errMsg
+            </div>
         }
 
-        <form asp-action="AddFunds" method="post" class="addfunds-form" id="addFundsForm">
-            @Html.AntiForgeryToken()
+        @* ── Step 1: Display QR Code ──────────────────────────────────────── *@
+        <div class="addfunds-step">
+            <div class="addfunds-step__badge">1</div>
+            <div class="addfunds-step__content">
+                <h3 class="addfunds-step__title">Scan QR Code with GCash</h3>
+                <p class="addfunds-step__desc">Open GCash app → Tap "Scan QR" → Point at the code below</p>
 
-            <div class="addfunds-amount-wrap">
-                <span class="addfunds-amount-wrap__sym">₱</span>
-                <input type="number"
-                       name="amount"
-                       id="amountInput"
-                       class="addfunds-amount-input"
-                       placeholder="0.00"
-                       step="0.01"
-                       min="1"
-                       max="50000"
-                       required
-                       autocomplete="off" />
-            </div>
-
-            @* Quick-select amounts *@
-            <div class="addfunds-quick">
-                @foreach (var preset in new[] { 500, 1000, 2000, 5000 })
+                @if (Model.HasQRCode)
                 {
-                    <button type="button"
-                            class="addfunds-quick__btn"
-                            data-amount="@preset">
-                        ₱@preset.ToString("N0")
-                    </button>
+                    <div class="addfunds-qr-container">
+                        <img src="@Model.QRCodePath" alt="GCash QR Code" class="addfunds-qr" />
+                        <p class="addfunds-qr__hint">Scan this QR code with your GCash app</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="addfunds-qr-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <path d="M21 15l-5-5L5 21"/>
+                        </svg>
+                        <p>QR code not available yet.</p>
+                        <p class="addfunds-qr-placeholder__hint">Please contact admin to set up GCash payments.</p>
+                    </div>
                 }
             </div>
+        </div>
 
-            <button type="submit" class="btn btn--primary addfunds-submit" id="addFundsBtn">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                </svg>
-                Add Funds to Wallet
-            </button>
-        </form>
+        @* ── Step 2: Upload Receipt ───────────────────────────────────────── *@
+        <div class="addfunds-step">
+            <div class="addfunds-step__badge">2</div>
+            <div class="addfunds-step__content">
+                <h3 class="addfunds-step__title">Upload Receipt Screenshot</h3>
+                <p class="addfunds-step__desc">After sending money, take a screenshot of the GCash receipt and upload it here</p>
 
-        @* ── Future gateway placeholders ──────────────────────────────────── *@
-        <div class="addfunds-methods">
-            <p class="addfunds-methods__label">Payment methods coming soon</p>
-            <div class="addfunds-methods__logos">
-                <span class="addfunds-method-pill">GCash</span>
-                <span class="addfunds-method-pill">Maya</span>
-                <span class="addfunds-method-pill">Bank Transfer</span>
-                <span class="addfunds-method-pill">Credit Card</span>
+                <form asp-action="AddFunds" method="post" enctype="multipart/form-data" class="addfunds-form" id="addFundsForm">
+                    @Html.AntiForgeryToken()
+
+                    @* Screenshot Upload - Auto-scanned for amount & reference *@
+                    <div class="addfunds-form-group">
+                        <label for="receiptImage" class="addfunds-form-label">Upload GCash Receipt</label>
+                        <input type="file"
+                               name="receiptImage"
+                               id="receiptImage"
+                               class="addfunds-form-file"
+                               accept="image/png,image/jpeg,image/jpg"
+                               required
+                               capture="environment" />
+                        <span class="addfunds-form-hint">We'll automatically read the amount and reference number from your screenshot. PNG or JPEG, max 5MB.</span>
+                    </div>
+
+                    @* Preview *@
+                    <div class="addfunds-preview" id="previewContainer" style="display: none;">
+                        <p class="addfunds-preview__label">Preview:</p>
+                        <img id="previewImage" alt="Receipt Preview" class="addfunds-preview__img" />
+                    </div>
+
+                    <button type="submit" class="btn btn--primary addfunds-submit" id="addFundsBtn">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                        </svg>
+                        Submit for Processing
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        @* ── Info Box ────────────────────────────────────────────────────── *@
+        <div class="addfunds-info">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+            </svg>
+            <div>
+                <strong>How it works:</strong>
+                <ul>
+                    <li>Scan the QR code and send money via GCash</li>
+                    <li>Take a screenshot of the GCash receipt</li>
+                    <li>Upload it — our system will read the amount and reference number</li>
+                    <li>We'll credit your wallet automatically or after quick review</li>
+                </ul>
             </div>
         </div>
 
@@ -99,7 +139,7 @@
 @section Scripts {
     <style>
         .addfunds-shell {
-            max-width: 480px;
+            max-width: 520px;
             margin: 2rem auto 4rem;
         }
 
@@ -138,143 +178,256 @@
             line-height: 1.55;
         }
 
-        .addfunds-demo-notice {
+        /* ── Alert Messages ───────────────────────────────────────────── */
+        .addfunds-alert {
             display: flex;
-            align-items: flex-start;
-            gap: 0.625rem;
-            background: color-mix(in srgb, #2563eb 8%, transparent);
-            border: 1px solid color-mix(in srgb, #2563eb 20%, transparent);
+            align-items: center;
+            gap: 0.5rem;
             border-radius: 8px;
             padding: 0.875rem 1rem;
-            text-align: left;
-            margin-bottom: 1.5rem;
-            color: #1d4ed8;
-        }
-
-            .addfunds-demo-notice svg {
-                flex-shrink: 0;
-                margin-top: 2px;
-            }
-
-            .addfunds-demo-notice p {
-                font-family: 'DM Sans', sans-serif;
-                font-size: 0.8125rem;
-                margin: 0;
-                line-height: 1.55;
-                color: #1d4ed8;
-            }
-
-        .addfunds-alert {
-            background: color-mix(in srgb, #dc2626 8%, transparent);
-            border: 1px solid color-mix(in srgb, #dc2626 20%, transparent);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
             font-family: 'DM Sans', sans-serif;
             font-size: 0.875rem;
-            color: #b91c1c;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: left;
         }
 
+        .addfunds-alert--success {
+            background: color-mix(in srgb, #16a34a 10%, transparent);
+            border: 1px solid color-mix(in srgb, #16a34a 25%, transparent);
+            color: #15803d;
+        }
+
+        .addfunds-alert--error {
+            background: color-mix(in srgb, #dc2626 10%, transparent);
+            border: 1px solid color-mix(in srgb, #dc2626 25%, transparent);
+            color: #b91c1c;
+        }
+
+        /* ── Steps ──────────────────────────────────────────────────────── */
+        .addfunds-step {
+            display: flex;
+            gap: 1rem;
+            text-align: left;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--color-border, #e2ddd6);
+        }
+
+        .addfunds-step:last-of-type {
+            border-bottom: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .addfunds-step__badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--color-primary, #2d5a27);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .addfunds-step__content {
+            flex: 1;
+        }
+
+        .addfunds-step__title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.1rem;
+            color: var(--color-text, #1a1814);
+            margin: 0 0 0.35rem;
+        }
+
+        .addfunds-step__desc {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0 0 1rem;
+        }
+
+        /* ── QR Code ───────────────────────────────────────────────────── */
+        .addfunds-qr-container {
+            background: white;
+            border: 1.5px solid var(--color-border, #e2ddd6);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .addfunds-qr {
+            max-width: 220px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #e2ddd6);
+        }
+
+        .addfunds-qr__hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0.75rem 0 0;
+        }
+
+        .addfunds-qr-placeholder {
+            background: color-mix(in srgb, var(--color-muted, #8a8278) 8%, transparent);
+            border: 1.5px dashed var(--color-border, #e2ddd6);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            color: var(--color-muted, #8a8278);
+        }
+
+        .addfunds-qr-placeholder svg {
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
+        }
+
+        .addfunds-qr-placeholder p {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .addfunds-qr-placeholder__hint {
+            font-size: 0.78rem;
+            margin-top: 0.5rem !important;
+            opacity: 0.7;
+        }
+
+        /* ── Form ───────────────────────────────────────────────────────── */
         .addfunds-form {
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
 
-        .addfunds-amount-wrap {
+        .addfunds-form-group {
             display: flex;
-            align-items: center;
-            border: 1.5px solid var(--color-border, #e2ddd6);
-            border-radius: 10px;
-            background: #fff;
-            overflow: hidden;
-            transition: border-color 0.15s;
+            flex-direction: column;
+            gap: 0.4rem;
+            text-align: left;
         }
 
-            .addfunds-amount-wrap:focus-within {
-                border-color: var(--color-primary, #2d5a27);
-            }
-
-        .addfunds-amount-wrap__sym {
-            padding: 0 0.875rem;
+        .addfunds-form-label {
             font-family: 'DM Sans', sans-serif;
-            font-size: 1.1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text, #1a1814);
+        }
+
+        .addfunds-form-optional {
+            font-weight: 400;
             color: var(--color-muted, #8a8278);
-            border-right: 1.5px solid var(--color-border, #e2ddd6);
+            font-size: 0.75rem;
         }
 
-        .addfunds-amount-input {
-            flex: 1;
-            border: none;
-            outline: none;
-            padding: 0.875rem;
-            font-family: 'DM Serif Display', serif;
-            font-size: 1.5rem;
-            color: var(--color-text, #1a1814);
-            background: transparent;
-            width: 100%;
-        }
-
-        .addfunds-quick {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .addfunds-quick__btn {
-            padding: 0.4rem 0.875rem;
+        .addfunds-form-input {
+            padding: 0.75rem;
             border: 1.5px solid var(--color-border, #e2ddd6);
-            border-radius: 6px;
-            background: #fff;
+            border-radius: 8px;
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.875rem;
-            font-weight: 500;
+            font-size: 0.95rem;
             color: var(--color-text, #1a1814);
-            cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
+            background: white;
         }
 
-            .addfunds-quick__btn:hover,
-            .addfunds-quick__btn--active {
-                border-color: var(--color-primary, #2d5a27);
-                background: color-mix(in srgb, var(--color-primary, #2d5a27) 6%, transparent);
-                color: var(--color-primary, #2d5a27);
-            }
+        .addfunds-form-input:focus {
+            outline: none;
+            border-color: var(--color-primary, #2d5a27);
+        }
+
+        .addfunds-form-file {
+            padding: 0.6rem;
+            border: 1.5px dashed var(--color-border, #e2ddd6);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .addfunds-form-file:focus {
+            outline: none;
+            border-color: var(--color-primary, #2d5a27);
+        }
+
+        .addfunds-form-hint {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            color: var(--color-muted, #8a8278);
+        }
+
+        /* ── Preview ─────────────────────────────────────────────────────── */
+        .addfunds-preview {
+            background: white;
+            border: 1px solid var(--color-border, #e2ddd6);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .addfunds-preview__label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            color: var(--color-muted, #8a8278);
+            margin: 0 0 0.5rem;
+        }
+
+        .addfunds-preview__img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border, #e2ddd6);
+        }
 
         .addfunds-submit {
             width: 100%;
             justify-content: center;
+            margin-top: 0.5rem;
         }
 
-        .addfunds-methods {
-            margin-top: 2rem;
-        }
-
-        .addfunds-methods__label {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.78rem;
-            color: var(--color-muted, #8a8278);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin: 0 0 0.625rem;
-        }
-
-        .addfunds-methods__logos {
+        /* ── Info Box ──────────────────────────────────────────────────── */
+        .addfunds-info {
             display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
+            gap: 0.75rem;
+            background: color-mix(in srgb, #2563eb 6%, transparent);
+            border: 1px solid color-mix(in srgb, #2563eb 15%, transparent);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: left;
         }
 
-        .addfunds-method-pill {
-            padding: 0.3rem 0.75rem;
-            border: 1px solid var(--color-border, #e2ddd6);
-            border-radius: 99px;
+        .addfunds-info svg {
+            flex-shrink: 0;
+            color: #2563eb;
+            margin-top: 2px;
+        }
+
+        .addfunds-info div {
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.78rem;
-            color: var(--color-muted, #8a8278);
-            opacity: 0.65;
+            font-size: 0.82rem;
+            color: #1e40af;
+        }
+
+        .addfunds-info strong {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+
+        .addfunds-info ul {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+
+        .addfunds-info li {
+            margin-bottom: 0.2rem;
         }
     </style>
 
@@ -282,33 +435,32 @@
         (function () {
             'use strict';
 
-            var input   = document.getElementById('amountInput');
-            var form    = document.getElementById('addFundsForm');
-            var btn     = document.getElementById('addFundsBtn');
-            var presets = document.querySelectorAll('.addfunds-quick__btn');
+            var form = document.getElementById('addFundsForm');
+            var btn = document.getElementById('addFundsBtn');
+            var fileInput = document.getElementById('receiptImage');
+            var previewContainer = document.getElementById('previewContainer');
+            var previewImage = document.getElementById('previewImage');
 
-            presets.forEach(function (p) {
-                p.addEventListener('click', function () {
-                    if (!input) return;
-                    input.value = p.dataset.amount;
-                    presets.forEach(function (b) { b.classList.remove('addfunds-quick__btn--active'); });
-                    p.classList.add('addfunds-quick__btn--active');
-                });
-            });
-
-            if (input) {
-                input.addEventListener('input', function () {
-                    presets.forEach(function (b) { b.classList.remove('addfunds-quick__btn--active'); });
-                    presets.forEach(function (b) {
-                        if (b.dataset.amount === input.value) b.classList.add('addfunds-quick__btn--active');
-                    });
+            // Image preview
+            if (fileInput) {
+                fileInput.addEventListener('change', function () {
+                    var file = this.files[0];
+                    if (file) {
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            previewImage.src = e.target.result;
+                            previewContainer.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
                 });
             }
 
+            // Form submit
             if (form && btn) {
                 form.addEventListener('submit', function () {
                     btn.disabled = true;
-                    btn.textContent = 'Processing…';
+                    btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" class="animate-spin"><path fill-rule="evenodd" d="M10 2a.75.75 0 01.75.75v2.5a.75.75 0 01-1.5 0v-2.5A.75.75 0 0110 2zM5.5 10a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5A.75.75 0 015.5 10zm7 0a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5A.75.75 0 0112.5 10zM10 14.5a.75.75 0 01.75.75v2.5a.75.75 0 01-1.5 0v-2.5a.75.75 0 01.75-.75zM3.22 5.22a.75.75 0 011.06 0l1.77 1.77a.75.75 0 11-1.06 1.06L3.22 6.28a.75.75 0 010-1.06zm11.31 1.77l1.77-1.77a.75.75 0 111.06 1.06l-1.77 1.77a.75.75 0 11-1.06-1.06z" clip-rule="evenodd" /></svg> Processing…';
                 });
             }
         }());

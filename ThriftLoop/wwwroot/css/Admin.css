@@ -316,3 +316,808 @@
         padding: 0.4rem 1rem;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GCASH QR MANAGEMENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.admin-gcash-shell {
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--admin-text);
+    padding: 1.25rem 0 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.admin-gcash__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.4rem;
+}
+
+.admin-gcash__subtitle {
+    font-size: 0.92rem;
+    color: var(--admin-muted);
+    margin: 0 0 1.25rem;
+}
+
+.admin-gcash-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.admin-gcash-card__title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+}
+
+.admin-gcash-current {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.admin-gcash-qr {
+    max-width: 250px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 1px 2px rgba(17, 17, 24, 0.04);
+}
+
+.admin-gcash-meta {
+    flex: 1;
+}
+
+.admin-gcash-meta p {
+    font-size: 0.83rem;
+    color: var(--admin-text);
+    margin: 0 0 0.75rem;
+}
+
+.admin-gcash-empty {
+    text-align: center;
+    padding: 2.5rem;
+    color: var(--admin-muted);
+}
+
+.admin-gcash-empty svg {
+    margin-bottom: 1rem;
+    opacity: 0.4;
+}
+
+.admin-gcash-empty p {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.admin-gcash-empty__hint {
+    font-size: 0.78rem;
+    opacity: 0.7;
+    margin-top: 0.5rem !important;
+}
+
+.admin-gcash-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.admin-form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--admin-text);
+}
+
+.admin-form-file {
+    padding: 0.6rem;
+    border: 1.5px solid var(--admin-border);
+    border-radius: 8px;
+    font-size: 0.83rem;
+    background: var(--admin-surface);
+}
+
+.admin-form-hint {
+    font-size: 0.72rem;
+    color: var(--admin-muted-soft);
+}
+
+.admin-gcash-preview {
+    margin-top: 0.5rem;
+}
+
+.admin-gcash-preview p {
+    font-size: 0.82rem;
+    color: var(--admin-text);
+    margin: 0 0 0.5rem;
+}
+
+.admin-gcash-preview img {
+    max-width: 200px;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOP-UP REQUESTS REVIEW
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.admin-topup-shell {
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--admin-text);
+    padding: 1.25rem 0 2rem;
+}
+
+.admin-topup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.admin-topup__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.4rem;
+}
+
+.admin-topup__subtitle {
+    font-size: 0.92rem;
+    color: var(--admin-muted);
+    margin: 0;
+}
+
+.admin-topup-stats {
+    display: flex;
+    gap: 0.65rem;
+}
+
+.admin-stat-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    min-width: 80px;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+}
+
+.admin-stat-pill--pending {
+    background: linear-gradient(130deg, #fff7ef 0%, #ffffff 65%);
+    border-color: #f2d4b2;
+}
+
+.admin-stat-pill--pending .admin-stat__number {
+    color: var(--admin-warning);
+}
+
+.admin-stat-pill--review {
+    background: linear-gradient(130deg, #eff6ff 0%, #ffffff 65%);
+    border-color: #bfdbfe;
+}
+
+.admin-stat-pill--review .admin-stat__number {
+    color: #2563eb;
+}
+
+.admin-stat__number {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--admin-primary);
+    line-height: 1.2;
+}
+
+.admin-stat__label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: var(--admin-muted-soft);
+    margin-top: 0.2rem;
+}
+
+.admin-topup-filters {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.admin-filter-label {
+    font-size: 0.82rem;
+    color: var(--admin-muted);
+    margin-right: 0.25rem;
+}
+
+.admin-filter-btn {
+    padding: 0.4rem 0.875rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--admin-text);
+    text-decoration: none;
+    background: var(--admin-surface);
+    transition: all 0.15s ease;
+}
+
+.admin-filter-btn:hover {
+    background: #fafafd;
+}
+
+.admin-filter-btn--active {
+    background: var(--admin-primary);
+    color: #ffffff;
+    border-color: var(--admin-primary);
+}
+
+.admin-filter-btn--active:hover {
+    filter: brightness(1.06);
+}
+
+.admin-topup-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--admin-muted);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+}
+
+.admin-topup-empty svg {
+    margin-bottom: 1rem;
+    opacity: 0.4;
+}
+
+.admin-topup-table-wrapper {
+    overflow-x: auto;
+    background: var(--admin-surface);
+    border-radius: 12px;
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 1px 2px rgba(17, 17, 24, 0.04);
+}
+
+.admin-topup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+}
+
+.admin-topup-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--admin-muted-soft);
+    border-bottom: 1px solid var(--admin-border);
+    background: #fdfdff;
+}
+
+.admin-topup-table td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #efeff4;
+    vertical-align: top;
+}
+
+.admin-topup-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-topup-table tbody tr:hover {
+    background: #faf9fd;
+}
+
+.admin-topup-amount {
+    font-weight: 700;
+    color: var(--admin-primary);
+}
+
+.admin-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-status-badge--pending {
+    background: #feedd5;
+    color: var(--admin-warning);
+}
+
+.admin-status-badge--needsreview {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.admin-status-badge--approved {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.admin-status-badge--rejected {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.admin-status-note {
+    opacity: 0.7;
+    font-size: 0.65rem;
+}
+
+.admin-topup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-action-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.admin-action-btn {
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.admin-action-btn--view {
+    background: #f3f4f6;
+    color: var(--admin-text);
+    text-align: center;
+}
+
+.admin-action-btn--view:hover {
+    background: #e5e7eb;
+}
+
+.admin-action-btn--approve {
+    background: #16a34a;
+    color: #ffffff;
+}
+
+.admin-action-btn--approve:hover {
+    background: #15803d;
+}
+
+.admin-action-btn--reject {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.admin-action-btn--reject:hover {
+    background: #b91c1c;
+}
+
+.admin-reason-input {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    width: 120px;
+}
+
+.admin-rejection-reason {
+    font-size: 0.72rem;
+    color: var(--admin-muted);
+    font-style: italic;
+}
+
+.admin-topup-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.admin-pagination-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--admin-text);
+    text-decoration: none;
+    background: var(--admin-surface);
+    transition: all 0.15s ease;
+}
+
+.admin-pagination-btn:hover {
+    background: #fafafd;
+}
+
+.admin-pagination-info {
+    font-size: 0.82rem;
+    color: var(--admin-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHARED ADMIN COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.admin-alert {
+    padding: 0.875rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.admin-alert--success {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    color: #15803d;
+}
+
+.admin-alert--error {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+}
+
+.btn--danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.9rem;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn--danger:hover {
+    background: #b91c1c;
+}
+
+.btn--primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.9rem;
+    background: var(--admin-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn--primary:hover {
+    filter: brightness(1.06);
+}
+
+.detail-breadcrumb {
+    margin-bottom: 1rem;
+}
+
+.detail-breadcrumb__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--admin-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.detail-breadcrumb__link:hover {
+    color: var(--admin-primary);
+}
+
+.detail-breadcrumb__link svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Mobile responsive for new admin pages */
+@media (max-width: 900px) {
+    .admin-topup-header {
+        flex-direction: column;
+    }
+
+    .admin-topup-stats {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .admin-gcash-current {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-gcash-shell,
+    .admin-topup-shell {
+        padding-top: 0.9rem;
+    }
+
+    .admin-gcash__title,
+    .admin-topup__title {
+        font-size: 1.45rem;
+    }
+
+    .admin-topup-table thead {
+        display: none;
+    }
+
+    .admin-topup-table,
+    .admin-topup-table tbody,
+    .admin-topup-table tr,
+    .admin-topup-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .admin-topup-table tbody tr {
+        border-top: 1px solid var(--admin-border);
+        padding: 0.75rem 0;
+    }
+
+    .admin-topup-table tbody td {
+        border-top: 0;
+        padding: 0.4rem 1rem;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .admin-topup-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--admin-muted-soft);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+    }
+
+    .admin-topup-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   ADMIN MODAL STYLES (for Top-Up Review)
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+.admin-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-modal__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.admin-modal__content {
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+}
+
+.admin-modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--admin-border-soft, #e2e8f0);
+}
+
+.admin-modal__header h3 {
+    margin: 0;
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem;
+    color: var(--admin-text-primary, #1a1814);
+}
+
+.admin-modal__close {
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    color: var(--admin-muted-soft, #6b7280);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.admin-modal__close:hover {
+    background: var(--admin-bg-soft, #f5f5f4);
+    color: var(--admin-text-primary, #1a1814);
+}
+
+.admin-modal__body {
+    padding: 1.5rem;
+}
+
+.admin-modal__receipt {
+    position: relative;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--admin-border-soft, #e2e8f0);
+    background: #f8fafc;
+}
+
+.admin-modal__receipt img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: contain;
+    display: block;
+}
+
+.admin-ocr-status {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--admin-text-secondary, #4b5563);
+}
+
+.admin-ocr-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--admin-border-soft, #e2e8f0);
+    border-top-color: var(--admin-accent, #2d5a27);
+    border-radius: 50%;
+    animation: admin-spin 1s linear infinite;
+}
+
+@keyframes admin-spin {
+    to { transform: rotate(360deg); }
+}
+
+.admin-review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.admin-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.admin-form-group label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--admin-text-primary, #1a1814);
+}
+
+.admin-form-input {
+    padding: 0.625rem 0.875rem;
+    border: 1.5px solid var(--admin-border-soft, #e2e8f0);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    color: var(--admin-text-primary, #1a1814);
+    background: white;
+    transition: border-color 0.15s;
+}
+
+.admin-form-input:focus {
+    outline: none;
+    border-color: var(--admin-accent, #2d5a27);
+}
+
+.admin-form-hint {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    color: var(--admin-muted-soft, #6b7280);
+}
+
+.admin-modal__actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--admin-border-soft, #e2e8f0);
+}
+
+.admin-btn {
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+}
+
+.admin-btn--secondary {
+    background: var(--admin-bg-soft, #f5f5f4);
+    color: var(--admin-text-secondary, #4b5563);
+}
+
+.admin-btn--secondary:hover {
+    background: var(--admin-border-soft, #e2e8f0);
+}
+
+.admin-btn--approve {
+    background: var(--admin-accent, #2d5a27);
+    color: white;
+}
+
+.admin-btn--approve:hover {
+    background: #1e3f1a;
+}
+
+.admin-action-btn--review {
+    background: #3b82f6;
+    color: white;
+}
+
+.admin-action-btn--review:hover {
+    background: #2563eb;
+}

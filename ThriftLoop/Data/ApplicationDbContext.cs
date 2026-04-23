@@ -31,6 +31,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<ContextCard> ContextCards => Set<ContextCard>();
+    public DbSet<SiteSettings> SiteSettings => Set<SiteSettings>();
+    public DbSet<TopUpRequest> TopUpRequests => Set<TopUpRequest>();
 
     // ── JSON options (shared, thread-safe) ────────────────────────────────────
     private static readonly JsonSerializerOptions _jsonOpts =
@@ -747,6 +749,102 @@ public class ApplicationDbContext : DbContext
             // Index for expiration cleanup
             entity.HasIndex(cc => cc.ExpiresAt)
                   .HasDatabaseName("IX_ContextCards_ExpiresAt");
+        });
+
+        // ── SiteSettings ────────────────────────────────────────────────────────
+        modelBuilder.Entity<SiteSettings>(entity =>
+        {
+            entity.ToTable("SiteSettings");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Id).ValueGeneratedOnAdd();
+
+            entity.Property(s => s.GCashQRCodePath)
+                  .IsRequired(false)
+                  .HasMaxLength(512)
+                  .IsUnicode(false);
+
+            entity.Property(s => s.QRCodeUpdatedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(s => s.QRCodeUpdatedBy)
+                  .IsRequired(false);
+
+            // NEW: GCash Account Number for validation
+            entity.Property(s => s.GCashAccountNumber)
+                  .IsRequired(false)
+                  .HasMaxLength(20)
+                  .IsUnicode(false);
+
+            entity.Property(s => s.AccountNumberUpdatedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+
+            entity.Property(s => s.AccountNumberUpdatedBy)
+                  .IsRequired(false);
+        });
+
+        // ── TopUpRequests ───────────────────────────────────────────────────────
+        modelBuilder.Entity<TopUpRequest>(entity =>
+        {
+            entity.ToTable("TopUpRequests");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(t => t.Amount)
+                  .IsRequired()
+                  .HasColumnType("decimal(12,2)");
+            
+            entity.Property(t => t.ReferenceNumber)
+                  .IsRequired()
+                  .HasMaxLength(50)
+                  .IsUnicode(false);
+            
+            entity.HasIndex(t => t.ReferenceNumber)
+                  .IsUnique()
+                  .HasDatabaseName("UQ_TopUpRequests_ReferenceNumber");
+            
+            entity.Property(t => t.Status)
+                  .IsRequired()
+                  .HasDefaultValue(TopUpStatus.Pending);
+            
+            entity.Property(t => t.CreatedAt)
+                  .IsRequired()
+                  .HasColumnType("datetime2")
+                  .HasDefaultValueSql("SYSUTCDATETIME()");
+            
+            entity.Property(t => t.ProcessedAt)
+                  .IsRequired(false)
+                  .HasColumnType("datetime2");
+            
+            entity.Property(t => t.IsAutoApproved)
+                  .IsRequired()
+                  .HasDefaultValue(false);
+            
+            entity.Property(t => t.OcrConfidence)
+                  .IsRequired(false);
+            
+            entity.Property(t => t.ScreenshotPath)
+                  .IsRequired(false)
+                  .HasMaxLength(512)
+                  .IsUnicode(false);
+            
+            entity.Property(t => t.RejectionReason)
+                  .IsRequired(false)
+                  .HasMaxLength(500);
+            
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            // Index for finding pending requests
+            entity.HasIndex(t => new { t.Status, t.CreatedAt })
+                  .HasDatabaseName("IX_TopUpRequests_Status_CreatedAt");
+            
+            // Index for user history
+            entity.HasIndex(t => t.UserId)
+                  .HasDatabaseName("IX_TopUpRequests_UserId");
         });
     }
 }
