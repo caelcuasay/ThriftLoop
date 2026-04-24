@@ -1,0 +1,293 @@
+﻿@model ThriftLoop.ViewModels.SellersViewModel
+@using ThriftLoop.Models
+@using ThriftLoop.ViewModels
+@using ThriftLoop.Enums
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Sellers";
+    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
+    ViewBag.MaxPrice = maxPrice;
+    var categories = ItemCreateViewModel.Categories;
+
+    string GetLocationPreview(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return "Unknown";
+
+        var parts = address.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim())
+                           .Where(p => !string.IsNullOrWhiteSpace(p))
+                           .ToList();
+
+        if (parts.Count <= 3)
+            return address.Trim();
+
+        var remaining = parts.Take(parts.Count - 3).ToList();
+        if (remaining.Count >= 4)
+            remaining = remaining.Skip(1).ToList();
+
+        return string.Join(", ", remaining);
+    }
+}
+
+<div class="mobile-feed-screen">
+    @* ── Feed Header ──────────────────────────────────────────────────────── *@
+    <div class="mobile-feed-header">
+        <h1 class="mobile-feed-header__title">Sellers</h1>
+        <span class="mobile-feed-header__count" id="visibleCount">@Model.Items.Count</span>
+        <span class="mobile-feed-header__label">listings</span>
+    </div>
+
+    @* ── Shop Row ────────────────────────────────────────────────────────── *@
+    @if (Model.Shops.Any())
+    {
+        <div class="mobile-shops-section">
+            <p class="mobile-shops-section__label">Shops</p>
+            <div class="mobile-shops-row" id="shopsRow">
+                @foreach (var shop in Model.Shops)
+                {
+                    <a asp-controller="Shop" asp-action="Index" asp-route-id="@shop.Id" asp-area="Mobile"
+                           class="mobile-shop-card" data-shop-name="@shop.ShopName.ToLower()">
+                        @if (!string.IsNullOrWhiteSpace(shop.LogoUrl))
+                        {
+                            <img src="@shop.LogoUrl" alt="@shop.ShopName" class="mobile-shop-card__logo" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="mobile-shop-card__logo mobile-shop-card__logo--placeholder">
+                                @char.ToUpper(shop.ShopName.FirstOrDefault())
+                            </div>
+                        }
+                        <span class="mobile-shop-card__name">@shop.ShopName</span>
+                        @if (!string.IsNullOrWhiteSpace(shop.Bio))
+                        {
+                            <span class="mobile-shop-card__bio">@shop.Bio</span>
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Quick Filter Bar ────────────────────────────────────────────────── *@
+    <div class="mobile-filter-bar">
+        <button type="button" class="mobile-filter-chip mobile-filter-chip--active" data-filter="all">All</button>
+        @foreach (var cat in categories)
+        {
+            <button type="button" class="mobile-filter-chip" data-filter="@cat">@cat</button>
+        }
+    </div>
+
+    @* ── Feed Grid ────────────────────────────────────────────────────────── *@
+    @if (!Model.Items.Any())
+    {
+        <div class="mobile-empty-state">
+            <div class="mobile-empty-state__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <rect x="8" y="14" width="48" height="36" rx="6" />
+                    <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                    <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                </svg>
+            </div>
+            <h2 class="mobile-empty-state__title">No shop listings yet</h2>
+            <p class="mobile-empty-state__body">Sellers haven't posted any items.</p>
+        </div>
+    }
+    else
+    {
+        <div class="mobile-feed-grid" id="itemGrid">
+            @foreach (var item in Model.Items)
+            {
+                var isOwner = Model.CurrentUserId.HasValue && item.UserId == Model.CurrentUserId.Value;
+                var isSold = item.Status == ItemStatus.Sold;
+                var hasDiscount = item.HasActiveDiscount;
+                var shopName = item.Shop?.ShopName ?? string.Empty;
+
+                string? expiryText = null;
+                if (hasDiscount && item.DiscountExpiresAt.HasValue)
+                {
+                    var timeLeft = item.DiscountExpiresAt.Value - DateTime.UtcNow;
+                    if (timeLeft.TotalDays >= 1) expiryText = $"{(int)timeLeft.TotalDays}d left";
+                    else if (timeLeft.TotalHours >= 1) expiryText = $"{(int)timeLeft.TotalHours}h left";
+                    else if (timeLeft.TotalMinutes > 0) expiryText = $"{(int)timeLeft.TotalMinutes}m left";
+                }
+
+                var priceDisplay = Model.ShopItemPriceDisplay.ContainsKey(item.Id)
+                    ? Model.ShopItemPriceDisplay[item.Id]
+                    : "₱" + item.Price.ToString("N2");
+
+                var locationAddress = item.Shop?.StoreAddress ?? item.User?.Address;
+                var locationPreview = GetLocationPreview(locationAddress);
+
+                <article class="mobile-feed-card @(isSold ? "mobile-feed-card--sold" : "")"
+                         data-category="@item.Category"
+                         data-condition="@item.Condition"
+                         data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                         data-title="@item.Title.ToLower()"
+                         data-shop="@shopName.ToLower()">
+
+                    <div class="mobile-feed-card__img-wrap">
+                        @if (item.ImageUrls.Count > 0)
+                        {
+                            <img src="@item.ImageUrls[0]" alt="@item.Title" class="mobile-feed-card__img" loading="lazy" />
+                            @if (item.ImageUrls.Count > 1)
+                            {
+                                <div class="mobile-feed-card__img-count">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                        <rect x="1" y="3" width="9" height="10" rx="1" />
+                                        <rect x="5" y="1" width="9" height="10" rx="1" />
+                                    </svg>
+                                    <span>@item.ImageUrls.Count</span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="mobile-feed-card__img mobile-feed-card__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                    <rect x="4" y="8" width="40" height="32" rx="4" />
+                                    <circle cx="17" cy="20" r="4" />
+                                    <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+
+                        <span class="mobile-feed-card__condition">@item.Condition</span>
+                        <span class="mobile-feed-card__shop-badge">Shop</span>
+                        @if (isOwner)
+                        {
+                            <span class="mobile-feed-card__owner-badge">Yours</span>
+                        }
+                    </div>
+
+                    <div class="mobile-feed-card__body">
+                        <div class="mobile-feed-card__meta">
+                            <span class="mobile-feed-card__category">@item.Category</span>
+                            <span class="mobile-feed-card__date">@item.CreatedAt.ToString("MMM d")</span>
+                            @{
+                                var isLiked = Model.LikedItemIds.Contains(item.Id);
+                                var likeCount = Model.LikeCounts.GetValueOrDefault(item.Id, 0);
+                            }
+                            <button type="button" class="mobile-like-btn @(isLiked ? "mobile-like-btn--liked" : "")"
+                                    data-item-id="@item.Id" aria-label="Like item">
+                                <svg viewBox="0 0 24 24" fill="@(isLiked ? "currentColor" : "none")" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                                </svg>
+                                @if (likeCount > 0)
+                                {
+                                    <span class="mobile-like-btn__count">@likeCount</span>
+                                }
+                            </button>
+                        </div>
+
+                        <h2 class="mobile-feed-card__title">@item.Title</h2>
+
+                        <div class="mobile-feed-card__price-section">
+                            @if (hasDiscount)
+                            {
+                                <span class="mobile-feed-card__original-price">₱@(item.OriginalPrice?.ToString("N2"))</span>
+                                <div class="mobile-feed-card__price-row">
+                                    <span class="mobile-feed-card__price">₱@item.Price.ToString("N2")</span>
+                                    <span class="mobile-feed-card__discount-badge">-@(item.DiscountPercentage?.ToString("F0"))%</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(expiryText))
+                                {
+                                    <span class="mobile-feed-card__discount-expiry">@expiryText</span>
+                                }
+                            }
+                            else
+                            {
+                                <div class="mobile-feed-card__price-row">
+                                    <span class="mobile-feed-card__price">@priceDisplay</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="mobile-feed-card__location">
+                            <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                <path d="M8 0a6 6 0 00-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
+                            <span>@(string.IsNullOrWhiteSpace(shopName) ? locationPreview : shopName)</span>
+                        </div>
+                    </div>
+
+                    <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.Id" asp-area="Mobile"
+                       class="mobile-feed-card__link" aria-label="View @item.Title"></a>
+                </article>
+            }
+        </div>
+    }
+
+    @await Html.PartialAsync("_MobileFilterSheet")
+</div>
+
+<script>
+    (function() {
+        var chips = document.querySelectorAll('.mobile-filter-chip');
+        var cards = document.querySelectorAll('.mobile-feed-card');
+        var shopCards = document.querySelectorAll('.mobile-shop-card');
+        var countEl = document.getElementById('visibleCount');
+
+        chips.forEach(function(chip) {
+            chip.addEventListener('click', function() {
+                chips.forEach(function(c) { c.classList.remove('mobile-filter-chip--active'); });
+                chip.classList.add('mobile-filter-chip--active');
+
+                var filter = chip.dataset.filter;
+                var visible = 0;
+
+                cards.forEach(function(card) {
+                    if (filter === 'all' || card.dataset.category === filter) {
+                        card.style.display = '';
+                        visible++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                if (countEl) countEl.textContent = visible;
+            });
+        });
+
+        document.querySelectorAll('.mobile-like-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var itemId = btn.dataset.itemId;
+                var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+                fetch('/Likes/Toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ itemId: parseInt(itemId) })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        btn.classList.toggle('mobile-like-btn--liked', data.isLiked);
+                        var svg = btn.querySelector('svg');
+                        if (svg) svg.setAttribute('fill', data.isLiked ? 'currentColor' : 'none');
+                        var countSpan = btn.querySelector('.mobile-like-btn__count');
+                        if (data.likeCount > 0) {
+                            if (countSpan) {
+                                countSpan.textContent = data.likeCount;
+                            } else {
+                                var newCount = document.createElement('span');
+                                newCount.className = 'mobile-like-btn__count';
+                                newCount.textContent = data.likeCount;
+                                btn.appendChild(newCount);
+                            }
+                        } else if (countSpan) {
+                            countSpan.remove();
+                        }
+                    }
+                })
+                .catch(function(err) { console.error('Like failed:', err); });
+            });
+        });
+    })();
+</script>

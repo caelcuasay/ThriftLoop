@@ -157,6 +157,17 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ── Areas Routing (Mobile) ─────────────────────────────────────────────────
+app.MapAreaControllerRoute(
+    name: "mobile_default",
+    areaName: "Mobile",
+    pattern: "mobile/{controller=Auth}/{action=Login}/{id?}");
+
+app.MapAreaControllerRoute(
+    name: "mobile_default",
+    areaName: "Mobile",
+    pattern: "mobile/{controller=Home}/{action=Index}/{id?}");
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

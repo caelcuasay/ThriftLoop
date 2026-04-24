@@ -1,0 +1,475 @@
+﻿@using ThriftLoop.ViewModels
+@model ItemEditViewModel
+@{
+    ViewData["Title"] = "Edit Listing";
+}
+
+<div class="mobile-edit-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-edit-header">
+        <h1 class="mobile-edit-header__title">Edit Listing</h1>
+        <p class="mobile-edit-header__sub">Tap any field to edit</p>
+    </div>
+
+    <form asp-action="Edit" method="post" enctype="multipart/form-data" id="editItemForm">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="ExistingImageUrls" id="existingImageUrlsHidden" value='@Json.Serialize(Model.ExistingImageUrls)' />
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="mobile-toast mobile-toast--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                <span>Please fix the errors below before saving.</span>
+            </div>
+        }
+
+        @* ── Photos ──────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <div class="mobile-edit-section__header">
+                <h2 class="mobile-edit-section__title">Photos</h2>
+                <span class="mobile-edit-section__counter" id="photoCount">@Model.ExistingImageUrls.Count / 5</span>
+            </div>
+
+            @if (Model.ExistingImageUrls.Any())
+            {
+                <div class="mobile-edit-photo-grid" id="existingPhotos">
+                    @foreach (var url in Model.ExistingImageUrls.Select((u, i) => new { url = u, index = i }))
+                    {
+                        <div class="mobile-edit-photo-item" data-url="@url.url" data-index="@url.index">
+                            <img src="@url.url" alt="Photo @(url.index + 1)" />
+                            @if (url.index == 0)
+                            {
+                                <span class="mobile-edit-photo-item__cover">Cover</span>
+                            }
+                            <button type="button" class="mobile-edit-photo-item__remove" data-url="@url.url" aria-label="Remove photo">
+                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                                    <path d="M5 5L15 15M15 5L5 15" stroke-linecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+            <div id="removedImagesContainer"></div>
+
+            <div class="mobile-edit-photo-upload" id="photoUploadArea" tabindex="0">
+                <input type="file" asp-for="NewImages" id="photoInput" multiple accept="image/jpeg,image/png,image/webp" class="mobile-edit-photo-upload__input" />
+                <div class="mobile-edit-photo-upload__content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
+                        <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+                    </svg>
+                    <span>Add more photos</span>
+                </div>
+            </div>
+            <div class="mobile-edit-photo-grid" id="newPhotos"></div>
+        </div>
+
+        @* ── Title ────────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <div class="mobile-edit-section__header">
+                <h2 class="mobile-edit-section__title">Title</h2>
+                <span class="mobile-edit-section__counter" id="titleCounter">@(Model.Title?.Length ?? 0)/100</span>
+            </div>
+            <input asp-for="Title" class="mobile-edit-input" id="titleInput" placeholder="Enter title" maxlength="100" value="@Model.Title" />
+            <span asp-validation-for="Title" class="mobile-field-error"></span>
+        </div>
+
+        @* ── Price ────────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <h2 class="mobile-edit-section__title">Price</h2>
+            <div class="mobile-price-wrap">
+                <span class="mobile-price-symbol">₱</span>
+                <input asp-for="Price" class="mobile-edit-input mobile-edit-input--price" id="priceInput" type="number" step="0.01" min="0.01" max="99999.99" placeholder="0.00" value="@(Model.Price > 0 ? Model.Price.ToString("F2") : "")" />
+            </div>
+            <span asp-validation-for="Price" class="mobile-field-error"></span>
+        </div>
+
+        @* ── Category ─────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <h2 class="mobile-edit-section__title">Category</h2>
+            <input type="hidden" asp-for="Category" id="categoryHidden" value="@Model.Category" />
+            <div class="mobile-chip-grid" id="categoryChips">
+                @foreach (var cat in ItemEditViewModel.Categories)
+                {
+                    <button type="button" class="mobile-chip @(Model.Category == cat ? "mobile-chip--active" : "")" data-value="@cat">@cat</button>
+                }
+            </div>
+            <span asp-validation-for="Category" class="mobile-field-error"></span>
+        </div>
+
+        @* ── Condition ────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <h2 class="mobile-edit-section__title">Condition</h2>
+            <input type="hidden" asp-for="Condition" id="conditionHidden" value="@Model.Condition" />
+            <div class="mobile-chip-grid" id="conditionChips">
+                @foreach (var cond in ItemEditViewModel.Conditions)
+                {
+                    <button type="button" class="mobile-chip @(Model.Condition == cond ? "mobile-chip--active" : "")" data-value="@cond">@cond</button>
+                }
+            </div>
+            <span asp-validation-for="Condition" class="mobile-field-error"></span>
+        </div>
+
+        @* ── Size ─────────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <h2 class="mobile-edit-section__title">Size <span class="mobile-create-optional">(Optional)</span></h2>
+            <div class="mobile-select-wrap">
+                <select asp-for="Size" class="mobile-edit-select" id="sizeSelect">
+                    <option value="">Select size</option>
+                    @foreach (var size in ItemEditViewModel.Sizes)
+                    {
+                        <option value="@size" selected="@(Model.Size == size)">@size</option>
+                    }
+                </select>
+                <svg class="mobile-select-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clip-rule="evenodd" />
+                </svg>
+            </div>
+        </div>
+
+        @* ── Description ──────────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <div class="mobile-edit-section__header">
+                <h2 class="mobile-edit-section__title">Description</h2>
+                <span class="mobile-edit-section__counter" id="descCounter">@(Model.Description?.Length ?? 0)/1000</span>
+            </div>
+            <textarea asp-for="Description" class="mobile-edit-textarea" id="descInput" rows="4" placeholder="Describe your item..." maxlength="1000">@Model.Description</textarea>
+            <span asp-validation-for="Description" class="mobile-field-error"></span>
+        </div>
+
+        @* ── Delivery Options ─────────────────────────────────────────────── *@
+        <div class="mobile-edit-section">
+            <h2 class="mobile-edit-section__title">Delivery Options</h2>
+            <p class="mobile-create-hint">Choose at least one</p>
+
+            <label class="mobile-delivery-option @(Model.AllowDelivery ? "mobile-delivery-option--checked" : "")">
+                <input type="checkbox" asp-for="AllowDelivery" class="mobile-delivery-checkbox" />
+                <span class="mobile-delivery-option__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                        <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
+                        <circle cx="6" cy="16.5" r="1.5" />
+                        <circle cx="14" cy="16.5" r="1.5" />
+                    </svg>
+                </span>
+                <div class="mobile-delivery-option__info">
+                    <span class="mobile-delivery-option__title">Delivery</span>
+                    <span class="mobile-delivery-option__desc">Ship directly to buyer</span>
+                </div>
+                <span class="mobile-delivery-option__check"></span>
+            </label>
+
+            <label class="mobile-delivery-option @(Model.AllowHalfway ? "mobile-delivery-option--checked" : "")">
+                <input type="checkbox" asp-for="AllowHalfway" class="mobile-delivery-checkbox" />
+                <span class="mobile-delivery-option__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                        <circle cx="10" cy="10" r="7.5" />
+                        <path d="M10 5v5l3 3" stroke-linecap="round" />
+                    </svg>
+                </span>
+                <div class="mobile-delivery-option__info">
+                    <span class="mobile-delivery-option__title">Halfway Meetup</span>
+                    <span class="mobile-delivery-option__desc">Meet at agreed location</span>
+                </div>
+                <span class="mobile-delivery-option__check"></span>
+            </label>
+
+            <label class="mobile-delivery-option @(Model.AllowPickup ? "mobile-delivery-option--checked" : "")">
+                <input type="checkbox" asp-for="AllowPickup" class="mobile-delivery-checkbox" />
+                <span class="mobile-delivery-option__icon">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                        <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                        <rect x="8" y="11" width="4" height="5.5" />
+                    </svg>
+                </span>
+                <div class="mobile-delivery-option__info">
+                    <span class="mobile-delivery-option__title">Pickup</span>
+                    <span class="mobile-delivery-option__desc">Buyer comes to you</span>
+                </div>
+                <span class="mobile-delivery-option__check"></span>
+            </label>
+            <span class="mobile-field-error" id="deliveryError"></span>
+        </div>
+
+        @* ── Submit ───────────────────────────────────────────────────────── *@
+        <div class="mobile-edit-submit">
+            <a asp-action="Index" class="mobile-btn mobile-btn--ghost">Cancel</a>
+            <button type="submit" class="mobile-btn mobile-btn--primary" id="submitBtn">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path d="M3 10h14M10 3l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                </svg>
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        // =========================================================
+        // PHOTO MANAGEMENT (FIXED)
+        // =========================================================
+
+        var photoUploadArea = document.getElementById('photoUploadArea');
+        var photoInput = document.getElementById('photoInput');
+        var existingPhotos = document.getElementById('existingPhotos');
+        var newPhotos = document.getElementById('newPhotos');
+        var removedContainer = document.getElementById('removedImagesContainer');
+        var photoCount = document.getElementById('photoCount');
+        var existingUrlsHidden = document.getElementById('existingImageUrlsHidden');
+
+        var existingImageUrls = @Json.Serialize(Model.ExistingImageUrls);
+        var newImageFiles = [];
+
+        function updatePhotoCount() {
+            var total = existingImageUrls.length + newImageFiles.length;
+            if (photoCount) photoCount.textContent = total + ' / 5';
+        }
+
+        function updateExistingUrlsHidden() {
+            if (existingUrlsHidden) {
+                existingUrlsHidden.value = JSON.stringify(existingImageUrls);
+            }
+        }
+
+        function addRemovedInput(url) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'RemovedImageUrls';
+            input.value = url;
+            removedContainer.appendChild(input);
+        }
+
+        function removeExistingPhoto(url, element) {
+            var index = existingImageUrls.indexOf(url);
+            if (index > -1) {
+                existingImageUrls.splice(index, 1);
+                addRemovedInput(url);
+                element.remove();
+                updatePhotoCount();
+                updateExistingUrlsHidden();
+            }
+        }
+
+        function replaceFileInput() {
+            var oldInput = photoInput;
+            var newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.id = 'photoInput';
+            newInput.name = 'NewImages';
+            newInput.multiple = true;
+            newInput.accept = 'image/jpeg,image/png,image/webp';
+            newInput.className = 'mobile-edit-photo-upload__input';
+
+            var dt = new DataTransfer();
+            newImageFiles.forEach(function(f) { dt.items.add(f); });
+            newInput.files = dt.files;
+
+            newInput.addEventListener('change', function() {
+                if (this.files && this.files.length) addFiles(this.files);
+                this.value = '';
+            });
+
+            if (oldInput && oldInput.parentNode) {
+                oldInput.parentNode.replaceChild(newInput, oldInput);
+            }
+            photoInput = newInput;
+        }
+
+        function renderNewPhotos() {
+            if (!newPhotos) return;
+            newPhotos.innerHTML = '';
+
+            newImageFiles.forEach(function(file, index) {
+                var url = URL.createObjectURL(file);
+                var item = document.createElement('div');
+                item.className = 'mobile-edit-photo-item mobile-edit-photo-item--new';
+
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = 'New photo ' + (index + 1);
+
+                var badge = document.createElement('span');
+                badge.className = 'mobile-edit-photo-item__badge';
+                badge.textContent = 'New';
+
+                var removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'mobile-edit-photo-item__remove';
+                removeBtn.setAttribute('aria-label', 'Remove photo');
+                removeBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M5 5L15 15M15 5L5 15" stroke-linecap="round"/></svg>';
+
+                // FIXED: IIFE captures correct index
+                (function(idx) {
+                    removeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        newImageFiles.splice(idx, 1);
+                        renderNewPhotos();
+                        replaceFileInput();
+                    });
+                })(index);
+
+                item.appendChild(img);
+                item.appendChild(badge);
+                item.appendChild(removeBtn);
+                newPhotos.appendChild(item);
+            });
+
+            updatePhotoCount();
+        }
+
+        function addFiles(files) {
+            var remaining = 5 - (existingImageUrls.length + newImageFiles.length);
+            var toAdd = Array.from(files).slice(0, remaining);
+
+            toAdd.forEach(function(file) {
+                if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+                    showToast(file.name + ' is not a supported format.', 'error');
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast(file.name + ' exceeds 5 MB.', 'error');
+                    return;
+                }
+                newImageFiles.push(file);
+            });
+
+            renderNewPhotos();
+            replaceFileInput();
+        }
+
+        if (existingPhotos) {
+            existingPhotos.querySelectorAll('.mobile-edit-photo-item__remove').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var item = this.closest('.mobile-edit-photo-item');
+                    var url = item.dataset.url;
+                    removeExistingPhoto(url, item);
+                });
+            });
+        }
+
+        if (photoUploadArea && photoInput) {
+            photoUploadArea.addEventListener('click', function() { photoInput.click(); });
+            photoUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); photoUploadArea.classList.add('is-dragging'); });
+            photoUploadArea.addEventListener('dragleave', function() { photoUploadArea.classList.remove('is-dragging'); });
+            photoUploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                photoUploadArea.classList.remove('is-dragging');
+                if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+            });
+        }
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function() {
+                if (this.files && this.files.length) addFiles(this.files);
+                this.value = '';
+            });
+        }
+
+        updatePhotoCount();
+
+        // =========================================================
+        // CHARACTER COUNTERS
+        // =========================================================
+
+        function bindCounter(inputId, counterId, max) {
+            var input = document.getElementById(inputId);
+            var counter = document.getElementById(counterId);
+            if (!input || !counter) return;
+            input.addEventListener('input', function() {
+                var len = input.value.length;
+                counter.textContent = len + '/' + max;
+                if (len > max * 0.9) counter.classList.add('mobile-edit-section__counter--warn');
+                else counter.classList.remove('mobile-edit-section__counter--warn');
+            });
+        }
+
+        bindCounter('titleInput', 'titleCounter', 100);
+        bindCounter('descInput', 'descCounter', 1000);
+
+        // =========================================================
+        // CATEGORY & CONDITION CHIPS
+        // =========================================================
+
+        function setupChips(chipContainerId, hiddenInputId) {
+            var container = document.getElementById(chipContainerId);
+            var hidden = document.getElementById(hiddenInputId);
+            if (!container || !hidden) return;
+
+            container.querySelectorAll('.mobile-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    container.querySelectorAll('.mobile-chip').forEach(function(c) { c.classList.remove('mobile-chip--active'); });
+                    chip.classList.add('mobile-chip--active');
+                    hidden.value = chip.dataset.value;
+                });
+            });
+        }
+
+        setupChips('categoryChips', 'categoryHidden');
+        setupChips('conditionChips', 'conditionHidden');
+
+        // =========================================================
+        // DELIVERY CHECKBOX VISUAL FEEDBACK
+        // =========================================================
+
+        document.querySelectorAll('.mobile-delivery-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var option = this.closest('.mobile-delivery-option');
+                if (this.checked) option.classList.add('mobile-delivery-option--checked');
+                else option.classList.remove('mobile-delivery-option--checked');
+            });
+        });
+
+        // =========================================================
+        // FORM SUBMIT
+        // =========================================================
+
+        var form = document.getElementById('editItemForm');
+        var submitBtn = document.getElementById('submitBtn');
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                var hasError = false;
+                var title = document.getElementById('titleInput').value.trim();
+                var price = document.getElementById('priceInput').value;
+                var category = document.getElementById('categoryHidden').value;
+                var condition = document.getElementById('conditionHidden').value;
+                var description = document.getElementById('descInput').value.trim();
+                var delivery = document.getElementById('AllowDelivery').checked;
+                var halfway = document.getElementById('AllowHalfway').checked;
+                var pickup = document.getElementById('AllowPickup').checked;
+
+                if (!title) { showToast('Please enter a title.', 'error'); hasError = true; }
+                else if (!price || parseFloat(price) <= 0) { showToast('Please enter a valid price.', 'error'); hasError = true; }
+                else if (!category) { showToast('Please select a category.', 'error'); hasError = true; }
+                else if (!condition) { showToast('Please select the condition.', 'error'); hasError = true; }
+                else if (!description) { showToast('Please enter a description.', 'error'); hasError = true; }
+                else if (!delivery && !halfway && !pickup) { showToast('Please select at least one delivery option.', 'error'); hasError = true; }
+
+                if (hasError) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Saving...';
+                }
+            });
+        }
+
+        function showToast(message, type) {
+            type = type || 'info';
+            var toast = document.createElement('div');
+            toast.className = 'app-toast app-toast--' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3200);
+        }
+    })();
+</script>

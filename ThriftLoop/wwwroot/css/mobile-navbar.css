@@ -1,0 +1,357 @@
+﻿/* --------------------------------------------- */
+/* MOBILE NAVBAR — ThriftLoop                     */
+/* --------------------------------------------- */
+
+:root {
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-bg: #f5f3f0;
+    --c-surface: #ffffff;
+    --c-border: #e4e4ea;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────────────────── */
+
+.mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    gap: 8px;
+}
+
+/* ── Back Button ─────────────────────────────────────────────────────────── */
+
+.mobile-topbar__back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--c-text);
+    text-decoration: none;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+}
+
+    .mobile-topbar__back:hover {
+        background: var(--c-bg);
+    }
+
+/* ── Brand ───────────────────────────────────────────────────────────────── */
+
+.mobile-topbar__brand {
+    display: flex;
+    align-items: center;
+    color: var(--c-primary);
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+    .mobile-topbar__brand svg {
+        width: 28px;
+        height: 28px;
+    }
+
+/* ── Center Nav Links ────────────────────────────────────────────────────── */
+
+.mobile-topbar__nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    justify-content: center;
+}
+
+.mobile-topbar__nav-link {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--c-muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .mobile-topbar__nav-link:hover {
+        color: var(--c-primary);
+        background: var(--c-primary-soft);
+    }
+
+.mobile-topbar__nav-link--active {
+    color: var(--c-primary);
+    background: var(--c-primary-soft);
+    font-weight: 600;
+}
+
+/* ── Right Actions ───────────────────────────────────────────────────────── */
+
+.mobile-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* ── Icon Buttons ────────────────────────────────────────────────────────── */
+
+.mobile-topbar__icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--c-text);
+    text-decoration: none;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .mobile-topbar__icon-btn:hover {
+        background: var(--c-bg);
+    }
+
+.mobile-topbar__icon-btn--active {
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+}
+
+/* ── Text Button (Sign In) ───────────────────────────────────────────────── */
+
+.mobile-topbar__text-btn {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--c-primary);
+    text-decoration: none;
+    padding: 7px 14px;
+    border-radius: 18px;
+    background: var(--c-primary-soft);
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* ── Avatar & Dropdown ──────────────────────────────────────────────────── */
+
+.mobile-topbar__avatar-wrap {
+    position: relative;
+}
+
+.mobile-topbar__avatar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: var(--c-primary);
+    color: white;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+}
+
+    .mobile-topbar__avatar-btn:active {
+        transform: scale(0.94);
+    }
+
+.mobile-topbar__avatar {
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1;
+    user-select: none;
+}
+
+/* ── Dropdown Menu ──────────────────────────────────────────────────────── */
+
+.mobile-topbar__dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background: var(--c-surface);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid var(--c-border);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    z-index: 200;
+    overflow: hidden;
+}
+
+.mobile-topbar__dropdown--visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.mobile-topbar__dropdown-header {
+    padding: 14px 16px 10px;
+}
+
+.mobile-topbar__dropdown-name {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--c-text);
+    line-height: 1.3;
+}
+
+.mobile-topbar__dropdown-email {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--c-muted-light);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mobile-topbar__dropdown-divider {
+    height: 1px;
+    background: var(--c-border);
+    margin: 4px 0;
+}
+
+.mobile-topbar__dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--c-text);
+    text-decoration: none;
+    transition: background 0.15s;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .mobile-topbar__dropdown-item:hover {
+        background: var(--c-bg);
+    }
+
+.mobile-topbar__dropdown-item--active {
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+    font-weight: 600;
+}
+
+.mobile-topbar__dropdown-item--signout {
+    color: #b91c1c;
+}
+
+    .mobile-topbar__dropdown-item--signout:hover {
+        background: #fee9e9;
+    }
+
+.mobile-topbar__dropdown-form {
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ── Bottom Navigation Bar ───────────────────────────────────────────────── */
+
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: var(--c-surface);
+    border-top: 1px solid var(--c-border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    z-index: 100;
+    height: 60px;
+}
+
+.mobile-bottom-nav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    color: var(--c-muted-light);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 56px;
+}
+
+    .mobile-bottom-nav__item span {
+        font-size: 0.62rem;
+        font-weight: 500;
+        line-height: 1;
+    }
+
+    .mobile-bottom-nav__item:hover {
+        color: var(--c-primary);
+    }
+
+.mobile-bottom-nav__item--active {
+    color: var(--c-primary);
+}
+
+    .mobile-bottom-nav__item--active span {
+        font-weight: 600;
+    }
+
+/* ── Center Create Button ────────────────────────────────────────────────── */
+
+.mobile-bottom-nav__create {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: white;
+    text-decoration: none;
+    box-shadow: 0 2px 12px rgba(45, 27, 105, 0.35);
+    transition: transform 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    margin-top: -20px;
+    flex-shrink: 0;
+}
+
+    .mobile-bottom-nav__create:active {
+        transform: scale(0.92);
+        background: var(--c-primary-light);
+    }
+
+    .mobile-bottom-nav__create:hover {
+        background: var(--c-primary-light);
+    }

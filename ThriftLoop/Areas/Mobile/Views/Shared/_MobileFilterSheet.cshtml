@@ -1,0 +1,330 @@
+﻿@* Mobile Filter Bottom Sheet Partial *@
+@using ThriftLoop.ViewModels
+@{
+    var categories = ItemCreateViewModel.Categories;
+    var conditions = ItemCreateViewModel.Conditions;
+    var maxPrice = (int)(ViewBag.MaxPrice ?? 100000);
+}
+
+@* Floating Action Button *@
+<button type="button" class="mobile-filter-fab" id="mobileFilterFab" aria-label="Open filters">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+        <path d="M4 6h16M6 12h12M8 18h8" stroke-linecap="round" />
+        <circle cx="8" cy="6" r="2" />
+        <circle cx="16" cy="12" r="2" />
+        <circle cx="12" cy="18" r="2" />
+    </svg>
+</button>
+
+@* Overlay *@
+<div class="mobile-filter-overlay" id="mobileFilterOverlay"></div>
+
+@* Bottom Sheet *@
+<div class="mobile-filter-sheet" id="mobileFilterSheet">
+    @* Drag Handle *@
+    <div class="mobile-filter-sheet__handle">
+        <div class="mobile-filter-sheet__handle-bar"></div>
+    </div>
+
+    @* Header *@
+    <div class="mobile-filter-sheet__header">
+        <h2 class="mobile-filter-sheet__title">Filters</h2>
+        <button type="button" class="mobile-filter-sheet__reset" id="mobileFilterReset">
+            Reset All
+        </button>
+    </div>
+
+    @* Body *@
+    <div class="mobile-filter-sheet__body">
+        @* Search *@
+        <div class="mobile-filter-section">
+            <div class="mobile-filter-section__label">Search</div>
+            <div class="mobile-filter-search">
+                <svg class="mobile-filter-search__icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                </svg>
+                <input type="text"
+                       class="mobile-filter-search__input"
+                       id="mobileFilterSearch"
+                       placeholder="Search items..."
+                       autocomplete="off" />
+            </div>
+        </div>
+
+        @* Categories *@
+        <div class="mobile-filter-section">
+            <div class="mobile-filter-section__label">Category</div>
+            <div class="mobile-filter-grid" id="mobileFilterCategories">
+                @foreach (var cat in categories)
+                {
+                    <button type="button"
+                            class="mobile-filter-tag"
+                            data-category="@cat"
+                            data-filter-type="category">
+                        @cat
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* Condition *@
+        <div class="mobile-filter-section">
+            <div class="mobile-filter-section__label">Condition</div>
+            <div class="mobile-filter-grid" id="mobileFilterConditions">
+                @foreach (var cond in conditions)
+                {
+                    <button type="button"
+                            class="mobile-filter-tag"
+                            data-condition="@cond"
+                            data-filter-type="condition">
+                        @cond
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* Price Range *@
+        <div class="mobile-filter-section">
+            <div class="mobile-filter-section__label">Price Range</div>
+            <div class="mobile-filter-range">
+                <div class="mobile-filter-range__inputs">
+                    <input type="number"
+                           class="mobile-filter-range__input"
+                           id="mobilePriceMin"
+                           placeholder="₱0"
+                           min="0"
+                           step="100" />
+                    <span class="mobile-filter-range__separator">to</span>
+                    <input type="number"
+                           class="mobile-filter-range__input"
+                           id="mobilePriceMax"
+                           placeholder="₱@maxPrice.ToString("N0")"
+                           min="0"
+                           step="100" />
+                </div>
+                <input type="range"
+                       class="mobile-filter-range__slider"
+                       id="mobilePriceSlider"
+                       min="0"
+                       max="@maxPrice"
+                       value="@maxPrice"
+                       step="100" />
+                <div class="mobile-filter-range__labels">
+                    <span>₱0</span>
+                    <span>₱@maxPrice.ToString("N0")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Apply Button *@
+    <div class="mobile-filter-sheet__apply">
+        <button type="button" class="mobile-filter-sheet__apply-btn" id="mobileFilterApply">
+            Apply Filters
+        </button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ── State ────────────────────────────────────────────────────────────
+        var maxPriceValue = @maxPrice;
+
+        var state = {
+            search: '',
+            categories: [],
+            conditions: [],
+            priceMin: 0,
+            priceMax: maxPriceValue
+        };
+
+        var fab = document.getElementById('mobileFilterFab');
+        var overlay = document.getElementById('mobileFilterOverlay');
+        var sheet = document.getElementById('mobileFilterSheet');
+        var searchInput = document.getElementById('mobileFilterSearch');
+        var priceMinInput = document.getElementById('mobilePriceMin');
+        var priceMaxInput = document.getElementById('mobilePriceMax');
+        var priceSlider = document.getElementById('mobilePriceSlider');
+        var applyBtn = document.getElementById('mobileFilterApply');
+        var resetBtn = document.getElementById('mobileFilterReset');
+        var categoryTags = document.querySelectorAll('#mobileFilterCategories .mobile-filter-tag');
+        var conditionTags = document.querySelectorAll('#mobileFilterConditions .mobile-filter-tag');
+
+        var isOpen = false;
+
+        // ── Open / Close ─────────────────────────────────────────────────────
+        function openSheet() {
+            isOpen = true;
+            overlay.classList.add('mobile-filter-overlay--visible');
+            sheet.classList.add('mobile-filter-sheet--visible');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSheet() {
+            isOpen = false;
+            overlay.classList.remove('mobile-filter-overlay--visible');
+            sheet.classList.remove('mobile-filter-sheet--visible');
+            document.body.style.overflow = '';
+        }
+
+        fab.addEventListener('click', openSheet);
+        overlay.addEventListener('click', closeSheet);
+
+        // ── Tag Toggles ──────────────────────────────────────────────────────
+        categoryTags.forEach(function(tag) {
+            tag.addEventListener('click', function() {
+                var cat = tag.dataset.category;
+                tag.classList.toggle('mobile-filter-tag--active');
+
+                if (tag.classList.contains('mobile-filter-tag--active')) {
+                    if (state.categories.indexOf(cat) === -1) state.categories.push(cat);
+                } else {
+                    state.categories = state.categories.filter(function(c) { return c !== cat; });
+                }
+                updateFabDot();
+            });
+        });
+
+        conditionTags.forEach(function(tag) {
+            tag.addEventListener('click', function() {
+                var cond = tag.dataset.condition;
+                tag.classList.toggle('mobile-filter-tag--active');
+
+                if (tag.classList.contains('mobile-filter-tag--active')) {
+                    if (state.conditions.indexOf(cond) === -1) state.conditions.push(cond);
+                } else {
+                    state.conditions = state.conditions.filter(function(c) { return c !== cond; });
+                }
+                updateFabDot();
+            });
+        });
+
+        // ── Search ───────────────────────────────────────────────────────────
+        searchInput.addEventListener('input', function() {
+            state.search = this.value.trim().toLowerCase();
+        });
+
+        // ── Price ────────────────────────────────────────────────────────────
+        priceSlider.addEventListener('input', function() {
+            var val = parseInt(this.value);
+            state.priceMax = val;
+            priceMaxInput.value = val;
+        });
+
+        priceMaxInput.addEventListener('input', function() {
+            var val = parseInt(this.value) || maxPriceValue;
+            state.priceMax = val;
+            priceSlider.value = val;
+        });
+
+        priceMinInput.addEventListener('input', function() {
+            var val = parseInt(this.value) || 0;
+            state.priceMin = val;
+        });
+
+        // ── Apply Filters ────────────────────────────────────────────────────
+        function applyFilters() {
+            // Update chip bar active state
+            document.querySelectorAll('.mobile-filter-chip').forEach(function(chip) {
+                chip.classList.remove('mobile-filter-chip--active');
+                if (state.categories.length === 1 && chip.dataset.filter === state.categories[0]) {
+                    chip.classList.add('mobile-filter-chip--active');
+                } else if (state.categories.length === 0 && chip.dataset.filter === 'all') {
+                    chip.classList.add('mobile-filter-chip--active');
+                }
+            });
+
+            // Filter cards
+            var cards = document.querySelectorAll('.mobile-feed-card');
+            var visible = 0;
+
+            cards.forEach(function(card) {
+                var cat = card.dataset.category;
+                var cond = card.dataset.condition;
+                var price = parseFloat(card.dataset.price);
+                var title = card.dataset.title || '';
+
+                var catOk = state.categories.length === 0 || state.categories.indexOf(cat) !== -1;
+                var condOk = state.conditions.length === 0 || state.conditions.indexOf(cond) !== -1;
+                var priceOk = price >= state.priceMin && price <= state.priceMax;
+                var textOk = !state.search || title.indexOf(state.search) !== -1;
+
+                var show = catOk && condOk && priceOk && textOk;
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+
+            var countEl = document.getElementById('visibleCount');
+            if (countEl) countEl.textContent = visible;
+
+            updateFabDot();
+            closeSheet();
+        }
+
+        applyBtn.addEventListener('click', applyFilters);
+
+        // ── Reset All ────────────────────────────────────────────────────────
+        resetBtn.addEventListener('click', function() {
+            state.search = '';
+            state.categories = [];
+            state.conditions = [];
+            state.priceMin = 0;
+            state.priceMax = maxPriceValue;
+
+            searchInput.value = '';
+            priceMinInput.value = '';
+            priceMaxInput.value = '';
+            priceSlider.value = maxPriceValue;
+
+            categoryTags.forEach(function(t) { t.classList.remove('mobile-filter-tag--active'); });
+            conditionTags.forEach(function(t) { t.classList.remove('mobile-filter-tag--active'); });
+
+            // Reset chip bar
+            document.querySelectorAll('.mobile-filter-chip').forEach(function(chip) {
+                chip.classList.remove('mobile-filter-chip--active');
+                if (chip.dataset.filter === 'all') chip.classList.add('mobile-filter-chip--active');
+            });
+
+            // Show all cards
+            var cards = document.querySelectorAll('.mobile-feed-card');
+            cards.forEach(function(card) { card.style.display = ''; });
+
+            var countEl = document.getElementById('visibleCount');
+            if (countEl) countEl.textContent = cards.length;
+
+            updateFabDot();
+            closeSheet();
+        });
+
+        // ── FAB Active Dot ───────────────────────────────────────────────────
+        function updateFabDot() {
+            var hasFilters = state.categories.length > 0
+                          || state.conditions.length > 0
+                          || state.search.length > 0
+                          || state.priceMin > 0
+                          || state.priceMax < maxPriceValue;
+
+            fab.classList.toggle('mobile-filter-fab--active', hasFilters);
+        }
+
+        // ── Sync chip bar clicks with filter state ───────────────────────────
+        document.querySelectorAll('.mobile-filter-chip').forEach(function(chip) {
+            chip.addEventListener('click', function() {
+                var filter = chip.dataset.filter;
+
+                // Reset category state
+                state.categories = filter === 'all' ? [] : [filter];
+                categoryTags.forEach(function(tag) {
+                    var isActive = filter !== 'all' && tag.dataset.category === filter;
+                    tag.classList.toggle('mobile-filter-tag--active', isActive);
+                });
+
+                // Apply immediately for quick chip filtering
+                applyFilters();
+            });
+        });
+
+        // Expose state for external use
+        window.mobileFilterState = state;
+    }());
+</script>

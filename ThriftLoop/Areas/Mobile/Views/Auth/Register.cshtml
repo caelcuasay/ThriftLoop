@@ -1,0 +1,139 @@
+﻿@model ThriftLoop.DTOs.Auth.RegisterDTO
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<div class="mobile-auth-screen">
+    <div class="mobile-auth-header">
+        <div class="mobile-auth-logo">
+            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="currentColor" d="M382,136c-40.87,0-73.46,20.53-93.6,37.76l-.71.61-11.47,12.47,25.32,41.61,18.74-18.79C339.89,193.1,361.78,184,382,184c40.8,0,74,32.3,74,72s-33.2,72-74,72c-62,0-104.14-81.95-104.56-82.78h0C275,240.29,221.56,136,130,136,62.73,136,8,189.83,8,256S62.73,376,130,376c32.95,0,65.38-13.11,93.79-37.92l.61-.54,11.38-12.38-25.33-41.61-18.83,18.88C172,319.4,151.26,328,130,328c-40.8,0-74-32.3-74-72s33.2-72,74-72c62,0,104.14,81.95,104.56,82.78h0C237,271.71,290.44,376,382,376c67.27,0,122-53.83,122-120S449.27,136,382,136Z" />
+            </svg>
+        </div>
+        <h1 class="mobile-auth-title">Create your account</h1>
+        <p class="mobile-auth-subtitle">Free and takes under a minute</p>
+    </div>
+
+    <div class="mobile-auth-body">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="mobile-alert mobile-alert--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                <div asp-validation-summary="ModelOnly"></div>
+            </div>
+        }
+
+        <a asp-action="GoogleLogin" asp-controller="Auth" class="mobile-btn mobile-btn--google">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Continue with Google
+        </a>
+
+        <div class="mobile-divider">
+            <span>or register with email</span>
+        </div>
+
+        <form asp-action="Register" asp-controller="Auth"
+              method="post" novalidate class="mobile-form">
+            @Html.AntiForgeryToken()
+
+            <div class="mobile-field">
+                <label asp-for="Email" class="mobile-field__label">Email</label>
+                <input asp-for="Email"
+                       class="mobile-field__input"
+                       type="email"
+                       autocomplete="email"
+                       placeholder="you@example.com"
+                       spellcheck="false" />
+                <span asp-validation-for="Email" class="mobile-field__error"></span>
+            </div>
+
+            <div class="mobile-field">
+                <label asp-for="Password" class="mobile-field__label">Password</label>
+                <div class="mobile-field__input-wrap">
+                    <input asp-for="Password"
+                           id="passwordInput"
+                           class="mobile-field__input"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Min. 8 characters" />
+                    <button type="button" class="mobile-toggle-password" aria-label="Toggle password visibility"
+                            onclick="togglePassword('passwordInput')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </button>
+                </div>
+                <span asp-validation-for="Password" class="mobile-field__error"></span>
+                <div class="mobile-strength-bar" aria-hidden="true">
+                    <span class="mobile-strength-bar__fill" id="strengthFill"></span>
+                </div>
+            </div>
+
+            <div class="mobile-field">
+                <label asp-for="ConfirmPassword" class="mobile-field__label">Confirm Password</label>
+                <div class="mobile-field__input-wrap">
+                    <input asp-for="ConfirmPassword"
+                           id="confirmPasswordInput"
+                           class="mobile-field__input"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Repeat your password" />
+                    <button type="button" class="mobile-toggle-password" aria-label="Toggle confirm password visibility"
+                            onclick="togglePassword('confirmPasswordInput')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </button>
+                </div>
+                <span asp-validation-for="ConfirmPassword" class="mobile-field__error"></span>
+            </div>
+
+            <p class="mobile-legal-text">
+                By registering, you agree to our
+                <a href="#" class="mobile-link">Terms of Service</a> and
+                <a href="#" class="mobile-link">Privacy Policy</a>.
+            </p>
+
+            <button type="submit" class="mobile-btn mobile-btn--primary">
+                Create Account
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+            </button>
+        </form>
+    </div>
+
+    <div class="mobile-auth-footer">
+        <p>
+            Already have an account?
+            <a asp-action="Login" asp-controller="Auth" class="mobile-link">Sign in</a>
+        </p>
+        <p class="mobile-auth-footer__rider">
+            <a asp-action="RiderRegister" asp-controller="Auth" class="mobile-link">Register as Rider →</a>
+        </p>
+    </div>
+</div>
+
+<script>
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    document.getElementById('passwordInput').addEventListener('input', function () {
+        const val  = this.value;
+        const fill = document.getElementById('strengthFill');
+        let strength = 0;
+        if (val.length >= 8)          strength++;
+        if (/[A-Z]/.test(val))        strength++;
+        if (/[0-9]/.test(val))        strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+        const pct = (strength / 4) * 100;
+        fill.style.width = pct + '%';
+        fill.className = 'mobile-strength-bar__fill';
+        if (strength <= 1)      fill.classList.add('mobile-strength-bar__fill--weak');
+        else if (strength <= 2) fill.classList.add('mobile-strength-bar__fill--fair');
+        else if (strength <= 3) fill.classList.add('mobile-strength-bar__fill--good');
+        else                    fill.classList.add('mobile-strength-bar__fill--strong');
+    });
+</script>

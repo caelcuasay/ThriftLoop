@@ -30,4 +30,12 @@
 		<PackageReference Include="Tesseract" Version="5.2.0" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Areas\Mobile\Services\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="wwwroot\css\mobile-auth.css" />
+	</ItemGroup>
+
 </Project>

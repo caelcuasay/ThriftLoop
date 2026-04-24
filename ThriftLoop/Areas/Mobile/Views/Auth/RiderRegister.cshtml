@@ -1,0 +1,265 @@
+﻿@model ThriftLoop.DTOs.Auth.RiderRegisterDTO
+@{
+    ViewData["Title"] = "Apply as Rider";
+}
+
+<div class="mobile-auth-screen">
+    <div class="mobile-auth-header">
+        <div class="mobile-auth-back">
+            <a asp-action="Login" asp-controller="Auth" class="mobile-back-btn" aria-label="Back">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M19 12H5m7-7l-7 7 7 7" /></svg>
+            </a>
+        </div>
+        <h1 class="mobile-auth-title">Apply to Join Our Fleet</h1>
+        <p class="mobile-auth-subtitle">
+            Applications are reviewed within 1–3 business days.
+        </p>
+    </div>
+
+    <div class="mobile-auth-body">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="mobile-alert mobile-alert--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" /></svg>
+                <div asp-validation-summary="ModelOnly"></div>
+            </div>
+        }
+
+        <form asp-action="RiderRegister" asp-controller="Auth"
+              method="post" enctype="multipart/form-data" novalidate class="mobile-form">
+            @Html.AntiForgeryToken()
+
+            @* ── Personal Information ── *@
+            <div class="mobile-section">
+                <h2 class="mobile-section__title">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="14" height="14"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" /></svg>
+                    Personal Information
+                </h2>
+
+                <div class="mobile-field">
+                    <label asp-for="FullName" class="mobile-field__label">Full Name</label>
+                    <input asp-for="FullName"
+                           class="mobile-field__input"
+                           type="text"
+                           autocomplete="name"
+                           placeholder="Juan dela Cruz"
+                           spellcheck="false" />
+                    <span asp-validation-for="FullName" class="mobile-field__error"></span>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="PhoneNumber" class="mobile-field__label">Phone Number</label>
+                    <input asp-for="PhoneNumber"
+                           class="mobile-field__input"
+                           type="tel"
+                           autocomplete="tel"
+                           placeholder="+63 9XX XXX XXXX" />
+                    <span asp-validation-for="PhoneNumber" class="mobile-field__error"></span>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="Email" class="mobile-field__label">Email</label>
+                    <input asp-for="Email"
+                           class="mobile-field__input"
+                           type="email"
+                           autocomplete="email"
+                           placeholder="you@example.com"
+                           spellcheck="false" />
+                    <span asp-validation-for="Email" class="mobile-field__error"></span>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="Address" class="mobile-field__label">Home Address</label>
+                    <textarea asp-for="Address"
+                              class="mobile-field__input mobile-field__textarea"
+                              rows="3"
+                              placeholder="House/Unit No., Street, Barangay, City, Province"></textarea>
+                    <span asp-validation-for="Address" class="mobile-field__error"></span>
+                    <p class="mobile-field__hint">Your home address for delivery coordination</p>
+                </div>
+            </div>
+
+            @* ── Vehicle & License Details ── *@
+            <div class="mobile-section">
+                <h2 class="mobile-section__title">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="14" height="14"><path d="M6.5 3A1.5 1.5 0 005 4.5v.75a.75.75 0 01-.75.75H3a1 1 0 00-1 1v7a1 1 0 001 1h14a1 1 0 001-1V7a1 1 0 00-1-1h-1.25a.75.75 0 01-.75-.75V4.5A1.5 1.5 0 0013.5 3h-7zM10 13a2 2 0 100-4 2 2 0 000 4z" /></svg>
+                    Vehicle &amp; License Details
+                </h2>
+
+                <div class="mobile-field">
+                    <label asp-for="DriversLicense" class="mobile-field__label">Driver's License</label>
+                    <label class="mobile-file-upload" id="licenseUploadLabel">
+                        <input asp-for="DriversLicense"
+                               type="file"
+                               class="mobile-file-upload__input"
+                               accept="image/jpeg,image/png,image/webp"
+                               onchange="previewLicense(this)" />
+                        <span class="mobile-file-upload__body" id="licenseUploadBody">
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="24" height="24">
+                                <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909-1.47-1.47a.75.75 0 00-1.06 0L2.5 11.06zm9.5-6.56a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="mobile-file-upload__text">
+                                <strong>Tap to upload</strong> or drag photo<br>
+                                <small>JPG, PNG or WEBP — max 5 MB</small>
+                            </span>
+                        </span>
+                        <img id="licensePreview" class="mobile-file-upload__preview" src="" alt="License preview" style="display:none;" />
+                    </label>
+                    <span asp-validation-for="DriversLicense" class="mobile-field__error"></span>
+                    <p class="mobile-field__hint">Upload a clear photo of the front of your LTO-issued driver's license.</p>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="VehicleType" class="mobile-field__label">Vehicle Type</label>
+                    <div class="mobile-field__select-wrap">
+                        <select asp-for="VehicleType" class="mobile-field__input mobile-field__select">
+                            <option value="" disabled selected>Select type...</option>
+                            <option value="Motorcycle">Motorcycle</option>
+                            <option value="E-Bike">E-Bike</option>
+                            <option value="E-Scooter">E-Scooter</option>
+                            <option value="Bicycle">Bicycle</option>
+                            <option value="Car">Car</option>
+                            <option value="Van">Van</option>
+                        </select>
+                        <svg class="mobile-field__select-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <span asp-validation-for="VehicleType" class="mobile-field__error"></span>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="VehicleColor" class="mobile-field__label">Vehicle Color</label>
+                    <input asp-for="VehicleColor"
+                           class="mobile-field__input"
+                           type="text"
+                           placeholder="e.g. Red, Matte Black"
+                           spellcheck="false" />
+                    <span asp-validation-for="VehicleColor" class="mobile-field__error"></span>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="LicensePlate" class="mobile-field__label">License Plate</label>
+                    <input asp-for="LicensePlate"
+                           class="mobile-field__input"
+                           type="text"
+                           placeholder="e.g. ABC 1234"
+                           spellcheck="false"
+                           style="text-transform:uppercase;letter-spacing:0.08em;" />
+                    <span asp-validation-for="LicensePlate" class="mobile-field__error"></span>
+                </div>
+            </div>
+
+            @* ── Account Security ── *@
+            <div class="mobile-section">
+                <h2 class="mobile-section__title">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="14" height="14"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>
+                    Account Security
+                </h2>
+
+                <div class="mobile-field">
+                    <label asp-for="Password" class="mobile-field__label">Password</label>
+                    <div class="mobile-field__input-wrap">
+                        <input asp-for="Password"
+                               id="passwordInput"
+                               class="mobile-field__input"
+                               type="password"
+                               autocomplete="new-password"
+                               placeholder="Min. 8 characters" />
+                        <button type="button" class="mobile-toggle-password" aria-label="Toggle password visibility"
+                                onclick="togglePassword('passwordInput')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                        </button>
+                    </div>
+                    <span asp-validation-for="Password" class="mobile-field__error"></span>
+                    <div class="mobile-strength-bar" aria-hidden="true">
+                        <span class="mobile-strength-bar__fill" id="strengthFill"></span>
+                    </div>
+                </div>
+
+                <div class="mobile-field">
+                    <label asp-for="ConfirmPassword" class="mobile-field__label">Confirm Password</label>
+                    <div class="mobile-field__input-wrap">
+                        <input asp-for="ConfirmPassword"
+                               id="confirmPasswordInput"
+                               class="mobile-field__input"
+                               type="password"
+                               autocomplete="new-password"
+                               placeholder="Repeat your password" />
+                        <button type="button" class="mobile-toggle-password" aria-label="Toggle confirm password visibility"
+                                onclick="togglePassword('confirmPasswordInput')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                        </button>
+                    </div>
+                    <span asp-validation-for="ConfirmPassword" class="mobile-field__error"></span>
+                </div>
+            </div>
+
+            <p class="mobile-legal-text">
+                By submitting, you agree to our
+                <a href="#" class="mobile-link">Rider Terms of Service</a> and
+                <a href="#" class="mobile-link">Privacy Policy</a>.
+            </p>
+
+            <button type="submit" class="mobile-btn mobile-btn--primary">
+                Submit Application
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+            </button>
+        </form>
+    </div>
+
+    <div class="mobile-auth-footer">
+        <p>
+            Already have an account?
+            <a asp-action="Login" asp-controller="Auth" class="mobile-link">Sign in</a>
+        </p>
+        <p>
+            <a asp-action="Register" asp-controller="Auth" class="mobile-link">Register as a regular user instead</a>
+        </p>
+    </div>
+</div>
+
+<script>
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    document.getElementById('passwordInput').addEventListener('input', function () {
+        const val  = this.value;
+        const fill = document.getElementById('strengthFill');
+        let strength = 0;
+        if (val.length >= 8)          strength++;
+        if (/[A-Z]/.test(val))        strength++;
+        if (/[0-9]/.test(val))        strength++;
+        if (/[^A-Za-z0-9]/.test(val)) strength++;
+
+        const pct = (strength / 4) * 100;
+        fill.style.width = pct + '%';
+        fill.className = 'mobile-strength-bar__fill';
+        if (strength <= 1)      fill.classList.add('mobile-strength-bar__fill--weak');
+        else if (strength <= 2) fill.classList.add('mobile-strength-bar__fill--fair');
+        else if (strength <= 3) fill.classList.add('mobile-strength-bar__fill--good');
+        else                    fill.classList.add('mobile-strength-bar__fill--strong');
+    });
+
+    function previewLicense(input) {
+        const preview = document.getElementById('licensePreview');
+        const body = document.getElementById('licenseUploadBody');
+        if (input.files && input.files[0]) {
+            if (input.files[0].size > 5 * 1024 * 1024) {
+                alert('File exceeds 5 MB. Please choose a smaller image.');
+                input.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                body.style.display = 'none';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    document.querySelector('[name="LicensePlate"]')
+        ?.addEventListener('blur', function() { this.value = this.value.toUpperCase(); });
+</script>

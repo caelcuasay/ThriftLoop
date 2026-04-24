@@ -1,1444 +1,741 @@
-﻿﻿@using ThriftLoop.ViewModels
+﻿@using ThriftLoop.ViewModels
 @model ItemCreateViewModel
 @{
     ViewData["Title"] = "Create Listing";
-    Layout = null;
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - ThriftLoop</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/ItemCreate.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/Navbar.css" asp-append-version="true" />
-</head>
-<body>
-    @await Html.PartialAsync("_Navbar")
+<div class="mobile-create-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-create-header">
+        <h1 class="mobile-create-header__title">New Listing</h1>
+        <p class="mobile-create-header__sub">Fill in each field to unlock the next</p>
+    </div>
 
-    <div class="create-page">
+    <form asp-action="Create" method="post" enctype="multipart/form-data" id="createItemForm">
+        @Html.AntiForgeryToken()
 
-        <!-- Header -->
-        <div class="create-header">
-            <a asp-action="Index" class="back-btn">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <path d="M12.5 5L7.5 10L12.5 15" stroke-linecap="round" stroke-linejoin="round" />
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="mobile-toast mobile-toast--error" role="alert">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                 </svg>
-                My Listings
-            </a>
-            <div>
-                <h1 class="create-header__title">Create new listing</h1>
-                <p class="create-header__sub">Fill in each field to unlock the next</p>
+                <span>Please fix the errors below before publishing.</span>
+            </div>
+        }
+
+        @* ── Photos Section (always visible) ─────────────────────────────── *@
+        <div class="mobile-create-section">
+            <div class="mobile-create-section__header">
+                <h2 class="mobile-create-section__title">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                        <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" />
+                        <circle cx="7" cy="8.5" r="1.5" />
+                        <path d="M2.5 13.5L7 9L10.5 12.5L13.5 10L17.5 14" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Photos
+                </h2>
+                <span class="mobile-create-section__counter" id="photoCounter">0 / 5</span>
+            </div>
+
+            <div class="mobile-photo-upload" id="photoUploadArea" tabindex="0">
+                <input type="file"
+                       name="Images"
+                       id="photoInput"
+                       multiple
+                       accept="image/jpeg,image/png,image/webp"
+                       class="mobile-photo-upload__input" />
+
+                <div class="mobile-photo-upload__empty" id="photoEmpty">
+                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" width="40" height="40">
+                        <rect x="4" y="8" width="40" height="32" rx="4" />
+                        <circle cx="17" cy="20" r="4" />
+                        <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="mobile-photo-upload__headline">Add photos</span>
+                    <span class="mobile-photo-upload__sub">Tap to browse or drag & drop</span>
+                    <span class="mobile-photo-upload__limit">JPEG · PNG · WebP · Max 5 MB each</span>
+                </div>
+
+                <div class="mobile-photo-upload__preview" id="photoPreview" style="display:none">
+                    <img id="photoMainImg" alt="Cover photo" />
+                    <span class="mobile-photo-upload__cover-badge">Cover</span>
+                </div>
+            </div>
+
+            <div class="mobile-photo-strip" id="photoStrip"></div>
+            <span asp-validation-for="Images" class="mobile-field-error"></span>
+        </div>
+
+        @* ── CASCADING FIELDS ────────────────────────────────────────────── *@
+
+        @* Field 1: Title (always visible) *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--active" data-field="title" id="sectionTitle">
+            <div class="mobile-create-section__header">
+                <h2 class="mobile-create-section__title">Title</h2>
+                <span class="mobile-create-section__counter" id="titleCounter">0/100</span>
+            </div>
+            <input asp-for="Title"
+                   class="mobile-create-input"
+                   id="titleInput"
+                   placeholder="e.g., Vintage Levi's 501 Jeans"
+                   maxlength="100"
+                   autocomplete="off" />
+            <span asp-validation-for="Title" class="mobile-field-error"></span>
+            <div class="mobile-cascade-actions">
+                <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="price">
+                    Continue
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                </button>
             </div>
         </div>
 
-        <form asp-action="Create" asp-controller="Items" method="post" enctype="multipart/form-data" id="createItemForm">
-            @Html.AntiForgeryToken()
-
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="error-toast" role="alert">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" style="flex-shrink:0">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                    </svg>
-                    <span>Please fix the errors below before publishing.</span>
+        @* Field 2: Price *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="price" id="sectionPrice">
+            <div class="mobile-cascade-field__header-click" data-unlock="price">
+                <h2 class="mobile-create-section__title">Price</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <div class="mobile-price-wrap">
+                    <span class="mobile-price-symbol">₱</span>
+                    <input asp-for="Price"
+                           class="mobile-create-input mobile-create-input--price"
+                           id="priceInput"
+                           type="number"
+                           step="0.01"
+                           min="0.01"
+                           max="99999.99"
+                           placeholder="0.00"
+                           value="" />
                 </div>
+                <span asp-validation-for="Price" class="mobile-field-error"></span>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="category">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 3: Category *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="category" id="sectionCategory">
+            <div class="mobile-cascade-field__header-click" data-unlock="category">
+                <h2 class="mobile-create-section__title">Category</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <input type="hidden" asp-for="Category" id="categoryHidden" />
+                <div class="mobile-chip-grid" id="categoryChips">
+                    @foreach (var cat in ItemCreateViewModel.Categories)
+                    {
+                        <button type="button" class="mobile-chip" data-value="@cat">@cat</button>
+                    }
+                </div>
+                <span asp-validation-for="Category" class="mobile-field-error"></span>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="condition">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 4: Condition *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="condition" id="sectionCondition">
+            <div class="mobile-cascade-field__header-click" data-unlock="condition">
+                <h2 class="mobile-create-section__title">Condition</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <input type="hidden" asp-for="Condition" id="conditionHidden" />
+                <div class="mobile-chip-grid" id="conditionChips">
+                    @foreach (var cond in ItemCreateViewModel.Conditions)
+                    {
+                        <button type="button" class="mobile-chip" data-value="@cond">@cond</button>
+                    }
+                </div>
+                <span asp-validation-for="Condition" class="mobile-field-error"></span>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="size">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 5: Size (Optional) *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="size" id="sectionSize">
+            <div class="mobile-cascade-field__header-click" data-unlock="size">
+                <h2 class="mobile-create-section__title">Size <span class="mobile-create-optional">(Optional)</span></h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <div class="mobile-select-wrap">
+                    <select asp-for="Size" class="mobile-create-select" id="sizeSelect">
+                        <option value="">Select size</option>
+                        @foreach (var size in ItemCreateViewModel.Sizes)
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    </select>
+                    <svg class="mobile-select-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                        <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--ghost mobile-cascade-skip" data-next="description">Skip</button>
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="description">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 6: Description *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="description" id="sectionDescription">
+            <div class="mobile-cascade-field__header-click" data-unlock="description">
+                <h2 class="mobile-create-section__title">Description</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <textarea asp-for="Description"
+                          class="mobile-create-textarea"
+                          id="descInput"
+                          rows="4"
+                          placeholder="Describe your item — condition, brand, measurements, any flaws..."
+                          maxlength="1000"></textarea>
+                <span asp-validation-for="Description" class="mobile-field-error"></span>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="delivery">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 7: Delivery *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="delivery" id="sectionDelivery">
+            <div class="mobile-cascade-field__header-click" data-unlock="delivery">
+                <h2 class="mobile-create-section__title">Delivery Options</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <p class="mobile-create-hint">Choose at least one</p>
+                <label class="mobile-delivery-option mobile-delivery-option--checked">
+                    <input type="checkbox" name="AllowDelivery" value="true" checked class="mobile-delivery-checkbox" />
+                    <span class="mobile-delivery-option__icon">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                            <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
+                            <circle cx="6" cy="16.5" r="1.5" />
+                            <circle cx="14" cy="16.5" r="1.5" />
+                        </svg>
+                    </span>
+                    <div class="mobile-delivery-option__info">
+                        <span class="mobile-delivery-option__title">Delivery</span>
+                        <span class="mobile-delivery-option__desc">Ship directly to buyer</span>
+                    </div>
+                    <span class="mobile-delivery-option__check"></span>
+                </label>
+                <label class="mobile-delivery-option">
+                    <input type="checkbox" name="AllowHalfway" value="true" class="mobile-delivery-checkbox" />
+                    <span class="mobile-delivery-option__icon">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                            <circle cx="10" cy="10" r="7.5" />
+                            <path d="M10 5v5l3 3" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                    <div class="mobile-delivery-option__info">
+                        <span class="mobile-delivery-option__title">Halfway Meetup</span>
+                        <span class="mobile-delivery-option__desc">Meet at agreed location</span>
+                    </div>
+                    <span class="mobile-delivery-option__check"></span>
+                </label>
+                <label class="mobile-delivery-option">
+                    <input type="checkbox" name="AllowPickup" value="true" class="mobile-delivery-checkbox" />
+                    <span class="mobile-delivery-option__icon">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                            <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
+                            <rect x="8" y="11" width="4" height="5.5" />
+                        </svg>
+                    </span>
+                    <div class="mobile-delivery-option__info">
+                        <span class="mobile-delivery-option__title">Pickup</span>
+                        <span class="mobile-delivery-option__desc">Buyer comes to you</span>
+                    </div>
+                    <span class="mobile-delivery-option__check"></span>
+                </label>
+                <span class="mobile-field-error" id="deliveryError"></span>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="stealable">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Field 8: Stealable *@
+        <div class="mobile-create-section mobile-cascade-field mobile-cascade-field--locked" data-field="stealable" id="sectionStealable">
+            <div class="mobile-cascade-field__header-click" data-unlock="stealable">
+                <h2 class="mobile-create-section__title">Listing Type</h2>
+                <span class="mobile-cascade-lock">🔒</span>
+            </div>
+            <div class="mobile-cascade-body" style="display:none">
+                <label class="mobile-stealable-toggle">
+                    <div class="mobile-stealable-toggle__info">
+                        <span class="mobile-stealable-toggle__title">Make it Stealable</span>
+                        <span class="mobile-stealable-toggle__desc">Buyers can claim and compete for this item</span>
+                    </div>
+                    <div class="mobile-toggle-switch">
+                        <input type="checkbox" name="IsStealable" value="true" id="stealableToggle" />
+                        <span class="mobile-toggle-switch__track"></span>
+                    </div>
+                </label>
+                <div class="mobile-steal-duration" id="stealDurationPanel">
+                    <label class="mobile-create-label" for="stealDurationSelect">Steal window duration</label>
+                    <div class="mobile-select-wrap">
+                        <select name="StealDurationHours" class="mobile-create-select" id="stealDurationSelect">
+                            <option value="">Select duration</option>
+                            @foreach (var dur in ItemCreateViewModel.StealDurations)
+                            {
+                                <option value="@dur">@dur hours</option>
+                            }
+                        </select>
+                        <svg class="mobile-select-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                            <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mobile-cascade-actions">
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--ghost mobile-cascade-skip" data-next="publish">Skip</button>
+                    <button type="button" class="mobile-btn mobile-btn--sm mobile-btn--primary mobile-cascade-continue" data-next="publish">
+                        Continue
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* ── Publish Button (hidden until all required fields complete) ───── *@
+        <div class="mobile-create-submit" id="publishSection" style="display:none">
+            <a asp-action="Index" class="mobile-btn mobile-btn--ghost">Cancel</a>
+            <button type="submit" class="mobile-btn mobile-btn--primary" id="submitBtn">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-4.392l1.657-.348a6.449 6.449 0 014.271.572 8.973 8.973 0 003.965.972 6.7 6.7 0 002.341-.428 2.25 2.25 0 001.266-2.117V3.75a.75.75 0 00-1.125-.649 5.2 5.2 0 01-2.482.66c-1.788 0-3.318-.506-4.507-1.2a6.407 6.407 0 00-3.686-.956L3.5 2.75z" />
+                </svg>
+                Publish Listing
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        // =========================================================
+        // CASCADING FIELD ORDER
+        // =========================================================
+        var fieldOrder = ['title', 'price', 'category', 'condition', 'size', 'description', 'delivery', 'stealable'];
+        var completedFields = new Set(['title']);
+        var publishSection = document.getElementById('publishSection');
+
+        function getFieldEl(name) {
+            return document.querySelector('.mobile-cascade-field[data-field="' + name + '"]');
+        }
+
+        function markCompleted(name) {
+            var el = getFieldEl(name);
+            if (!el) return;
+            el.classList.remove('mobile-cascade-field--active');
+            el.classList.add('mobile-cascade-field--completed');
+            var lock = el.querySelector('.mobile-cascade-lock');
+            if (lock) lock.textContent = '✓';
+            var body = el.querySelector('.mobile-cascade-body');
+            if (body) body.style.display = 'none';
+            completedFields.add(name);
+            checkAllComplete();
+        }
+
+        function unlockField(name) {
+            var el = getFieldEl(name);
+            if (!el) return;
+            el.classList.remove('mobile-cascade-field--locked', 'mobile-cascade-field--completed');
+            el.classList.add('mobile-cascade-field--active');
+            var body = el.querySelector('.mobile-cascade-body');
+            if (body) body.style.display = 'block';
+            var lock = el.querySelector('.mobile-cascade-lock');
+            if (lock) lock.textContent = '';
+            completedFields.delete(name);
+            publishSection.style.display = 'none';
+
+            // Scroll to field
+            setTimeout(function() {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var firstInput = el.querySelector('input, textarea, select');
+                if (firstInput && !firstInput.classList.contains('mobile-chip')) firstInput.focus();
+            }, 150);
+        }
+
+        function checkAllComplete() {
+            var required = ['title', 'price', 'category', 'condition', 'description', 'delivery'];
+            var allDone = required.every(function(f) { return completedFields.has(f); });
+            if (allDone && publishSection) {
+                publishSection.style.display = 'flex';
+                publishSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Validation helpers
+        function validateField(name) {
+            switch(name) {
+                case 'title': return document.getElementById('titleInput').value.trim().length > 0;
+                case 'price': var v = document.getElementById('priceInput').value; return v && v.trim() !== '' && parseFloat(v) > 0;
+                case 'category': return document.getElementById('categoryHidden').value !== '';
+                case 'condition': return document.getElementById('conditionHidden').value !== '';
+                case 'size': return true;
+                case 'description': return document.getElementById('descInput').value.trim().length > 0;
+                case 'delivery':
+                    var d = document.querySelector('[name="AllowDelivery"]').checked;
+                    var h = document.querySelector('[name="AllowHalfway"]').checked;
+                    var p = document.querySelector('[name="AllowPickup"]').checked;
+                    return d || h || p;
+                case 'stealable':
+                    var st = document.getElementById('stealableToggle');
+                    if (st && st.checked) return document.getElementById('stealDurationSelect').value !== '';
+                    return true;
+                default: return true;
+            }
+        }
+
+        // Continue button
+        document.querySelectorAll('.mobile-cascade-continue').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var section = this.closest('.mobile-cascade-field');
+                var currentField = section.dataset.field;
+                var nextField = this.dataset.next;
+
+                if (!validateField(currentField)) {
+                    showToast('Please complete this field before continuing.', 'error');
+                    return;
+                }
+
+                markCompleted(currentField);
+
+                if (nextField && nextField !== 'publish') {
+                    unlockField(nextField);
+                } else if (nextField === 'publish') {
+                    markCompleted(currentField);
+                }
+            });
+        });
+
+        // Skip button
+        document.querySelectorAll('.mobile-cascade-skip').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var section = this.closest('.mobile-cascade-field');
+                var currentField = section.dataset.field;
+                var nextField = this.dataset.next;
+
+                markCompleted(currentField);
+
+                if (nextField && nextField !== 'publish') {
+                    unlockField(nextField);
+                } else if (nextField === 'publish') {
+                    markCompleted(currentField);
+                }
+            });
+        });
+
+        // Click on completed field header to re-edit
+        document.querySelectorAll('.mobile-cascade-field__header-click').forEach(function(header) {
+            header.addEventListener('click', function() {
+                var fieldName = this.dataset.unlock;
+                var el = getFieldEl(fieldName);
+                if (!el) return;
+
+                if (el.classList.contains('mobile-cascade-field--completed')) {
+                    unlockField(fieldName);
+                } else if (el.classList.contains('mobile-cascade-field--locked')) {
+                    showToast('Complete the previous fields first!', 'info');
+                }
+            });
+        });
+
+        // =========================================================
+        // PHOTO UPLOAD (FIXED)
+        // =========================================================
+
+        var photoUploadArea = document.getElementById('photoUploadArea');
+        var photoInput = document.getElementById('photoInput');
+        var photoEmpty = document.getElementById('photoEmpty');
+        var photoPreview = document.getElementById('photoPreview');
+        var photoMainImg = document.getElementById('photoMainImg');
+        var photoStrip = document.getElementById('photoStrip');
+        var photoCounter = document.getElementById('photoCounter');
+
+        var selectedFiles = [];
+        var objectUrls = [];
+
+        function revokeAll() {
+            objectUrls.forEach(function(url) { URL.revokeObjectURL(url); });
+            objectUrls = [];
+        }
+
+        function createUrl(file) {
+            var url = URL.createObjectURL(file);
+            objectUrls.push(url);
+            return url;
+        }
+
+        function updateFileInput() {
+            // Replace the input to update its .files
+            var oldInput = photoInput;
+            var newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.id = 'photoInput';
+            newInput.name = 'Images';
+            newInput.multiple = true;
+            newInput.accept = 'image/jpeg,image/png,image/webp';
+            newInput.className = 'mobile-photo-upload__input';
+
+            var dt = new DataTransfer();
+            selectedFiles.forEach(function(f) { dt.items.add(f); });
+            newInput.files = dt.files;
+
+            newInput.addEventListener('change', function() {
+                if (this.files.length) addFiles(this.files);
+                this.value = '';
+            });
+
+            if (oldInput && oldInput.parentNode) {
+                oldInput.parentNode.replaceChild(newInput, oldInput);
+            }
+            photoInput = newInput;
+        }
+
+        function renderPreviews() {
+            revokeAll();
+
+            if (selectedFiles.length > 0) {
+                photoMainImg.src = createUrl(selectedFiles[0]);
+                photoPreview.style.display = 'block';
+                photoEmpty.style.display = 'none';
+                photoUploadArea.classList.add('has-photo');
+            } else {
+                photoPreview.style.display = 'none';
+                photoEmpty.style.display = '';
+                photoUploadArea.classList.remove('has-photo');
+                photoMainImg.src = '';
             }
 
-            <div class="create-body">
+            photoStrip.innerHTML = '';
 
-                <!-- LEFT — Photos (always visible) -->
-                <aside class="create-col--media">
-                    <div class="media-card">
-                        <div class="media-card__header">
-                            <span class="section-label">Photos</span>
-                            <span class="photo-count" id="photoCounter">0 / 5</span>
-                        </div>
+            selectedFiles.forEach(function(file, index) {
+                var thumb = document.createElement('div');
+                thumb.className = 'mobile-photo-strip__thumb' + (index === 0 ? ' mobile-photo-strip__thumb--cover' : '');
 
-                        <div class="photo-main" id="photoMain" tabindex="0" aria-label="Upload photos — click or drag & drop">
-                            <input type="file"
-                                   name="Images"
-                                   id="photoInput"
-                                   multiple
-                                   accept="image/jpeg,image/png,image/webp"
-                                   class="photo-file-input" />
+                var img = document.createElement('img');
+                img.src = createUrl(file);
+                img.alt = 'Photo ' + (index + 1);
 
-                            <div class="photo-main__empty" id="photoEmpty">
-                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" width="44" height="44">
-                                    <rect x="4" y="8" width="40" height="32" rx="4" />
-                                    <circle cx="16" cy="20" r="4" />
-                                    <path d="M4 34l10-10 8 8 6-6 12 12" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                <span class="photo-main__headline">Add photos</span>
-                                <span class="photo-main__sub">Drag & drop or click to browse</span>
-                                <span class="photo-main__limit">JPEG · PNG · WebP<br>Up to 5 photos · Max 5 MB each</span>
-                            </div>
-
-                            <div class="photo-main__preview" id="photoPreview" style="display:none">
-                                <img id="photoMainImg" alt="Cover photo" />
-                                <span class="photo-main__cover-badge">Cover</span>
-                            </div>
-
-                            <div class="photo-main__overlay">
-                                <span>Click to add more</span>
-                            </div>
-                        </div>
-
-                        <div class="photo-strip" id="photoStrip"></div>
-                        <span asp-validation-for="Images" class="field__error"></span>
-                    </div>
-                </aside>
-
-                <!-- RIGHT — Progressive Form -->
-                <main class="create-col--form">
-
-                    <!-- Progress Indicator -->
-                    <div class="progressive-progress">
-                        <div class="progressive-progress__bar">
-                            <div class="progressive-progress__fill" id="progressiveFill"></div>
-                        </div>
-                        <span class="progressive-progress__text" id="progressText">0/8 fields complete</span>
-                    </div>
-
-                    <!-- Field 1: Title -->
-                    <div class="progressive-field" data-field="title" id="fieldTitle">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <path d="M3.5 5.5L6 2.5L16.5 13L14 16L3.5 5.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M6 2.5L8.5 5" stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M2.5 14.5L5.5 17.5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">What are you selling?</h3>
-                                <p class="progressive-field__hint">A clear title helps buyers find your item</p>
-                            </div>
-                        </div>
-                        <div class="progressive-field__body">
-                            <div class="field">
-                                <div class="field__input-wrap">
-                                    <input asp-for="Title"
-                                           class="field__input field__input--title"
-                                           id="titleInput"
-                                           placeholder="e.g., Vintage Levi's 501 Jeans"
-                                           maxlength="100"
-                                           autocomplete="off" />
-                                    <span class="field__counter" id="titleCounter">0/100</span>
-                                </div>
-                                <span asp-validation-for="Title" class="field__error"></span>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="price">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                                <span class="hint-text">Press Enter ↵</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 2: Price -->
-                    <div class="progressive-field progressive-field--locked" data-field="price" id="fieldPrice">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <circle cx="10" cy="10" r="7.5" stroke-linecap="round" />
-                                    <path d="M7.5 7.5C7.5 6.5 8.5 6 10 6C11.5 6 12.5 6.5 12.5 7.5C12.5 9 10.5 9.5 10 11.5" stroke-linecap="round" />
-                                    <circle cx="10" cy="14" r="0.75" fill="currentColor" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Set your price</h3>
-                                <p class="progressive-field__hint">Price it fairly to sell faster</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="field">
-                                <div class="price-wrap">
-                                    <span class="price-symbol">&#8369;</span>
-                                    <input asp-for="Price"
-                                           class="field__input"
-                                           id="priceInput"
-                                           type="number"
-                                           step="0.01"
-                                           min="0.01"
-                                           max="99999.99"
-                                           placeholder="0.00"
-                                           value="" />
-                                </div>
-                                <span asp-validation-for="Price" class="field__error"></span>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="category">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 3: Category -->
-                    <div class="progressive-field progressive-field--locked" data-field="category" id="fieldCategory">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
-                                    <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
-                                    <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
-                                    <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" stroke-linecap="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Choose a category</h3>
-                                <p class="progressive-field__hint">Help buyers find your listing</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="field">
-                                <input type="hidden" asp-for="Category" id="categoryHidden" />
-                                <div class="chip-row" id="categoryChips">
-                                    @foreach (var cat in ItemCreateViewModel.Categories)
-                                    {
-                                        <button type="button" class="chip" data-value="@cat">@cat</button>
-                                    }
-                                </div>
-                                <span asp-validation-for="Category" class="field__error"></span>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="condition">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 4: Condition -->
-                    <div class="progressive-field progressive-field--locked" data-field="condition" id="fieldCondition">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <path d="M10 2.5L12.5 7.5L18 8.5L14 12.5L15 18L10 15.5L5 18L6 12.5L2 8.5L7.5 7.5L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">What's the condition?</h3>
-                                <p class="progressive-field__hint">Be honest about wear and tear</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="field">
-                                <input type="hidden" asp-for="Condition" id="conditionHidden" />
-                                <div class="pill-group" id="conditionPills">
-                                    @foreach (var cond in ItemCreateViewModel.Conditions)
-                                    {
-                                        <button type="button" class="pill" data-value="@cond">@cond</button>
-                                    }
-                                </div>
-                                <span asp-validation-for="Condition" class="field__error"></span>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="size">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 5: Size -->
-                    <div class="progressive-field progressive-field--locked" data-field="size" id="fieldSize">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <path d="M3.5 6.5L6.5 3.5L16.5 13.5L13.5 16.5L3.5 6.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M6.5 3.5L9 6" stroke-linecap="round" />
-                                    <path d="M2.5 16.5L3.5 17.5" stroke-linecap="round" />
-                                    <path d="M14 11L17 14" stroke-linecap="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Select size (optional)</h3>
-                                <p class="progressive-field__hint">Skip if not applicable</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="field">
-                                <div class="select-wrap">
-                                    <select asp-for="Size" class="field__select" id="sizeSelect">
-                                        <option value="">Select size</option>
-                                        @foreach (var size in ItemCreateViewModel.Sizes)
-                                        {
-                                            <option value="@size">@size</option>
-                                        }
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--ghost btn--skip" data-next="description">Skip</button>
-                                <button type="button" class="btn btn--primary btn--continue" data-next="description">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 6: Description -->
-                    <div class="progressive-field progressive-field--locked" data-field="description" id="fieldDescription">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <rect x="2.5" y="3.5" width="15" height="13" rx="1.5" stroke-linecap="round" />
-                                    <path d="M6 7.5H14" stroke-linecap="round" />
-                                    <path d="M6 10.5H12" stroke-linecap="round" />
-                                    <path d="M6 13.5H10" stroke-linecap="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Describe your item</h3>
-                                <p class="progressive-field__hint">Include details, measurements, and flaws</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="field">
-                                <div class="field__input-wrap">
-                                    <textarea asp-for="Description"
-                                              class="field__textarea"
-                                              id="descInput"
-                                              rows="4"
-                                              placeholder="Describe your item — condition, brand, measurements, any flaws..."
-                                              maxlength="1000"></textarea>
-                                    <span class="field__counter field__counter--bottom" id="descCounter">0/1000</span>
-                                </div>
-                                <span asp-validation-for="Description" class="field__error"></span>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="delivery">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 7: Delivery -->
-                    <div class="progressive-field progressive-field--locked" data-field="delivery" id="fieldDelivery">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <rect x="2.5" y="9.5" width="15" height="7" rx="1" stroke-linecap="round" />
-                                    <circle cx="6" cy="16.5" r="1.5" stroke-linecap="round" />
-                                    <circle cx="14" cy="16.5" r="1.5" stroke-linecap="round" />
-                                    <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Delivery options</h3>
-                                <p class="progressive-field__hint">Choose at least one</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="delivery-grid" id="deliveryGrid">
-                                <label class="delivery-card">
-                                    <input type="checkbox"
-                                           name="AllowDelivery"
-                                           value="true"
-                                           class="delivery-input"
-                                           id="optDelivery" />
-                                    <div class="delivery-card__body">
-                                        <div class="delivery-card__check">
-                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
-                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                            </svg>
-                                        </div>
-                                        <span class="delivery-card__icon">
-                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
-                                                <rect x="2.5" y="9.5" width="15" height="7" rx="1" />
-                                                <circle cx="6" cy="16.5" r="1.5" />
-                                                <circle cx="14" cy="16.5" r="1.5" />
-                                                <path d="M2.5 12.5H5.5L7.5 9.5H12.5L14.5 12.5H17.5" />
-                                            </svg>
-                                        </span>
-                                        <div>
-                                            <span class="delivery-card__title">Delivery</span>
-                                            <span class="delivery-card__desc">Ship directly to buyer</span>
-                                        </div>
-                                    </div>
-                                </label>
-
-                                <label class="delivery-card">
-                                    <input type="checkbox"
-                                           name="AllowHalfway"
-                                           value="true"
-                                           class="delivery-input"
-                                           id="optMeetup" />
-                                    <div class="delivery-card__body">
-                                        <div class="delivery-card__check">
-                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
-                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                            </svg>
-                                        </div>
-                                        <span class="delivery-card__icon">
-                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
-                                                <circle cx="10" cy="10" r="7.5" />
-                                                <path d="M10 5V10L13 13" stroke-linecap="round" />
-                                                <circle cx="10" cy="10" r="2" fill="currentColor" />
-                                            </svg>
-                                        </span>
-                                        <div>
-                                            <span class="delivery-card__title">Pickup Halfway</span>
-                                            <span class="delivery-card__desc">Meet at agreed spot</span>
-                                        </div>
-                                    </div>
-                                </label>
-
-                                <label class="delivery-card">
-                                    <input type="checkbox"
-                                           name="AllowPickup"
-                                           value="true"
-                                           class="delivery-input"
-                                           id="optPickup" />
-                                    <div class="delivery-card__body">
-                                        <div class="delivery-card__check">
-                                            <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
-                                                <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                            </svg>
-                                        </div>
-                                        <span class="delivery-card__icon">
-                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
-                                                <path d="M3 9.5L10 3.5L17 9.5V16.5H3V9.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                                <rect x="8" y="11" width="4" height="5.5" stroke-linecap="round" />
-                                            </svg>
-                                        </span>
-                                        <div>
-                                            <span class="delivery-card__title">Pickup</span>
-                                            <span class="delivery-card__desc">Buyer comes to you</span>
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                            <span class="fulfillment-err" id="fulfillmentError"></span>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--primary btn--continue" data-next="stealable">
-                                    Continue
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M7.5 5L12.5 10L7.5 15" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Field 8: Stealable -->
-                    <div class="progressive-field progressive-field--locked" data-field="stealable" id="fieldStealable">
-                        <div class="progressive-field__header">
-                            <span class="progressive-field__icon">
-                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                    <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="progressive-field__title">Make it Stealable?</h3>
-                                <p class="progressive-field__hint">Sell faster with a limited-time discount (optional)</p>
-                            </div>
-                            <span class="progressive-field__status">🔒</span>
-                        </div>
-                        <div class="progressive-field__body" style="display: none;">
-                            <div class="stealable-card">
-                                <label class="stealable-toggle-row" for="stealableToggle">
-                                    <div class="stealable-toggle-row__left">
-                                        <span class="stealable-icon">
-                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
-                                                <path d="M10 2.5L12 7L17 7.5L13 10.5L14 15.5L10 13L6 15.5L7 10.5L3 7.5L8 7L10 2.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                            </svg>
-                                        </span>
-                                        <div>
-                                            <span class="stealable-toggle-row__title">Make this Stealable</span>
-                                            <span class="stealable-toggle-row__desc">Buyers can claim it instantly at a discounted price</span>
-                                        </div>
-                                    </div>
-                                    <div class="toggle-switch">
-                                        <input type="checkbox"
-                                               name="IsStealable"
-                                               value="true"
-                                               id="stealableToggle" />
-                                        <span class="toggle-switch__track"></span>
-                                    </div>
-                                </label>
-
-                                <div class="steal-duration" id="stealDurationPanel">
-                                    <label class="field__label" for="stealDurationSelect">Steal window duration</label>
-                                    <div class="select-wrap">
-                                        <select name="StealDurationHours"
-                                                class="field__select field__select--sm"
-                                                id="stealDurationSelect">
-                                            <option value="">Select duration</option>
-                                            @foreach (var dur in ItemCreateViewModel.StealDurations)
-                                            {
-                                                <option value="@dur">@dur hours</option>
-                                            }
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="progressive-field__actions">
-                                <button type="button" class="btn btn--ghost btn--skip" data-next="summary">Skip</button>
-                                <button type="button" class="btn btn--primary btn--continue" data-next="summary">
-                                    Complete
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-                                        <path d="M5 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- UNIFIED SUMMARY CARD (shown after all fields complete) -->
-                    <div class="listing-summary" id="listingSummary" style="display: none;">
-                        <div class="summary-card">
-                            <div class="summary-card__header">
-                                <div class="summary-card__check">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
-                                        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </div>
-                                <h3 class="summary-card__title">Listing Preview</h3>
-                                <span class="summary-card__hint">Click any row to edit</span>
-                            </div>
-
-                            <!-- Row 1: Title & Price -->
-                            <div class="summary-row summary-row--main" data-edit-field="title">
-                                <div class="summary-row__left">
-                                    <span class="summary-label">
-                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-                                            <path d="M2 4L5 2L13 10L10 12L2 4Z" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                        Title
-                                    </span>
-                                    <span class="summary-value summary-value--title" id="summaryTitle">—</span>
-                                </div>
-                                <div class="summary-row__right" data-edit-field="price">
-                                    <span class="summary-label">
-                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-                                            <circle cx="8" cy="8" r="6" />
-                                            <path d="M6 6C6 5.5 7 5 8 5C9 5 10 5.5 10 6C10 7 8.5 7.5 8 9" stroke-linecap="round" />
-                                        </svg>
-                                        Price
-                                    </span>
-                                    <span class="summary-value summary-value--price" id="summaryPrice">—</span>
-                                </div>
-                            </div>
-
-                            <!-- Row 2: Category & Condition & Size -->
-                            <div class="summary-row summary-row--meta">
-                                <div class="summary-item" data-edit-field="category">
-                                    <span class="summary-label">Category</span>
-                                    <span class="summary-value" id="summaryCategory">—</span>
-                                </div>
-                                <div class="summary-item" data-edit-field="condition">
-                                    <span class="summary-label">Condition</span>
-                                    <span class="summary-value" id="summaryCondition">—</span>
-                                </div>
-                                <div class="summary-item" data-edit-field="size">
-                                    <span class="summary-label">Size</span>
-                                    <span class="summary-value" id="summarySize">—</span>
-                                </div>
-                            </div>
-
-                            <!-- Row 3: Delivery Options -->
-                            <div class="summary-row" data-edit-field="delivery">
-                                <span class="summary-label">
-                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-                                        <rect x="1.5" y="7.5" width="13" height="5.5" rx="1" />
-                                        <circle cx="5" cy="13" r="1" />
-                                        <circle cx="11" cy="13" r="1" />
-                                    </svg>
-                                    Delivery
-                                </span>
-                                <span class="summary-value" id="summaryDelivery">—</span>
-                            </div>
-
-                            <!-- Row 4: Stealable Status -->
-                            <div class="summary-row" data-edit-field="stealable">
-                                <span class="summary-label">
-                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-                                        <path d="M8 1.5L9.5 5.5L14 6L10.5 8.5L11.5 13L8 10.5L4.5 13L5.5 8.5L2 6L6.5 5.5L8 1.5Z" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    Listing Type
-                                </span>
-                                <span class="summary-value" id="summaryStealable">—</span>
-                            </div>
-
-                            <!-- Row 5: Description -->
-                            <div class="summary-row summary-row--description" data-edit-field="description">
-                                <span class="summary-label">
-                                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
-                                        <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
-                                        <path d="M4.5 6H11.5" stroke-linecap="round" />
-                                        <path d="M4.5 8.5H9.5" stroke-linecap="round" />
-                                    </svg>
-                                    Description
-                                </span>
-                                <span class="summary-value summary-value--desc" id="summaryDescription">—</span>
-                            </div>
-
-                            <!-- Actions -->
-                            <div class="summary-card__actions">
-                                <button type="submit" class="btn btn--primary btn--publish" id="submitBtn">
-                                    <span>Publish Listing</span>
-                                    <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15">
-                                        <path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-4.392l1.657-.348a6.449 6.449 0 014.271.572 8.973 8.973 0 003.965.972 6.7 6.7 0 002.341-.428 2.25 2.25 0 001.266-2.117V3.75a.75.75 0 00-1.125-.649 5.2 5.2 0 01-2.482.66c-1.788 0-3.318-.506-4.507-1.2a6.407 6.407 0 00-3.686-.956L3.5 2.75z" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="create-footer">
-                        <a asp-action="Index" class="btn btn--ghost">Cancel</a>
-                        <span class="footer-hint" id="footerHint">Complete all fields to publish</span>
-                    </div>
-
-                </main>
-            </div>
-        </form>
-    </div>
-
-    <script>
-            (function () {
-                'use strict';
-
-                // =========================================================
-                // PROGRESSIVE FIELD UNLOCKING WITH UNIFIED SUMMARY CARD
-                // =========================================================
-        
-                const fields = [
-                    { id: 'title', element: document.getElementById('fieldTitle'), validate: validateTitle },
-                    { id: 'price', element: document.getElementById('fieldPrice'), validate: validatePrice },
-                    { id: 'category', element: document.getElementById('fieldCategory'), validate: validateCategory },
-                    { id: 'condition', element: document.getElementById('fieldCondition'), validate: validateCondition },
-                    { id: 'size', element: document.getElementById('fieldSize'), validate: validateSize, optional: true },
-                    { id: 'description', element: document.getElementById('fieldDescription'), validate: validateDescription },
-                    { id: 'delivery', element: document.getElementById('fieldDelivery'), validate: validateDelivery },
-                    { id: 'stealable', element: document.getElementById('fieldStealable'), validate: validateStealable, optional: true }
-                ];
-
-                let completedFields = new Set(['title']);
-                let allFieldsCompleted = false;
-                const progressFill = document.getElementById('progressiveFill');
-                const progressText = document.getElementById('progressText');
-                const listingSummary = document.getElementById('listingSummary');
-                const footerHint = document.getElementById('footerHint');
-
-                const priceInput = document.getElementById('priceInput');
-                if (priceInput && priceInput.value === '0') {
-                    priceInput.value = '';
-                }
-
-                // Validation functions
-                function validateTitle() {
-                    const title = document.getElementById('titleInput');
-                    return title && title.value.trim().length > 0;
-                }
-
-                function validatePrice() {
-                    const price = document.getElementById('priceInput');
-                    return price && price.value && price.value.trim() !== '' && parseFloat(price.value) > 0;
-                }
-
-                function validateCategory() {
-                    const category = document.getElementById('categoryHidden');
-                    return category && category.value !== '';
-                }
-
-                function validateCondition() {
-                    const condition = document.getElementById('conditionHidden');
-                    return condition && condition.value !== '';
-                }
-
-                function validateSize() {
-                    return true;
-                }
-
-                function validateDescription() {
-                    const desc = document.getElementById('descInput');
-                    return desc && desc.value.trim().length > 0;
-                }
-
-                function validateDelivery() {
-                    const optDelivery = document.getElementById('optDelivery');
-                    const optMeetup = document.getElementById('optMeetup');
-                    const optPickup = document.getElementById('optPickup');
-                    return (optDelivery && optDelivery.checked) ||
-                           (optMeetup && optMeetup.checked) ||
-                           (optPickup && optPickup.checked);
-                }
-
-                function validateStealable() {
-                    const stealableToggle = document.getElementById('stealableToggle');
-                    const stealDurationSelect = document.getElementById('stealDurationSelect');
-                    if (stealableToggle && stealableToggle.checked) {
-                        return stealDurationSelect && stealDurationSelect.value !== '';
-                    }
-                    return true;
-                }
-
-                // Update the unified summary card
-                function updateSummaryCard() {
-                    // Title
-                    const titleVal = document.getElementById('titleInput').value.trim() || '—';
-                    document.getElementById('summaryTitle').textContent = titleVal;
-
-                    // Price
-                    const priceVal = document.getElementById('priceInput').value;
-                    document.getElementById('summaryPrice').textContent = priceVal ? '₱' + parseFloat(priceVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
-
-                    // Category
-                    const categoryVal = document.getElementById('categoryHidden').value || '—';
-                    document.getElementById('summaryCategory').textContent = categoryVal;
-
-                    // Condition
-                    const conditionVal = document.getElementById('conditionHidden').value || '—';
-                    document.getElementById('summaryCondition').textContent = conditionVal;
-
-                    // Size
-                    const sizeVal = document.getElementById('sizeSelect').value || 'Not specified';
-                    document.getElementById('summarySize').textContent = sizeVal;
-
-                    // Delivery
-                    const opts = [];
-                    if (document.getElementById('optDelivery').checked) opts.push('Delivery');
-                    if (document.getElementById('optMeetup').checked) opts.push('Halfway');
-                    if (document.getElementById('optPickup').checked) opts.push('Pickup');
-                    document.getElementById('summaryDelivery').textContent = opts.length ? opts.join(' · ') : 'None selected';
-
-                    // Stealable
-                    const toggle = document.getElementById('stealableToggle');
-                    const duration = document.getElementById('stealDurationSelect');
-                    if (toggle && toggle.checked && duration && duration.value) {
-                        document.getElementById('summaryStealable').textContent = '⚡ Stealable · ' + duration.value + ' hours';
-                    } else {
-                        document.getElementById('summaryStealable').textContent = 'Standard listing';
-                    }
-
-                    // Description
-                    const descVal = document.getElementById('descInput').value.trim();
-                    if (descVal) {
-                        const truncated = descVal.length > 100 ? descVal.substring(0, 100) + '…' : descVal;
-                        document.getElementById('summaryDescription').textContent = truncated;
-                    } else {
-                        document.getElementById('summaryDescription').textContent = '—';
-                    }
-                }
-
-                // Show the unified summary and hide all individual fields
-                function showUnifiedSummary() {
-                    // Hide all field elements
-                    fields.forEach(f => {
-                        if (f.element) f.element.style.display = 'none';
+                var removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'mobile-photo-strip__remove';
+                removeBtn.setAttribute('aria-label', 'Remove photo ' + (index + 1));
+                removeBtn.textContent = '×';
+                // FIXED: Use a closure to capture the correct index
+                (function(idx) {
+                    removeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        selectedFiles.splice(idx, 1);
+                        renderPreviews();
+                        updateFileInput();
                     });
-                
-                    // Hide progress bar
-                    document.querySelector('.progressive-progress').style.display = 'none';
-                
-                    // Show summary card
-                    if (listingSummary) {
-                        listingSummary.style.display = 'block';
-                        updateSummaryCard();
-                    }
-                
-                    if (footerHint) footerHint.textContent = 'Click any row to edit';
-                    allFieldsCompleted = true;
-                }
+                })(index);
 
-                // Hide summary and show fields (when editing)
-                function hideSummaryAndShowFields() {
-                    fields.forEach(f => {
-                        if (f.element) f.element.style.display = '';
-                    });
-                
-                    document.querySelector('.progressive-progress').style.display = '';
-                
-                    if (listingSummary) listingSummary.style.display = 'none';
-                    allFieldsCompleted = false;
-                }
+                thumb.appendChild(img);
+                thumb.appendChild(removeBtn);
+                photoStrip.appendChild(thumb);
+            });
 
-                // Edit a specific field from the summary
-                function editField(fieldId) {
-                    hideSummaryAndShowFields();
-                
-                    // Collapse all completed fields, expand the target field
-                    fields.forEach(f => {
-                        if (!f.element) return;
-                        const body = f.element.querySelector('.progressive-field__body');
-                        const status = f.element.querySelector('.progressive-field__status');
-                    
-                        f.element.classList.remove('progressive-field--active', 'progressive-field--completed', 'progressive-field--locked');
-                    
-                        if (completedFields.has(f.id)) {
-                            f.element.classList.add('progressive-field--completed');
-                            if (body) body.style.display = 'none';
-                            if (status) status.textContent = '✓';
-                        } else if (f.id === fieldId) {
-                            f.element.classList.add('progressive-field--active');
-                            if (body) body.style.display = 'block';
-                            if (status) status.textContent = '';
-                            completedFields.delete(f.id);
-                        } else {
-                            f.element.classList.add('progressive-field--locked');
-                            if (status) status.textContent = '🔒';
-                        }
-                    });
-                
-                    // Scroll to the field
-                    const targetField = fields.find(f => f.id === fieldId);
-                    if (targetField && targetField.element) {
-                        setTimeout(() => {
-                            targetField.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            const firstInput = targetField.element.querySelector('input, textarea, select');
-                            if (firstInput) firstInput.focus();
-                        }, 100);
-                    }
-                
-                    updateProgress();
-                }
-
-                // Summary row click handlers
-                document.querySelectorAll('[data-edit-field]').forEach(el => {
-                    el.addEventListener('click', function(e) {
-                        const fieldId = this.dataset.editField;
-                        if (fieldId) {
-                            editField(fieldId);
-                        }
-                    });
+            if (selectedFiles.length < 5) {
+                var addSlot = document.createElement('div');
+                addSlot.className = 'mobile-photo-strip__add';
+                addSlot.textContent = '+';
+                addSlot.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    photoInput.click();
                 });
+                photoStrip.appendChild(addSlot);
+            }
 
-                function updateProgress() {
-                    const total = fields.length;
-                    const completed = completedFields.size;
-                    const percent = (completed / total) * 100;
-            
-                    if (progressFill) {
-                        progressFill.style.width = percent + '%';
-                    }
-                    if (progressText) {
-                        progressText.textContent = completed + '/' + total + ' fields complete';
-                    }
+            updateFileInput();
+            photoCounter.textContent = selectedFiles.length + ' / 5';
+        }
 
-                    if (completed === total && !allFieldsCompleted) {
-                        if (footerHint) footerHint.textContent = 'All fields complete!';
-                    } else if (!allFieldsCompleted && footerHint) {
-                        const remaining = total - completed;
-                        footerHint.textContent = remaining + ' field' + (remaining > 1 ? 's' : '') + ' remaining';
-                    }
+        function addFiles(files) {
+            var remaining = 5 - selectedFiles.length;
+            var toAdd = Array.from(files).slice(0, remaining);
+
+            toAdd.forEach(function(file) {
+                if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+                    showToast(file.name + ' is not a supported format.', 'error');
+                    return;
                 }
-
-                function unlockField(fieldId) {
-                    const field = fields.find(f => f.id === fieldId);
-                    if (!field || !field.element) return;
-
-                    const element = field.element;
-                    const body = element.querySelector('.progressive-field__body');
-                    const status = element.querySelector('.progressive-field__status');
-            
-                    element.classList.remove('progressive-field--locked', 'progressive-field--completed');
-                    element.classList.add('progressive-field--active');
-                    if (body) body.style.display = 'block';
-                    if (status) {
-                        status.textContent = '';
-                        status.style.opacity = '1';
-                    }
-
-                    setTimeout(() => {
-                        const firstInput = element.querySelector('input, textarea, select, .chip, .pill');
-                        if (firstInput) {
-                            if (firstInput.classList.contains('chip') || firstInput.classList.contains('pill')) {
-                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            } else {
-                                firstInput.focus();
-                            }
-                        }
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast(file.name + ' exceeds 5 MB.', 'error');
+                    return;
                 }
+                selectedFiles.push(file);
+            });
 
-                function completeField(fieldId) {
-                    const field = fields.find(f => f.id === fieldId);
-                    if (!field || !field.element) return;
+            renderPreviews();
+        }
 
-                    const element = field.element;
-                    const body = element.querySelector('.progressive-field__body');
-                    const status = element.querySelector('.progressive-field__status');
-            
-                    element.classList.remove('progressive-field--active');
-                    element.classList.add('progressive-field--completed');
-                
-                    if (body) body.style.display = 'none';
-                    if (status) status.textContent = '✓';
-            
-                    completedFields.add(fieldId);
-                    updateProgress();
-                }
+        photoUploadArea.addEventListener('click', function() { photoInput.click(); });
+        photoUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); photoUploadArea.classList.add('is-dragging'); });
+        photoUploadArea.addEventListener('dragleave', function() { photoUploadArea.classList.remove('is-dragging'); });
+        photoUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            photoUploadArea.classList.remove('is-dragging');
+            if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+        });
 
-                function tryContinue(currentFieldId, nextFieldId) {
-                    const field = fields.find(f => f.id === currentFieldId);
-                    if (!field) return false;
+        photoInput.addEventListener('change', function() {
+            if (this.files.length) addFiles(this.files);
+            this.value = '';
+        });
 
-                    if (field.validate()) {
-                        completeField(currentFieldId);
-                
-                        if (nextFieldId) {
-                            if (nextFieldId === 'summary') {
-                                // All fields done - show unified summary
-                                completeField(currentFieldId);
-                                showUnifiedSummary();
-                            } else {
-                                unlockField(nextFieldId);
-                            }
-                        }
-                
-                        return true;
-                    } else {
-                        showToast('Please complete this field before continuing.', 'error');
-                        return false;
-                    }
-                }
+        renderPreviews();
 
-                // Click on completed field headers to expand for editing
-                document.querySelectorAll('.progressive-field .progressive-field__header').forEach(header => {
-                    header.addEventListener('click', function(e) {
-                        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
-                    
-                        const field = this.closest('.progressive-field');
-                        if (!field) return;
-                    
-                        const fieldId = field.dataset.field;
-                    
-                        if (field.classList.contains('progressive-field--completed')) {
-                            const body = field.querySelector('.progressive-field__body');
-                            const status = field.querySelector('.progressive-field__status');
-                        
-                            field.classList.remove('progressive-field--completed');
-                            field.classList.add('progressive-field--active');
-                            if (body) body.style.display = 'block';
-                            if (status) status.textContent = '';
-                        
-                            completedFields.delete(fieldId);
-                            updateProgress();
-                        
-                            setTimeout(() => {
-                                const firstInput = field.querySelector('input, textarea, select');
-                                if (firstInput) firstInput.focus();
-                            }, 50);
-                        }
-                    });
+        // =========================================================
+        // CHARACTER COUNTERS
+        // =========================================================
+
+        function bindCounter(inputId, counterId, max) {
+            var input = document.getElementById(inputId);
+            var counter = document.getElementById(counterId);
+            if (!input || !counter) return;
+            input.addEventListener('input', function() {
+                var len = input.value.length;
+                counter.textContent = len + '/' + max;
+                if (len > max * 0.9) counter.classList.add('mobile-create-section__counter--warn');
+                else counter.classList.remove('mobile-create-section__counter--warn');
+            });
+        }
+
+        bindCounter('titleInput', 'titleCounter', 100);
+        bindCounter('descInput', 'descCounter', 1000);
+
+        // =========================================================
+        // CATEGORY CHIPS
+        // =========================================================
+
+        var categoryChips = document.getElementById('categoryChips');
+        var categoryHidden = document.getElementById('categoryHidden');
+
+        if (categoryChips && categoryHidden) {
+            categoryChips.querySelectorAll('.mobile-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    categoryChips.querySelectorAll('.mobile-chip').forEach(function(c) { c.classList.remove('mobile-chip--active'); });
+                    chip.classList.add('mobile-chip--active');
+                    categoryHidden.value = chip.dataset.value;
                 });
+            });
+        }
 
-                // Continue button handlers
-                document.querySelectorAll('.btn--continue').forEach(btn => {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const fieldElement = this.closest('.progressive-field');
-                        if (!fieldElement) return;
-                
-                        const currentFieldId = fieldElement.dataset.field;
-                        const nextFieldId = this.dataset.next;
-                
-                        tryContinue(currentFieldId, nextFieldId);
-                    });
+        // =========================================================
+        // CONDITION CHIPS
+        // =========================================================
+
+        var conditionChips = document.getElementById('conditionChips');
+        var conditionHidden = document.getElementById('conditionHidden');
+
+        if (conditionChips && conditionHidden) {
+            conditionChips.querySelectorAll('.mobile-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    conditionChips.querySelectorAll('.mobile-chip').forEach(function(c) { c.classList.remove('mobile-chip--active'); });
+                    chip.classList.add('mobile-chip--active');
+                    conditionHidden.value = chip.dataset.value;
                 });
+            });
+        }
 
-                // Skip button handlers
-                document.querySelectorAll('.btn--skip').forEach(btn => {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        const fieldElement = this.closest('.progressive-field');
-                        if (!fieldElement) return;
-                
-                        const currentFieldId = fieldElement.dataset.field;
-                        const nextFieldId = this.dataset.next;
-                
-                        completeField(currentFieldId);
-                        if (nextFieldId) {
-                            if (nextFieldId === 'summary') {
-                                showUnifiedSummary();
-                            } else {
-                                unlockField(nextFieldId);
-                            }
-                        }
-                    });
-                });
+        // =========================================================
+        // DELIVERY CHECKBOXES
+        // =========================================================
 
-                // Enter key support
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        const activeField = document.querySelector('.progressive-field--active');
-                        if (activeField) {
-                            const continueBtn = activeField.querySelector('.btn--continue');
-                            if (continueBtn) {
-                                e.preventDefault();
-                                continueBtn.click();
-                            }
-                        }
-                    }
-                });
+        document.querySelectorAll('.mobile-delivery-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var option = this.closest('.mobile-delivery-option');
+                if (this.checked) option.classList.add('mobile-delivery-option--checked');
+                else option.classList.remove('mobile-delivery-option--checked');
+            });
+        });
 
-                // Auto-continue on category/condition selection
-                document.addEventListener('click', function (e) {
-                    const chip = e.target.closest('.chip');
-                    if (chip) {
-                        const field = document.getElementById('fieldCategory');
-                        if (field && field.classList.contains('progressive-field--active')) {
-                            setTimeout(() => {
-                                const continueBtn = field.querySelector('.btn--continue');
-                                if (continueBtn && validateCategory()) {
-                                    continueBtn.click();
-                                }
-                            }, 150);
-                        }
-                    }
+        // =========================================================
+        // STEALABLE TOGGLE
+        // =========================================================
 
-                    const pill = e.target.closest('.pill');
-                    if (pill) {
-                        const field = document.getElementById('fieldCondition');
-                        if (field && field.classList.contains('progressive-field--active')) {
-                            setTimeout(() => {
-                                const continueBtn = field.querySelector('.btn--continue');
-                                if (continueBtn && validateCondition()) {
-                                    continueBtn.click();
-                                }
-                            }, 150);
-                        }
-                    }
-                });
+        var stealableToggle = document.getElementById('stealableToggle');
+        var stealDurationPanel = document.getElementById('stealDurationPanel');
 
-                // Click on locked field headers to show hint
-                document.querySelectorAll('.progressive-field--locked .progressive-field__header').forEach(header => {
-                    header.addEventListener('click', function () {
-                        showToast('Complete the previous fields first!', 'info');
-                    });
-                });
+        if (stealableToggle && stealDurationPanel) {
+            stealableToggle.addEventListener('change', function() {
+                if (this.checked) stealDurationPanel.classList.add('is-visible');
+                else {
+                    stealDurationPanel.classList.remove('is-visible');
+                    document.getElementById('stealDurationSelect').value = '';
+                }
+            });
+        }
 
-                // =========================================================
-                // PHOTO UPLOAD
-                // =========================================================
+        // =========================================================
+        // FORM SUBMIT
+        // =========================================================
 
-                const photoMain = document.getElementById('photoMain');
-                let photoInput = document.getElementById('photoInput');
-                const photoEmpty = document.getElementById('photoEmpty');
-                const photoPreview = document.getElementById('photoPreview');
-                const photoMainImg = document.getElementById('photoMainImg');
-                const photoStrip = document.getElementById('photoStrip');
-                const photoCounter = document.getElementById('photoCounter');
+        var form = document.getElementById('createItemForm');
+        var submitBtn = document.getElementById('submitBtn');
 
-                let selectedFiles = [];
-                let objectUrls = [];
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                var hasError = false;
+                if (!validateField('title')) { showToast('Please enter a title.', 'error'); hasError = true; }
+                else if (!validateField('price')) { showToast('Please enter a valid price.', 'error'); hasError = true; }
+                else if (!validateField('category')) { showToast('Please select a category.', 'error'); hasError = true; }
+                else if (!validateField('condition')) { showToast('Please select the condition.', 'error'); hasError = true; }
+                else if (!validateField('description')) { showToast('Please enter a description.', 'error'); hasError = true; }
+                else if (!validateField('delivery')) { showToast('Please select at least one delivery option.', 'error'); hasError = true; }
+                else if (!validateField('stealable')) { showToast('Please select a steal window duration.', 'error'); hasError = true; }
 
-                function revokeAll() {
-                    objectUrls.forEach(url => URL.revokeObjectURL(url));
-                    objectUrls = [];
+                if (hasError) {
+                    e.preventDefault();
+                    return false;
                 }
 
-                function createUrl(file) {
-                    const url = URL.createObjectURL(file);
-                    objectUrls.push(url);
-                    return url;
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Publishing...';
                 }
+            });
+        }
 
-                function renderPreviews() {
-                    revokeAll();
-
-                    if (selectedFiles.length > 0) {
-                        photoMainImg.src = createUrl(selectedFiles[0]);
-                        if (photoPreview) photoPreview.style.display = 'block';
-                        if (photoEmpty) photoEmpty.style.display = 'none';
-                        if (photoMain) photoMain.classList.add('has-photo');
-                    } else {
-                        if (photoPreview) photoPreview.style.display = 'none';
-                        if (photoEmpty) photoEmpty.style.display = 'flex';
-                        if (photoMain) photoMain.classList.remove('has-photo');
-                        if (photoMainImg) photoMainImg.src = '';
-                    }
-
-                    if (photoStrip) photoStrip.innerHTML = '';
-
-                    selectedFiles.forEach(function (file, i) {
-                        const thumb = document.createElement('div');
-                        thumb.className = 'strip-thumb' + (i === 0 ? ' strip-thumb--cover' : '');
-
-                        const img = document.createElement('img');
-                        img.src = createUrl(file);
-                        img.alt = 'Photo ' + (i + 1);
-
-                        const removeBtn = document.createElement('button');
-                        removeBtn.type = 'button';
-                        removeBtn.className = 'strip-thumb__remove';
-                        removeBtn.dataset.index = String(i);
-                        removeBtn.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-                        removeBtn.textContent = '×';
-
-                        thumb.appendChild(img);
-                        thumb.appendChild(removeBtn);
-                        if (photoStrip) photoStrip.appendChild(thumb);
-                    });
-
-                    if (selectedFiles.length < 5 && photoStrip) {
-                        const addSlot = document.createElement('div');
-                        addSlot.className = 'strip-add';
-                        addSlot.setAttribute('role', 'button');
-                        addSlot.setAttribute('tabindex', '0');
-                        addSlot.setAttribute('aria-label', 'Add another photo');
-                        addSlot.textContent = '+';
-                        addSlot.addEventListener('click', function (e) {
-                            e.stopPropagation();
-                            if (photoInput) photoInput.click();
-                        });
-                        addSlot.addEventListener('keydown', function (e) {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                if (photoInput) photoInput.click();
-                            }
-                        });
-                        photoStrip.appendChild(addSlot);
-                    }
-
-                    const oldInput = photoInput;
-                    const newInput = document.createElement('input');
-                    newInput.type = 'file';
-                    newInput.id = 'photoInput';
-                    newInput.name = 'Images';
-                    newInput.multiple = true;
-                    newInput.accept = 'image/jpeg,image/png,image/webp';
-                    newInput.className = 'photo-file-input';
-            
-                    const dt = new DataTransfer();
-                    selectedFiles.forEach(f => dt.items.add(f));
-                    newInput.files = dt.files;
-            
-                    newInput.addEventListener('change', function (e) {
-                        if (e.target.files.length > 0) {
-                            addFiles(e.target.files);
-                        }
-                        e.target.value = '';
-                    });
-            
-                    if (oldInput && oldInput.parentNode) {
-                        oldInput.parentNode.replaceChild(newInput, oldInput);
-                    }
-                    photoInput = newInput;
-
-                    if (photoCounter) {
-                        photoCounter.textContent = selectedFiles.length + ' / 5';
-                    }
-                }
-
-                function addFiles(files) {
-                    const remaining = 5 - selectedFiles.length;
-                    const toAdd = Array.from(files).slice(0, remaining);
-
-                    toAdd.forEach(function (file) {
-                        if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
-                            showToast((file.name || 'File') + ' is not a supported format.', 'error');
-                            return;
-                        }
-                        if (file.size > 5 * 1024 * 1024) {
-                            showToast((file.name || 'File') + ' exceeds 5 MB.', 'error');
-                            return;
-                        }
-                        selectedFiles.push(file);
-                    });
-
-                    renderPreviews();
-                }
-
-                function removeFile(index) {
-                    selectedFiles.splice(index, 1);
-                    renderPreviews();
-                }
-
-                if (photoMain) {
-                    photoMain.addEventListener('dragover', function (e) {
-                        e.preventDefault();
-                        photoMain.classList.add('is-dragging');
-                    });
-
-                    photoMain.addEventListener('dragleave', function (e) {
-                        if (!photoMain.contains(e.relatedTarget)) {
-                            photoMain.classList.remove('is-dragging');
-                        }
-                    });
-
-                    photoMain.addEventListener('drop', function (e) {
-                        e.preventDefault();
-                        photoMain.classList.remove('is-dragging');
-                        if (e.dataTransfer.files.length > 0) {
-                            addFiles(e.dataTransfer.files);
-                        }
-                    });
-
-                    photoMain.addEventListener('keydown', function (e) {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            if (photoInput) photoInput.click();
-                        }
-                    });
-                }
-
-                if (photoInput) {
-                    photoInput.addEventListener('change', function (e) {
-                        if (e.target.files.length > 0) {
-                            addFiles(e.target.files);
-                        }
-                        photoInput.value = '';
-                    });
-                }
-
-                if (photoStrip) {
-                    photoStrip.addEventListener('click', function (e) {
-                        const btn = e.target.closest('.strip-thumb__remove');
-                        if (btn) {
-                            e.stopPropagation();
-                            removeFile(parseInt(btn.dataset.index, 10));
-                            return;
-                        }
-        
-                        const thumb = e.target.closest('.strip-thumb');
-                        if (thumb) {
-                            const index = Array.from(photoStrip.children).indexOf(thumb);
-                            if (index >= 0 && index < selectedFiles.length) {
-                                const file = selectedFiles.splice(index, 1)[0];
-                                selectedFiles.unshift(file);
-                                renderPreviews();
-                            }
-                        }
-                    });
-                }
-
-                renderPreviews();
-
-                // =========================================================
-                // CHARACTER COUNTERS
-                // =========================================================
-
-                function bindCounter(inputId, counterId, max) {
-                    const input = document.getElementById(inputId);
-                    const counter = document.getElementById(counterId);
-                    if (!input || !counter) return;
-                    function update() {
-                        const len = input.value.length;
-                        counter.textContent = len + '/' + max;
-                        counter.classList.toggle('field__counter--warn', len > max * 0.9);
-                    }
-                    input.addEventListener('input', update);
-                    update();
-                }
-
-                bindCounter('titleInput', 'titleCounter', 100);
-                bindCounter('descInput', 'descCounter', 1000);
-
-                // =========================================================
-                // CATEGORY CHIPS
-                // =========================================================
-
-                const categoryChips = document.getElementById('categoryChips');
-                const categoryHidden = document.getElementById('categoryHidden');
-
-                if (categoryChips && categoryHidden) {
-                    categoryChips.querySelectorAll('.chip').forEach(function (chip) {
-                        chip.addEventListener('click', function (e) {
-                            e.preventDefault();
-                            categoryChips.querySelectorAll('.chip').forEach(c => c.classList.remove('chip--active'));
-                            chip.classList.add('chip--active');
-                            categoryHidden.value = chip.dataset.value;
-                        });
-                    });
-                }
-
-                // =========================================================
-                // CONDITION PILLS
-                // =========================================================
-
-                const conditionPills = document.getElementById('conditionPills');
-                const conditionHidden = document.getElementById('conditionHidden');
-
-                if (conditionPills && conditionHidden) {
-                    conditionPills.querySelectorAll('.pill').forEach(function (pill) {
-                        pill.addEventListener('click', function (e) {
-                            e.preventDefault();
-                            conditionPills.querySelectorAll('.pill').forEach(p => p.classList.remove('pill--active'));
-                            pill.classList.add('pill--active');
-                            conditionHidden.value = pill.dataset.value;
-                        });
-                    });
-                }
-
-                // =========================================================
-                // DELIVERY OPTIONS
-                // =========================================================
-
-                document.querySelectorAll('.delivery-input').forEach(function (checkbox) {
-                    checkbox.addEventListener('change', function () {
-                        const err = document.getElementById('fulfillmentError');
-                        if (err) err.textContent = '';
-                        const grid = document.getElementById('deliveryGrid');
-                        if (grid) grid.classList.remove('delivery-error-flash');
-                    });
-                });
-
-                // =========================================================
-                // STEALABLE TOGGLE
-                // =========================================================
-
-                const stealableToggle = document.getElementById('stealableToggle');
-                const stealDurationPanel = document.getElementById('stealDurationPanel');
-                const stealDurationSelect = document.getElementById('stealDurationSelect');
-
-                if (stealableToggle && stealDurationPanel) {
-                    function syncStealPanel() {
-                        if (stealableToggle.checked) {
-                            stealDurationPanel.classList.add('is-visible');
-                        } else {
-                            stealDurationPanel.classList.remove('is-visible');
-                            if (stealDurationSelect) stealDurationSelect.value = '';
-                        }
-                    }
-                    stealableToggle.addEventListener('change', syncStealPanel);
-                    syncStealPanel();
-                }
-
-                // =========================================================
-                // FORM SUBMIT
-                // =========================================================
-
-                const form = document.getElementById('createItemForm');
-                const submitBtn = document.getElementById('submitBtn');
-
-                if (form) {
-                    form.addEventListener('submit', function (e) {
-                        let hasError = false;
-                
-                        if (!validateTitle()) {
-                            showToast('Please enter a title.', 'error');
-                            hasError = true;
-                        } else if (!validatePrice()) {
-                            showToast('Please enter a valid price.', 'error');
-                            hasError = true;
-                        } else if (!validateCategory()) {
-                            showToast('Please select a category.', 'error');
-                            hasError = true;
-                        } else if (!validateCondition()) {
-                            showToast('Please select the condition.', 'error');
-                            hasError = true;
-                        } else if (!validateDescription()) {
-                            showToast('Please enter a description.', 'error');
-                            hasError = true;
-                        } else if (!validateDelivery()) {
-                            showToast('Please select at least one delivery option.', 'error');
-                            hasError = true;
-                        }
-
-                        if (hasError) {
-                            e.preventDefault();
-                            editField('title');
-                            return false;
-                        }
-
-                        if (stealableToggle && stealableToggle.checked &&
-                            stealDurationSelect && !stealDurationSelect.value) {
-                            e.preventDefault();
-                            showToast('Please select a steal window duration.', 'error');
-                            editField('stealable');
-                            return false;
-                        }
-
-                        if (submitBtn) {
-                            submitBtn.disabled = true;
-                            const span = submitBtn.querySelector('span');
-                            if (span) span.textContent = 'Publishing...';
-                        }
-                    });
-                }
-
-                // =========================================================
-                // TOAST HELPER
-                // =========================================================
-
-                function showToast(message, type) {
-                    type = type || 'info';
-                    const toast = document.createElement('div');
-                    toast.className = 'app-toast app-toast--' + type;
-                    toast.textContent = message;
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 3200);
-                }
-
-                // Initialize progress
-                updateProgress();
-        
-                const titleField = document.getElementById('fieldTitle');
-                if (titleField) {
-                    titleField.classList.add('progressive-field--active');
-                }
-
-                // =========================================================
-                // SCROLL TO TOP
-                // =========================================================
-        
-                let scrollTopBtn = document.getElementById('scrollTopBtn');
-        
-                if (!scrollTopBtn) {
-                    scrollTopBtn = document.createElement('button');
-                    scrollTopBtn.id = 'scrollTopBtn';
-                    scrollTopBtn.className = 'scroll-top-btn';
-                    scrollTopBtn.setAttribute('aria-label', 'Scroll to top');
-                    scrollTopBtn.innerHTML = `
-                        <svg viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    `;
-                    document.body.appendChild(scrollTopBtn);
-                }
-        
-                function scrollToTop() {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-        
-                scrollTopBtn.addEventListener('click', scrollToTop);
-        
-                window.addEventListener('scroll', function () {
-                    if (window.scrollY > 300) {
-                        scrollTopBtn.classList.add('visible');
-                    } else {
-                        scrollTopBtn.classList.remove('visible');
-                    }
-                });
-            })();
-    </script>
-</body>
-</html>
+        function showToast(message, type) {
+            type = type || 'info';
+            var toast = document.createElement('div');
+            toast.className = 'app-toast app-toast--' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3200);
+        }
+    })();
+</script>

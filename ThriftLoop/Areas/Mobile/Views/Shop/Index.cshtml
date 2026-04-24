@@ -1,0 +1,194 @@
+﻿@model ThriftLoop.ViewModels.ShopPageViewModel
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = Model.ShopName;
+    var isOwner = Model.IsOwner;
+    var maxPrice = Model.Items.Any() ? (int)Math.Ceiling((double)Model.Items.Max(i => i.Price)) : 100000;
+    ViewBag.MaxPrice = maxPrice;
+}
+
+<div class="mobile-shop-screen">
+    @* ── Banner ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-shop-banner" style="@(Model.BannerUrl != null ? $"background-image:url('{Model.BannerUrl}')" : "")">
+        @if (Model.BannerUrl == null)
+        {
+            <div class="mobile-shop-banner__placeholder"></div>
+        }
+        @if (isOwner)
+        {
+            <span class="mobile-shop-banner__hint">Tap to change banner</span>
+        }
+    </div>
+
+    @* ── Shop Identity ───────────────────────────────────────────────────── *@
+    <div class="mobile-shop-identity">
+        <div class="mobile-shop-identity__logo-wrap">
+            @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+            {
+                <img src="@Model.LogoUrl" alt="@Model.ShopName" class="mobile-shop-identity__logo" />
+            }
+            else
+            {
+                <div class="mobile-shop-identity__logo mobile-shop-identity__logo--placeholder">
+                    @char.ToUpper(Model.ShopName.FirstOrDefault())
+                </div>
+            }
+        </div>
+
+        <div class="mobile-shop-identity__info">
+            <h1 class="mobile-shop-identity__name">@Model.ShopName</h1>
+            @if (!string.IsNullOrWhiteSpace(Model.Bio))
+            {
+                <p class="mobile-shop-identity__bio">@Model.Bio</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.StoreAddress))
+            {
+                <div class="mobile-shop-identity__address">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                        <path d="M8 0a6 6 0 00-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                    <span>@Model.StoreAddress</span>
+                </div>
+            }
+        </div>
+
+        @if (isOwner)
+        {
+            <a asp-action="Create" class="mobile-shop-add-btn" aria-label="Add new item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                    <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+                </svg>
+            </a>
+        }
+    </div>
+
+    @* ── Items Grid ──────────────────────────────────────────────────────── *@
+    <div class="mobile-shop-section">
+        <div class="mobile-feed-header">
+            <h2 class="mobile-feed-header__title">Listings</h2>
+            <span class="mobile-feed-header__count">@Model.Items.Count</span>
+            <span class="mobile-feed-header__label">item@(Model.Items.Count != 1 ? "s" : "")</span>
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="mobile-empty-state">
+                <div class="mobile-empty-state__icon" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="8" y="14" width="48" height="36" rx="6" />
+                        <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                        <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h3 class="mobile-empty-state__title">No listings yet</h3>
+                <p class="mobile-empty-state__body">@(isOwner ? "Tap the + button to add your first item." : "This shop hasn't posted any items yet.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="mobile-feed-grid">
+                @foreach (var item in Model.Items)
+                {
+                    var isDisabled = item.Status == ItemStatus.Disabled;
+                    var hasDiscount = item.HasActiveDiscount;
+                    var soldCount = Model.ItemSoldCounts.GetValueOrDefault(item.Id, 0);
+
+                    string? expiryText = null;
+                    if (hasDiscount && item.DiscountExpiresAt.HasValue)
+                    {
+                        var timeLeft = item.DiscountExpiresAt.Value - DateTime.UtcNow;
+                        if (timeLeft.TotalDays >= 1) expiryText = $"{(int)timeLeft.TotalDays}d left";
+                        else if (timeLeft.TotalHours >= 1) expiryText = $"{(int)timeLeft.TotalHours}h left";
+                        else if (timeLeft.TotalMinutes > 0) expiryText = $"{(int)timeLeft.TotalMinutes}m left";
+                    }
+
+                    <article class="mobile-feed-card @(isDisabled ? "mobile-feed-card--sold" : "")">
+                        <div class="mobile-feed-card__img-wrap">
+                            @if (item.ImageUrls.Count > 0)
+                            {
+                                <img src="@item.ImageUrls[0]" alt="@item.Title" class="mobile-feed-card__img" loading="lazy" />
+                                @if (item.ImageUrls.Count > 1)
+                                {
+                                    <div class="mobile-feed-card__img-count">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                                            <rect x="1" y="3" width="9" height="10" rx="1" />
+                                            <rect x="5" y="1" width="9" height="10" rx="1" />
+                                        </svg>
+                                        <span>@item.ImageUrls.Count</span>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="mobile-feed-card__img mobile-feed-card__img--placeholder" aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                        <rect x="4" y="8" width="40" height="32" rx="4" />
+                                        <circle cx="17" cy="20" r="4" />
+                                        <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
+                            }
+
+                            <span class="mobile-feed-card__condition">@item.Condition</span>
+                            <span class="mobile-feed-card__shop-badge">Shop</span>
+                            @if (isDisabled)
+                            {
+                                <span class="mobile-shop-disabled-badge">Disabled</span>
+                            }
+                        </div>
+
+                        <div class="mobile-feed-card__body">
+                            <div class="mobile-feed-card__meta">
+                                <span class="mobile-feed-card__category">@item.Category</span>
+                                <span class="mobile-feed-card__date">@item.CreatedAt.ToString("MMM d")</span>
+                            </div>
+
+                            <h3 class="mobile-feed-card__title">@item.Title</h3>
+
+                            <div class="mobile-feed-card__price-section">
+                                @if (hasDiscount)
+                                {
+                                    <span class="mobile-feed-card__original-price">From ₱@(item.OriginalPrice?.ToString("N2"))</span>
+                                    <div class="mobile-feed-card__price-row">
+                                        <span class="mobile-feed-card__price">From ₱@item.Price.ToString("N2")</span>
+                                        <span class="mobile-feed-card__discount-badge">-@(item.DiscountPercentage?.ToString("F0"))%</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(expiryText))
+                                    {
+                                        <span class="mobile-feed-card__discount-expiry">@expiryText</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="mobile-feed-card__price-row">
+                                        <span class="mobile-feed-card__price">From ₱@item.Price.ToString("N2")</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (soldCount > 0)
+                            {
+                                <div class="mobile-shop-sold-count">
+                                    <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
+                                        <path d="M0 1.75A.75.75 0 01.75 1h1.628a1.75 1.75 0 011.734 1.51L4.358 4h9.109a.75.75 0 01.72.96l-1.5 5.25a.75.75 0 01-.72.54H5.744l.239 1.185A.25.25 0 006.22 12h7.28a.75.75 0 010 1.5H6.22a1.75 1.75 0 01-1.717-1.424L2.637 2.773A.25.25 0 002.395 2.5H.75A.75.75 0 010 1.75z" />
+                                    </svg>
+                                    @soldCount sold
+                                </div>
+                            }
+                        </div>
+
+                        @if (isOwner && (item.Status == ItemStatus.Available || item.Status == ItemStatus.Disabled))
+                        {
+                            <div class="mobile-shop-owner-actions">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="mobile-shop-owner-action mobile-shop-owner-action--edit">Edit</a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="mobile-shop-owner-action mobile-shop-owner-action--delete">Delete</a>
+                            </div>
+                        }
+
+                        <a asp-action="Details" asp-route-id="@item.Id" class="mobile-feed-card__link" aria-label="View @item.Title"></a>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</div>

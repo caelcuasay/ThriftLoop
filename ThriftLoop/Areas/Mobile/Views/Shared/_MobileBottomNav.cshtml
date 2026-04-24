@@ -1,0 +1,54 @@
+﻿@using System.Security.Claims
+@{
+    var currentPath = Context.Request.Path.Value ?? string.Empty;
+    var isAuthPage = currentPath.StartsWith("/mobile/auth", StringComparison.OrdinalIgnoreCase);
+    var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+}
+
+@* Only show bottom nav on non-auth, non-rider pages when authenticated *@
+@if (!isAuthPage && !isRider && User.Identity?.IsAuthenticated == true)
+{
+    <nav class="mobile-bottom-nav">
+        <a asp-controller="Home" asp-action="Index" asp-area="Mobile"
+               class="mobile-bottom-nav__item @(currentPath == "/mobile" || currentPath.StartsWith("/mobile/home", StringComparison.OrdinalIgnoreCase) || currentPath.StartsWith("/mobile/sellers", StringComparison.OrdinalIgnoreCase) ? "mobile-bottom-nav__item--active" : "")">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span>Home</span>
+        </a>
+
+        <a asp-controller="Chat" asp-action="Index" asp-area="Mobile"
+               class="mobile-bottom-nav__item @(currentPath.StartsWith("/mobile/chat", StringComparison.OrdinalIgnoreCase) ? "mobile-bottom-nav__item--active" : "")">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Chat</span>
+        </a>
+
+        <a asp-controller="Items" asp-action="Create" asp-area="Mobile"
+               class="mobile-bottom-nav__create">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26">
+                <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+            </svg>
+        </a>
+
+        <a asp-controller="Cart" asp-action="Index" asp-area="Mobile"
+               class="mobile-bottom-nav__item @(currentPath.StartsWith("/mobile/cart", StringComparison.OrdinalIgnoreCase) ? "mobile-bottom-nav__item--active" : "")">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+            <span>Cart</span>
+        </a>
+
+        <a asp-controller="Likes" asp-action="Index" asp-area="Mobile"
+               class="mobile-bottom-nav__item @(currentPath.StartsWith("/mobile/likes", StringComparison.OrdinalIgnoreCase) ? "mobile-bottom-nav__item--active" : "")">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+            </svg>
+            <span>Likes</span>
+        </a>
+    </nav>
+}

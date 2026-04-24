@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>@ViewData["Title"] - ThriftLoop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/mobile-navbar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-auth.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-home.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-filter-sheet.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-items.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-shop.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <div class="mobile-app-shell">
+        @await Html.PartialAsync("_MobileNavbar")
+        @RenderBody()
+        @await Html.PartialAsync("_MobileBottomNav")
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

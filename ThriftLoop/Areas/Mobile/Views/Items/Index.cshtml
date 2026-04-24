@@ -1,0 +1,165 @@
+﻿@model IReadOnlyList<ThriftLoop.Models.Item>
+@using ThriftLoop.Enums
+@using ThriftLoop.Models
+@{
+    ViewData["Title"] = "My Listings";
+}
+
+<div class="mobile-listings-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-listings-header">
+        <div class="mobile-listings-header__info">
+            <h1 class="mobile-listings-header__title">My Listings</h1>
+            <span class="mobile-listings-header__count">@Model.Count item@(Model.Count != 1 ? "s" : "")</span>
+        </div>
+        <a asp-action="Create" class="mobile-listings-header__add-btn" aria-label="Create new listing">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+            </svg>
+        </a>
+    </div>
+
+    @* ── Toast Messages ──────────────────────────────────────────────────── *@
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mobile-toast mobile-toast--success" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+            </svg>
+            <span>@successMsg</span>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMsg)
+    {
+        <div class="mobile-toast mobile-toast--error" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-4.75a.75.75 0 001.5 0v-4.5a.75.75 0 00-1.5 0v4.5zm.75-7a.75.75 0 110 1.5.75.75 0 010-1.5z" clip-rule="evenodd" />
+            </svg>
+            <span>@errorMsg</span>
+        </div>
+    }
+
+    @* ── Empty State ──────────────────────────────────────────────────────── *@
+    @if (!Model.Any())
+    {
+        <div class="mobile-empty-state">
+            <div class="mobile-empty-state__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" width="64" height="64">
+                    <rect x="8" y="14" width="48" height="36" rx="6" />
+                    <path d="M22 14v-4a6 6 0 0112 0v4" stroke-linecap="round" />
+                    <path d="M24 33h16M32 25v16" stroke-linecap="round" />
+                </svg>
+            </div>
+            <h2 class="mobile-empty-state__title">No listings yet</h2>
+            <p class="mobile-empty-state__body">Start selling by listing your first item!</p>
+            <a asp-action="Create" class="mobile-btn mobile-btn--primary mobile-empty-state__cta">
+                List New Item
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ── Listings List ────────────────────────────────────────────────── *@
+        <div class="mobile-listings-list">
+            @foreach (var item in Model)
+            {
+                var statusClass = item.Status switch
+                {
+                    ItemStatus.Reserved => "mobile-listing-card__status--reserved",
+                    ItemStatus.Sold => "mobile-listing-card__status--sold",
+                    ItemStatus.Disabled => "mobile-listing-card__status--disabled",
+                    _ => ""
+                };
+
+                var isStealable = item.ListingType == ListingType.Stealable;
+                var hasDiscount = item.HasActiveDiscount;
+
+                <div class="mobile-listing-card">
+                    @* Image *@
+                    <div class="mobile-listing-card__img-wrap">
+                        @if (item.ImageUrls.Count > 0)
+                        {
+                            <img src="@item.ImageUrls[0]" alt="@item.Title" class="mobile-listing-card__img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="mobile-listing-card__img-placeholder">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" width="32" height="32">
+                                    <rect x="4" y="8" width="40" height="32" rx="4" />
+                                    <circle cx="17" cy="20" r="4" />
+                                    <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+
+                        <span class="mobile-listing-card__status @statusClass">@item.Status</span>
+
+                        @if (hasDiscount)
+                        {
+                            <span class="mobile-listing-card__discount-badge">-@(item.DiscountPercentage?.ToString("F0"))%</span>
+                        }
+
+                        @if (isStealable)
+                        {
+                            <span class="mobile-listing-card__type-badge">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
+                                    <path d="M9.504.43a1.516 1.516 0 012.437 1.713L10.5 6h3.798a1.516 1.516 0 011.149 2.506l-6 7a1.516 1.516 0 01-2.631-1.275L7.5 10H4.701a1.516 1.516 0 01-1.149-2.506l6-7z" />
+                                </svg>
+                                Stealable
+                            </span>
+                        }
+                    </div>
+
+                    @* Info *@
+                    <div class="mobile-listing-card__body">
+                        <h3 class="mobile-listing-card__title">@item.Title</h3>
+
+                        <div class="mobile-listing-card__price-section">
+                            <span class="mobile-listing-card__price">₱@item.Price.ToString("N2")</span>
+                            @if (hasDiscount)
+                            {
+                                <span class="mobile-listing-card__original-price">₱@item.OriginalPrice?.ToString("N2")</span>
+                                @if (item.DiscountExpiresAt.HasValue)
+                                {
+                                    var timeLeft = item.DiscountExpiresAt.Value - DateTime.UtcNow;
+                                    var expiryText = timeLeft.TotalDays >= 1
+                                        ? $"{(int)timeLeft.TotalDays}d left"
+                                        : timeLeft.TotalHours >= 1
+                                            ? $"{(int)timeLeft.TotalHours}h left"
+                                            : "Ending soon";
+                                    <span class="mobile-listing-card__discount-expiry">@expiryText</span>
+                                }
+                            }
+                        </div>
+
+                        <div class="mobile-listing-card__meta">
+                            <span>@item.Category</span>
+                            <span>·</span>
+                            <span>@item.Condition</span>
+                        </div>
+                    </div>
+
+                    @* Actions *@
+                    <div class="mobile-listing-card__actions">
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="mobile-listing-card__action-btn">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                                <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                            </svg>
+                            Edit
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@item.Id" class="mobile-listing-card__action-btn mobile-listing-card__action-btn--danger">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5z" clip-rule="evenodd" />
+                            </svg>
+                            Delete
+                        </a>
+                    </div>
+
+                    @* Tap overlay → Details *@
+                    <a asp-action="Details" asp-route-id="@item.Id" class="mobile-listing-card__link" aria-label="View @item.Title"></a>
+                </div>
+            }
+        </div>
+    }
+</div>

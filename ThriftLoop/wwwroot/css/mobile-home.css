@@ -1,0 +1,606 @@
+﻿/* --------------------------------------------- */
+/* MOBILE HOME FEED — ThriftLoop                  */
+/* Optimized for small touchscreens (320–430px)   */
+/* --------------------------------------------- */
+
+:root {
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-bg: #f5f3f0;
+    --c-surface: #ffffff;
+    --c-border: #e4e4ea;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+    --c-success: #0e6245;
+    --c-error: #b91c1c;
+    --c-error-bg: #fee9e9;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--c-bg);
+    color: var(--c-text);
+    font-size: 16px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Feed Screen ────────────────────────────────────────────────────────── */
+
+.mobile-feed-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* ── Feed Header ─────────────────────────────────────────────────────────── */
+
+.mobile-feed-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 16px 16px 8px;
+}
+
+.mobile-feed-header__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+}
+
+.mobile-feed-header__count {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--c-muted);
+}
+
+.mobile-feed-header__label {
+    font-size: 0.85rem;
+    color: var(--c-muted-light);
+}
+
+/* ── Filter Bar ──────────────────────────────────────────────────────────── */
+
+.mobile-filter-bar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+    .mobile-filter-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+.mobile-filter-chip {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 20px;
+    border: 1.5px solid var(--c-border);
+    background: var(--c-surface);
+    color: var(--c-text);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .mobile-filter-chip:hover {
+        border-color: var(--c-primary);
+        color: var(--c-primary);
+    }
+
+.mobile-filter-chip--active {
+    background: var(--c-primary);
+    border-color: var(--c-primary);
+    color: white;
+}
+
+/* ── Feed Grid ───────────────────────────────────────────────────────────── */
+
+.mobile-feed-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 0 16px;
+}
+
+/* ── Feed Card ───────────────────────────────────────────────────────────── */
+
+.mobile-feed-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    transition: transform 0.15s;
+}
+
+    .mobile-feed-card:active {
+        transform: scale(0.98);
+    }
+
+.mobile-feed-card--sold {
+    opacity: 0.7;
+}
+
+/* ── Card Image ──────────────────────────────────────────────────────────── */
+
+.mobile-feed-card__img-wrap {
+    position: relative;
+    aspect-ratio: 1 / 1.15;
+    overflow: hidden;
+    background: var(--c-bg);
+}
+
+.mobile-feed-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mobile-feed-card__img--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-muted-light);
+}
+
+    .mobile-feed-card__img--placeholder svg {
+        width: 40%;
+        opacity: 0.4;
+    }
+
+.mobile-feed-card__img-count {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 10px;
+    backdrop-filter: blur(4px);
+}
+
+.mobile-feed-card__condition {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(255,255,255,0.9);
+    color: var(--c-text);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+}
+
+.mobile-feed-card__steal-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: #dc2626;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.mobile-feed-card__shop-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: var(--c-primary);
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+/* ── Card Body ───────────────────────────────────────────────────────────── */
+
+.mobile-feed-card__body {
+    padding: 10px;
+    position: relative;
+}
+
+.mobile-feed-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.mobile-feed-card__category {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--c-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.mobile-feed-card__date {
+    font-size: 0.65rem;
+    color: var(--c-muted-light);
+    margin-left: auto;
+}
+
+/* ── Like Button (in meta row) ──────────────────────────────────────────── */
+
+.mobile-like-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: var(--c-muted-light);
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 6px;
+    transition: color 0.15s, transform 0.15s;
+    z-index: 2;
+    position: relative;
+}
+
+    .mobile-like-btn:active {
+        transform: scale(1.15);
+    }
+
+.mobile-like-btn--liked {
+    color: #dc2626;
+}
+
+.mobile-like-btn__count {
+    font-size: 0.65rem;
+    font-weight: 600;
+}
+
+/* ── Card Title ──────────────────────────────────────────────────────────── */
+
+.mobile-feed-card__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--c-text);
+    line-height: 1.3;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Price Section ───────────────────────────────────────────────────────── */
+
+.mobile-feed-card__price-section {
+    margin-bottom: 6px;
+}
+
+.mobile-feed-card__original-price {
+    font-size: 0.7rem;
+    color: var(--c-muted-light);
+    text-decoration: line-through;
+}
+
+.mobile-feed-card__price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.mobile-feed-card__price {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--c-text);
+}
+
+.mobile-feed-card__discount-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.mobile-feed-card__discount-expiry {
+    display: block;
+    font-size: 0.65rem;
+    color: #b91c1c;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* ── Location ────────────────────────────────────────────────────────────── */
+
+.mobile-feed-card__location {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    color: var(--c-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .mobile-feed-card__location svg {
+        flex-shrink: 0;
+        color: var(--c-muted-light);
+    }
+
+/* ── Card Link Overlay ───────────────────────────────────────────────────── */
+
+.mobile-feed-card__link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+
+.mobile-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.mobile-empty-state__icon {
+    color: var(--c-muted-light);
+    margin-bottom: 16px;
+}
+
+    .mobile-empty-state__icon svg {
+        width: 64px;
+        height: 64px;
+    }
+
+.mobile-empty-state__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 4px;
+}
+
+.mobile-empty-state__body {
+    font-size: 0.85rem;
+    color: var(--c-muted);
+    margin-bottom: 20px;
+}
+
+.mobile-empty-state__cta {
+    width: auto;
+    min-width: 160px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (min-width: 430px) {
+    .mobile-feed-screen {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+    }
+}
+
+@media (max-width: 360px) {
+    .mobile-feed-grid {
+        gap: 8px;
+        padding: 0 12px;
+    }
+
+    .mobile-feed-card__body {
+        padding: 8px;
+    }
+
+    .mobile-feed-card__title {
+        font-size: 0.75rem;
+    }
+
+    .mobile-feed-card__price {
+        font-size: 0.82rem;
+    }
+}
+
+/* ── Listings Screen ─────────────────────────────────────────────────────── */
+
+.mobile-listings-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* ── Create Screen ───────────────────────────────────────────────────────── */
+
+.mobile-create-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 44px); /* nav + safe area + extra for submit bar */
+}
+
+/* ── Edit Screen ─────────────────────────────────────────────────────────── */
+
+.mobile-edit-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 44px); /* nav + safe area + extra for submit bar */
+}
+
+/* ── Detail Screen ───────────────────────────────────────────────────────── */
+
+.mobile-detail-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* ── Delete Screen ───────────────────────────────────────────────────────── */
+
+.mobile-delete-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* ── Shops Section ───────────────────────────────────────────────────────── */
+
+.mobile-shops-section {
+    padding: 0 16px 12px;
+}
+
+.mobile-shops-section__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--c-muted);
+    margin-bottom: 10px;
+    display: block;
+}
+
+.mobile-shops-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+}
+
+    .mobile-shops-row::-webkit-scrollbar {
+        display: none;
+    }
+
+.mobile-shop-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 16px;
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    text-decoration: none;
+    min-width: 100px;
+    max-width: 130px;
+    flex-shrink: 0;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .mobile-shop-card:hover {
+        border-color: var(--c-primary);
+        box-shadow: 0 2px 8px rgba(45, 27, 105, 0.08);
+    }
+
+.mobile-shop-card__logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--c-primary-soft);
+}
+
+.mobile-shop-card__logo--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--c-primary);
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.mobile-shop-card__name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--c-text);
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.mobile-shop-card__bio {
+    font-size: 0.65rem;
+    color: var(--c-muted-light);
+    text-align: center;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Owner Badge ─────────────────────────────────────────────────────────── */
+
+.mobile-feed-card__owner-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: var(--c-primary);
+    color: white;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
