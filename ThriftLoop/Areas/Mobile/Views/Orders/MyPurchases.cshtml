@@ -1,0 +1,194 @@
+﻿@model IReadOnlyList<ThriftLoop.Models.Order>
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "My Purchases";
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-orders.css" asp-append-version="true" />
+}
+
+<div class="purchases-page">
+    <!-- Header -->
+    <div class="purchases-header">
+        <div>
+            <h1>My Purchases</h1>
+            <p>@Model.Count order@(Model.Count != 1 ? "s" : "") placed</p>
+        </div>
+        <div class="purchases-header__actions">
+            <a asp-action="Index" asp-controller="Wallet" class="btn btn--sm btn--ghost">
+                💳 Wallet
+            </a>
+            <a asp-action="Index" asp-controller="Home" class="btn btn--sm btn--primary">
+                Browse
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="toast toast--success" id="successToast">
+            <span>✅ @successMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+    @if (TempData["InfoMessage"] is string infoMsg)
+    {
+        <div class="toast toast--info" id="infoToast">
+            <span>ℹ️ @infoMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="toast toast--error" id="errorToast">
+            <span>❌ @errMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-state__icon">📦</div>
+            <h3>No purchases yet</h3>
+            <p>Items you confirm will appear here.</p>
+            <a asp-action="Index" asp-controller="Home" class="btn btn--primary">
+                Browse listings
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="purchases-list">
+            @foreach (var order in Model)
+            {
+                var sellerEmail = order.Seller?.Email ?? string.Empty;
+                var sellerDisplay = sellerEmail.Contains('@') ? sellerEmail.Split('@')[0] : sellerEmail;
+
+                string statusClass = order.Status switch
+                {
+                    OrderStatus.Pending => "status--pending",
+                    OrderStatus.Completed => "status--completed",
+                    OrderStatus.Cancelled => "status--cancelled",
+                    _ => ""
+                };
+
+                string statusLabel = order.Status switch
+                {
+                    OrderStatus.Pending => "Pending",
+                    OrderStatus.Completed => "Completed",
+                    OrderStatus.Cancelled => "Cancelled",
+                    _ => order.Status.ToString()
+                };
+
+                string payLabel = order.PaymentMethod switch
+                {
+                    PaymentMethod.Wallet => "Wallet (escrow)",
+                    PaymentMethod.Cash => "Cash on Delivery",
+                    _ => order.PaymentMethod.ToString()
+                };
+
+                bool canMarkDelivered = order.Status == OrderStatus.Pending
+                    && order.Delivery != null
+                    && order.Delivery.Status == DeliveryStatus.Delivered;
+
+                string deliveryStatusMessage = order.Delivery?.Status switch
+                {
+                    DeliveryStatus.Available => "Waiting for a rider to accept this delivery.",
+                    DeliveryStatus.Accepted => "A rider is on the way to pick up your item.",
+                    DeliveryStatus.PickedUp => "Rider has picked up your item and is en route.",
+                    DeliveryStatus.Delivered => "Rider has delivered your item. Please confirm receipt.",
+                    DeliveryStatus.Completed => "Delivery completed. Thank you!",
+                    _ => "Delivery pending."
+                };
+
+                <div class="purchase-card">
+                    <div class="purchase-card__main">
+                        <div class="purchase-card__image">
+                            @if (!string.IsNullOrEmpty(order.Item?.ImageUrl))
+                            {
+                                <img src="@order.Item.ImageUrl" alt="@order.Item?.Title" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="purchase-card__image-placeholder">📦</div>
+                            }
+                        </div>
+                        <div class="purchase-card__info">
+                            <div class="purchase-card__top">
+                                <h3>@(order.Item?.Title ?? $"Item #{order.ItemId}")</h3>
+                                <span class="purchase-card__status @statusClass">@statusLabel</span>
+                            </div>
+                            <p class="purchase-card__seller">Seller: @sellerDisplay</p>
+                            <span class="purchase-card__payment">
+                                @if (order.PaymentMethod == PaymentMethod.Wallet)
+                                {
+                                    <span class="payment-pill payment-pill--wallet">💳 @payLabel</span>
+                                }
+                                else
+                                {
+                                    <span class="payment-pill payment-pill--cod">💵 @payLabel</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                    @if (order.Delivery != null)
+                    {
+                        <div class="purchase-card__delivery">
+                            <span class="purchase-card__delivery-icon">📦</span>
+                            <span class="purchase-card__delivery-text">@deliveryStatusMessage</span>
+                        </div>
+                    }
+
+                    <div class="purchase-card__footer">
+                        <div class="purchase-card__date">
+                            <span class="purchase-card__date-label">Ordered</span>
+                            <span class="purchase-card__date-value">
+                                @order.OrderDate.ToString("MMM d, yyyy · h:mm tt")
+                            </span>
+                        </div>
+                        <div class="purchase-card__price-col">
+                            <span class="purchase-card__price">₱@order.FinalPrice.ToString("N2")</span>
+                            <span class="purchase-card__price-label">Final price</span>
+                        </div>
+                    </div>
+
+                    @if (canMarkDelivered)
+                    {
+                        <div class="purchase-card__action">
+                            <form asp-action="MarkDelivered"
+                                  asp-controller="Orders"
+                                  asp-route-orderId="@order.Id"
+                                  method="post"
+                                  onsubmit="return confirm('Confirm receipt of this order? This will release payment to the seller.');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn--success btn--full btn--sm">
+                                    ✓ I have received this item
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function() {
+            var toasts = document.querySelectorAll('.toast');
+            toasts.forEach(function(toast) {
+                setTimeout(function() {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 5000);
+            });
+        })();
+    </script>
+}

@@ -1,0 +1,67 @@
+﻿@model ThriftLoop.DTOs.Chat.ContextCardDTO
+@using ThriftLoop.DTOs.Chat
+
+@if (Model.Status == ContextCardStatus.Completed || Model.Status == ContextCardStatus.Cancelled ||
+     Model.Status == ContextCardStatus.Declined || Model.Status == ContextCardStatus.Expired)
+{
+    <span class="mobile-context-card__terminal">Transaction @Model.Status.ToString().ToLower()</span>
+}
+else if (Model.IsCurrentUserSeller)
+{
+    switch (Model.Status)
+    {
+        case ContextCardStatus.Pending:
+            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--accept context-card-action"
+                    data-action="accept" data-context-card-id="@Model.Id">
+                Accept
+            </button>
+            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--decline context-card-action"
+                    data-action="decline" data-context-card-id="@Model.Id">
+                Decline
+            </button>
+            break;
+        case ContextCardStatus.Accepted:
+            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary context-card-action"
+                    data-action="item-handed-off" data-context-card-id="@Model.Id">
+                Item Handed Off
+            </button>
+            break;
+        case ContextCardStatus.ItemHandedOff:
+        case ContextCardStatus.ItemReceived:
+            <span class="mobile-context-card__waiting">Waiting for buyer to confirm receipt</span>
+            break;
+    }
+}
+else if (Model.IsCurrentUserBuyer)
+{
+    switch (Model.Status)
+    {
+        case ContextCardStatus.Pending:
+            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--cancel context-card-action"
+                    data-action="cancel" data-context-card-id="@Model.Id">
+                Cancel
+            </button>
+            break;
+        case ContextCardStatus.Accepted:
+            <span class="mobile-context-card__waiting">Waiting for seller</span>
+            break;
+        case ContextCardStatus.ItemHandedOff:
+            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary context-card-action"
+                    data-action="item-received" data-context-card-id="@Model.Id">
+                Item Received
+            </button>
+            break;
+        case ContextCardStatus.ItemReceived:
+            <div class="mobile-context-card__payment">
+                <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary payment-option"
+                        data-payment="wallet" data-context-card-id="@Model.Id">
+                    Pay with Wallet
+                </button>
+                <button type="button" class="mobile-context-card__btn payment-option"
+                        data-payment="cash" data-context-card-id="@Model.Id">
+                    Pay with Cash
+                </button>
+            </div>
+            break;
+    }
+}

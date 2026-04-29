@@ -119,17 +119,85 @@
         return ''; // Terminal states: Completed / Declined / Cancelled / Expired
     }
 
+    function mobileStatusBadgeHtml(status) {
+        const map = {
+            Pending: '<span class="mobile-context-card__status mobile-context-card__status--pending">Pending</span>',
+            Accepted: '<span class="mobile-context-card__status mobile-context-card__status--accepted">Accepted</span>',
+            ItemHandedOff: '<span class="mobile-context-card__status">Item Handed Off</span>',
+            ItemReceived: '<span class="mobile-context-card__status">Item Received</span>',
+            Completed: '<span class="mobile-context-card__status mobile-context-card__status--completed">Completed</span>',
+            Cancelled: '<span class="mobile-context-card__status mobile-context-card__status--cancelled">Cancelled</span>',
+            Declined: '<span class="mobile-context-card__status mobile-context-card__status--cancelled">Declined</span>',
+            Expired: '<span class="mobile-context-card__status mobile-context-card__status--cancelled">Expired</span>',
+        };
+        return map[status] ?? `<span class="mobile-context-card__status">${status}</span>`;
+    }
+
+    function mobileActionsHtml(card) {
+        const id = card.id;
+        const s = card.isCurrentUserSeller;
+        const b = card.isCurrentUserBuyer;
+
+        if (s) {
+            switch (card.status) {
+                case 'Pending':
+                    return `
+                        <button type="button" class="mobile-context-card__btn mobile-context-card__btn--accept context-card-action"
+                                data-action="accept" data-context-card-id="${id}">Accept</button>
+                        <button type="button" class="mobile-context-card__btn mobile-context-card__btn--decline context-card-action"
+                                data-action="decline" data-context-card-id="${id}">Decline</button>`;
+                case 'Accepted':
+                    return `
+                        <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary context-card-action"
+                                data-action="item-handed-off" data-context-card-id="${id}">Item Handed Off</button>`;
+                case 'ItemHandedOff':
+                case 'ItemReceived':
+                    return `<span class="mobile-context-card__waiting">Waiting for buyer to confirm receipt</span>`;
+            }
+        } else if (b) {
+            switch (card.status) {
+                case 'Pending':
+                    return `
+                        <button type="button" class="mobile-context-card__btn mobile-context-card__btn--cancel context-card-action"
+                                data-action="cancel" data-context-card-id="${id}">Cancel</button>`;
+                case 'Accepted':
+                    return `<span class="mobile-context-card__waiting">Waiting for seller</span>`;
+                case 'ItemHandedOff':
+                    return `
+                        <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary context-card-action"
+                                data-action="item-received" data-context-card-id="${id}">Item Received</button>`;
+                case 'ItemReceived':
+                    return `
+                        <div class="mobile-context-card__payment">
+                            <button type="button" class="mobile-context-card__btn mobile-context-card__btn--primary payment-option"
+                                    data-payment="wallet" data-context-card-id="${id}">Pay with Wallet</button>
+                            <button type="button" class="mobile-context-card__btn payment-option"
+                                    data-payment="cash" data-context-card-id="${id}">Pay with Cash</button>
+                        </div>`;
+            }
+        }
+        return `<span class="mobile-context-card__terminal">Transaction ${card.status?.toLowerCase() || 'completed'}</span>`;
+    }
+
     // ── UI update (called by SignalR + locally after API response) ─────────
 
     /**
-     * Mutates the existing .context-card DOM element in place so there is
+     * Mutates the existing .context-card or .mobile-context-card DOM element in place so there is
      * no flash/full-replace.  Exposed on window.contextCardHandler so chat.js
      * can call it when SignalR fires "ContextCardUpdated".
      *
      * @param {object} card  ContextCardDTO from the server (camelCase).
      */
     function updateContextCardUI(card) {
-        const cardEl = document.querySelector(`.context-card[data-context-card-id="${card.id}"]`);
+        // Try desktop first, then mobile
+        let cardEl = document.querySelector(`.context-card[data-context-card-id="${card.id}"]`);
+        let isMobile = false;
+        
+        if (!cardEl) {
+            cardEl = document.querySelector(`.mobile-context-card[data-context-card-id="${card.id}"]`);
+            isMobile = true;
+        }
+        
         if (!cardEl) {
             console.warn('[ContextCard] Element not found for id:', card.id);
             return;
@@ -141,25 +209,38 @@
         cardEl.dataset.isSeller = String(card.isCurrentUserSeller);
         cardEl.dataset.isBuyer = String(card.isCurrentUserBuyer);
 
-        // Status badge
-        const statusEl = cardEl.querySelector('.context-card-status');
-        if (statusEl) statusEl.innerHTML = statusBadgeHtml(card.status);
+        if (isMobile) {
+            // Mobile version
+            const statusEl = cardEl.querySelector('.mobile-context-card__status');
+            if (statusEl) statusEl.outerHTML = mobileStatusBadgeHtml(card.status);
 
-        // Timer section – hide once in a terminal state
-        const timerEl = cardEl.querySelector('.context-card-timer');
-        if (timerEl) {
-            const terminal = ['Completed', 'Cancelled', 'Declined', 'Expired'];
-            timerEl.style.display = terminal.includes(card.status) ? 'none' : '';
+            // Action buttons
+            const actionsEl = cardEl.querySelector('.mobile-context-card__actions');
+            if (actionsEl) {
+                actionsEl.innerHTML = mobileActionsHtml(card);
+                bindButtons(cardEl);
+            }
+        } else {
+            // Desktop version
+            const statusEl = cardEl.querySelector('.context-card-status');
+            if (statusEl) statusEl.innerHTML = statusBadgeHtml(card.status);
+
+            // Timer section – hide once in a terminal state
+            const timerEl = cardEl.querySelector('.context-card-timer');
+            if (timerEl) {
+                const terminal = ['Completed', 'Cancelled', 'Declined', 'Expired'];
+                timerEl.style.display = terminal.includes(card.status) ? 'none' : '';
+            }
+
+            // Action buttons
+            const actionsEl = cardEl.querySelector('.context-card-actions');
+            if (actionsEl) {
+                actionsEl.innerHTML = actionsHtml(card);
+                bindButtons(cardEl);
+            }
         }
 
-        // Action buttons
-        const actionsEl = cardEl.querySelector('.context-card-actions');
-        if (actionsEl) {
-            actionsEl.innerHTML = actionsHtml(card);
-            bindButtons(cardEl);
-        }
-
-        console.log('[ContextCard] UI updated for card', card.id, '→', card.status);
+        console.log('[ContextCard] UI updated for', isMobile ? 'mobile' : 'desktop', 'card', card.id, '→', card.status);
     }
 
     // ── Button wiring ──────────────────────────────────────────────────────
@@ -216,8 +297,13 @@
     // ── Page init ──────────────────────────────────────────────────────────
 
     function initialize() {
+        // Initialize desktop context cards
         document.querySelectorAll('.context-card').forEach(cardEl => bindButtons(cardEl));
-        console.log('[ContextCard] Initialized', document.querySelectorAll('.context-card').length, 'card(s)');
+        // Initialize mobile context cards
+        document.querySelectorAll('.mobile-context-card').forEach(cardEl => bindButtons(cardEl));
+        console.log('[ContextCard] Initialized', 
+            document.querySelectorAll('.context-card').length, 'desktop card(s),', 
+            document.querySelectorAll('.mobile-context-card').length, 'mobile card(s)');
     }
 
     // Expose the public interface consumed by chat.js

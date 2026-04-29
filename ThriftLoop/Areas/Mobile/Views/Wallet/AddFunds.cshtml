@@ -1,0 +1,129 @@
+﻿@model ThriftLoop.ViewModels.AddFundsViewModel
+@{
+    ViewData["Title"] = "Add Funds";
+}
+
+<div class="mobile-wallet-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-header">
+        <h1 class="mobile-wallet-header__title">Add Funds via GCash</h1>
+        <p class="mobile-wallet-header__balance">Scan QR, send money, upload receipt</p>
+    </div>
+
+    @* ── Messages ────────────────────────────────────────────────────────── *@
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mobile-toast mobile-toast--success">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+            <span>@successMsg</span>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="mobile-toast mobile-toast--error">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+            <span>@errMsg</span>
+        </div>
+    }
+
+    @* ── Step 1: QR Code ─────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-form-section">
+        <div class="mobile-wallet-step">
+            <span class="mobile-wallet-step__badge">1</span>
+            <h3 class="mobile-wallet-step__title">Scan QR Code with GCash</h3>
+        </div>
+        <p class="mobile-wallet-step__desc">Open GCash app → Tap "Scan QR" → Point at the code below</p>
+
+        @if (Model.HasQRCode)
+        {
+            <div class="mobile-wallet-qr">
+                <img src="@Model.QRCodePath" alt="GCash QR Code" />
+                <p>Scan this QR code with your GCash app</p>
+            </div>
+        }
+        else
+        {
+            <div class="mobile-wallet-qr mobile-wallet-qr--empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                <p>QR code not available yet</p>
+                <p class="mobile-wallet-qr__hint">Contact admin to set up GCash payments</p>
+            </div>
+        }
+    </div>
+
+    @* ── Step 2: Upload Receipt ──────────────────────────────────────────── *@
+    <div class="mobile-wallet-form-section">
+        <div class="mobile-wallet-step">
+            <span class="mobile-wallet-step__badge">2</span>
+            <h3 class="mobile-wallet-step__title">Upload Receipt Screenshot</h3>
+        </div>
+        <p class="mobile-wallet-step__desc">After sending money, take a screenshot of the GCash receipt and upload it here</p>
+
+        <form asp-action="AddFunds" method="post" enctype="multipart/form-data" id="addFundsForm">
+            @Html.AntiForgeryToken()
+
+            <div class="mobile-field">
+                <label class="mobile-field__label">Upload GCash Receipt</label>
+                <input type="file" name="receiptImage" id="receiptImage" accept="image/png,image/jpeg,image/jpg" required class="mobile-edit-input" />
+                <span class="mobile-field__hint">We'll read the amount & reference from your screenshot. PNG/JPEG, max 5MB.</span>
+            </div>
+
+            <div class="mobile-wallet-preview" id="previewContainer" style="display:none;">
+                <p class="mobile-wallet-preview__label">Preview:</p>
+                <img id="previewImage" alt="Receipt Preview" />
+            </div>
+
+            <button type="submit" class="mobile-wallet-btn mobile-wallet-btn--primary" id="addFundsBtn">
+                <svg class="mobile-wallet-btn__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
+                Submit for Processing
+            </button>
+        </form>
+    </div>
+
+    @* ── Info ────────────────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-form-section">
+        <div class="mobile-toast mobile-toast--info">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
+            <div>
+                <strong>How it works:</strong>
+                <ul style="margin:4px 0 0 16px;font-size:0.8rem;">
+                    <li>Scan QR code → send money via GCash</li>
+                    <li>Screenshot the GCash receipt</li>
+                    <li>Upload — we read amount & reference automatically</li>
+                    <li>Wallet credited automatically or after quick review</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        var form = document.getElementById('addFundsForm');
+        var btn = document.getElementById('addFundsBtn');
+        var fileInput = document.getElementById('receiptImage');
+        var previewContainer = document.getElementById('previewContainer');
+        var previewImage = document.getElementById('previewImage');
+
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                var file = this.files[0];
+                if (file) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        previewContainer.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        if (form && btn) {
+            form.addEventListener('submit', function() {
+                btn.disabled = true;
+                btn.textContent = 'Processing…';
+            });
+        }
+    })();
+</script>

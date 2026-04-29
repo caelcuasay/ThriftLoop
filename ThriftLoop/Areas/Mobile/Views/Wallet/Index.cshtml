@@ -1,0 +1,199 @@
+﻿@model ThriftLoop.ViewModels.WalletIndexViewModel
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "My Wallet";
+    var isRider = (bool)(ViewBag.IsRider ?? false);
+    var userInitial = User.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U";
+}
+
+<div class="mobile-wallet-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-header">
+        <h1 class="mobile-wallet-header__title">My Wallet</h1>
+        <div class="mobile-wallet-header__avatar">@userInitial</div>
+    </div>
+
+    @* ── Toast Messages ──────────────────────────────────────────────────── *@
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mobile-toast mobile-toast--success">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+            <span>@successMsg</span>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="mobile-toast mobile-toast--error">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+            <span>@errMsg</span>
+        </div>
+    }
+
+    @* ── Main Balance Card ──────────────────────────────────────────────── *@
+    <div class="mobile-wallet-balance-card">
+        <p class="mobile-wallet-balance-card__label">Available Balance</p>
+        <p class="mobile-wallet-balance-card__amount">₱@Model.Balance.ToString("N2")</p>
+        <p class="mobile-wallet-balance-card__hint">Ready to spend or withdraw</p>
+    </div>
+
+    @* ── Secondary Balances Grid ─────────────────────────────────────────── *@
+    <div class="mobile-wallet-balance-grid">
+        <div class="mobile-wallet-balance-item">
+            <p class="mobile-wallet-balance-item__label">In Escrow</p>
+            <p class="mobile-wallet-balance-item__amount">₱@Model.PendingBalance.ToString("N2")</p>
+            <p class="mobile-wallet-balance-item__hint">Held for orders</p>
+        </div>
+        <div class="mobile-wallet-balance-item mobile-wallet-balance-item--total">
+            <p class="mobile-wallet-balance-item__label">Total Balance</p>
+            <p class="mobile-wallet-balance-item__amount">₱@Model.TotalBalance.ToString("N2")</p>
+            <p class="mobile-wallet-balance-item__hint">Available + Escrow</p>
+        </div>
+    </div>
+
+    @* ── Action Buttons ──────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-actions">
+        @if (!isRider)
+        {
+            <a asp-action="AddFunds" asp-controller="Wallet" asp-area="Mobile" class="mobile-wallet-btn mobile-wallet-btn--primary">
+                <svg class="mobile-wallet-btn__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" /></svg>
+                Add Funds
+            </a>
+        }
+        <a asp-action="Withdraw" asp-controller="Wallet" asp-area="Mobile" class="mobile-wallet-btn mobile-wallet-btn--outline">
+            <svg class="mobile-wallet-btn__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" /></svg>
+            Withdraw
+        </a>
+    </div>
+
+    @* ── Transaction History ─────────────────────────────────────────────── *@
+    <div class="mobile-wallet-section-header">
+        <h2 class="mobile-wallet-section-title">Transaction History</h2>
+        @if (Model.RecentTransactions.Any())
+        {
+            <a href="#" class="mobile-wallet-section-link">See All</a>
+        }
+    </div>
+
+    <div class="mobile-wallet-tx-list">
+        @if (!Model.RecentTransactions.Any())
+        {
+            <div class="mobile-wallet-empty">
+                <div class="mobile-wallet-empty__icon">
+                    <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" /></svg>
+                </div>
+                <p class="mobile-wallet-empty__text">No transactions yet</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var tx in Model.RecentTransactions.Take(5))
+            {
+                bool isCredit;
+                string iconClass;
+                string iconSvg;
+                
+                if (isRider)
+                {
+                    isCredit = tx.ToRiderId == Model.CurrentUserId
+                        && tx.Type != TransactionType.EscrowHold
+                        && tx.Type != TransactionType.Withdrawal;
+                }
+                else
+                {
+                    isCredit = tx.ToUserId == Model.CurrentUserId
+                        && tx.Type != TransactionType.EscrowHold
+                        && tx.Type != TransactionType.Withdrawal;
+                }
+
+                (iconClass, iconSvg) = tx.Type switch
+                {
+                    TransactionType.TopUp => ("mobile-wallet-tx__icon--credit", "<path d='M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4z'/><path fill-rule='evenodd' d='M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z' clip-rule='evenodd'/>"),
+                    TransactionType.EscrowHold => ("mobile-wallet-tx__icon--escrow", "<path fill-rule='evenodd' d='M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z' clip-rule='evenodd'/>"),
+                    TransactionType.EscrowRelease => ("mobile-wallet-tx__icon--credit", "<path fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clip-rule='evenodd'/>"),
+                    TransactionType.Withdrawal => ("mobile-wallet-tx__icon--debit", "<path fill-rule='evenodd' d='M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L14 9.586V6z' clip-rule='evenodd'/>"),
+                    TransactionType.CashCollection => ("mobile-wallet-tx__icon--credit", "<path d='M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z'/><path fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676 6.624 4.595 4.595 0 001.873 1.436l-.1.299A1.1 1.1 0 0011.113 15h.001a1.1 1.1 0 00.997-1.417l-.092-.299a4.607 4.607 0 001.928-1.443A4.535 4.535 0 0011 5.092V5z' clip-rule='evenodd'/>"),
+                    TransactionType.DeliveryFeePayment => ("mobile-wallet-tx__icon--debit", "<path d='M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z'/><path d='M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-5h2.05a2.5 2.5 0 014.9 0H18a1 1 0 001-1V8a1 1 0 00-.293-.707l-2-2A1 1 0 0015 5h-1V4a1 1 0 00-1-1H3z'/>"),
+                    _ => (isCredit ? "mobile-wallet-tx__icon--credit" : "mobile-wallet-tx__icon--debit", "<path fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z' clip-rule='evenodd'/>"),
+                };
+
+                string typeLabel = tx.Type switch
+                {
+                    TransactionType.EscrowHold => "Escrow Hold",
+                    TransactionType.EscrowRelease => "Escrow Release",
+                    TransactionType.Withdrawal => "Withdrawal",
+                    TransactionType.CashCollection => "Cash Collected",
+                    TransactionType.TopUp => "Funds Added",
+                    TransactionType.DeliveryFeePayment => "Delivery Fee",
+                    _ => tx.Type.ToString()
+                };
+
+                <div class="mobile-wallet-tx">
+                    <div class="mobile-wallet-tx__icon @iconClass">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">@Html.Raw(iconSvg)</svg>
+                    </div>
+                    <div class="mobile-wallet-tx__info">
+                        <span class="mobile-wallet-tx__type">@typeLabel</span>
+                        @if (tx.Order?.Item is not null)
+                        {
+                            <span class="mobile-wallet-tx__ref">@tx.Order.Item.Title</span>
+                        }
+                        <span class="mobile-wallet-tx__date">@tx.CreatedAt.ToString("MMM d, yyyy")</span>
+                    </div>
+                    <div class="mobile-wallet-tx__amount-wrap">
+                        <span class="mobile-wallet-tx__amount @(isCredit ? "mobile-wallet-tx__amount--credit" : "mobile-wallet-tx__amount--debit")">
+                            @(isCredit ? "+" : "−")₱@tx.Amount.ToString("N2")
+                        </span>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    @* ── Withdrawal History ──────────────────────────────────────────────── *@
+    @if (Model.Withdrawals.Any())
+    {
+        <div class="mobile-wallet-section-header mobile-wallet-withdrawals">
+            <h2 class="mobile-wallet-section-title">Withdrawals</h2>
+            <a href="#" class="mobile-wallet-section-link">See All</a>
+        </div>
+
+        <div class="mobile-wallet-tx-list">
+            @foreach (var wd in Model.Withdrawals.Take(3))
+            {
+                string wdStatusClass = wd.Status switch
+                {
+                    WithdrawalStatus.Requested => "mobile-wallet-tx__badge--pending",
+                    WithdrawalStatus.Processed => "mobile-wallet-tx__badge--processed",
+                    WithdrawalStatus.Completed => "mobile-wallet-tx__badge--completed",
+                    _ => ""
+                };
+
+                string wdMethodLabel = wd.Method switch
+                {
+                    WithdrawalMethod.BankTransfer => "Bank Transfer",
+                    WithdrawalMethod.PickupLocation => "Pickup",
+                    _ => wd.Method.ToString()
+                };
+
+                <div class="mobile-wallet-tx">
+                    <div class="mobile-wallet-tx__icon mobile-wallet-tx__icon--debit">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L14 9.586V6z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <div class="mobile-wallet-tx__info">
+                        <span class="mobile-wallet-tx__type">@wdMethodLabel</span>
+                        @if (!string.IsNullOrEmpty(wd.Reference))
+                        {
+                            <span class="mobile-wallet-tx__ref">Ref: @wd.Reference</span>
+                        }
+                        <span class="mobile-wallet-tx__date">@wd.RequestedAt.ToString("MMM d, yyyy")</span>
+                    </div>
+                    <div class="mobile-wallet-tx__amount-wrap">
+                        <span class="mobile-wallet-tx__amount mobile-wallet-tx__amount--debit">₱@wd.Amount.ToString("N2")</span>
+                        <span class="mobile-wallet-tx__badge @wdStatusClass">@wd.Status</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

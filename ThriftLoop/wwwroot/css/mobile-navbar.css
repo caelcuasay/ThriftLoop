@@ -6,7 +6,7 @@
     --c-primary: #2d1b69;
     --c-primary-light: #3d2880;
     --c-primary-soft: #e9e5f5;
-    --c-bg: #f5f3f0;
+    --c-bg: #f9f9fb;
     --c-surface: #ffffff;
     --c-border: #e4e4ea;
     --c-text: #111118;
@@ -355,3 +355,160 @@
     .mobile-bottom-nav__create:hover {
         background: var(--c-primary-light);
     }
+
+    .mobile-bottom-nav__create-icon {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mobile-fab-menu.is-open .mobile-bottom-nav__create-icon {
+        transform: rotate(45deg);
+    }
+
+/* ── Expanding FAB Menu ────────────────────────────────────────────────── */
+
+.mobile-fab-menu {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: -20px;
+    width: 48px;
+    height: 48px;
+}
+
+.mobile-fab-menu__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+    z-index: 90;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__backdrop {
+    opacity: 1;
+    visibility: visible;
+}
+
+.mobile-fab-menu__items {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 160px;
+    pointer-events: none;
+    z-index: 95;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__items {
+    pointer-events: auto;
+}
+
+.mobile-fab-menu__item {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--c-text);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0;
+    transform: translateX(-50%) scale(0.5);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+}
+
+/* Orbital positions - arc above the + button */
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(1) {
+    bottom: 90px;
+    left: calc(50% - 70px);
+    transform: translateX(-50%) scale(1);
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(2) {
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%) scale(1);
+    transition-delay: 30ms;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(3) {
+    bottom: 90px;
+    left: calc(50% + 70px);
+    transform: translateX(-50%) scale(1);
+    transition-delay: 60ms;
+}
+
+/* 4th item for sellers - wider arc */
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(4) {
+    bottom: 60px;
+    left: calc(50% + 95px);
+    transform: translateX(-50%) scale(1);
+    transition-delay: 90ms;
+}
+
+.mobile-fab-menu__item:active {
+    transform: translateX(-50%) scale(0.92) !important;
+}
+
+.mobile-fab-menu__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    background: rgba(0, 0, 0, 0.75);
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__label {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(1) .mobile-fab-menu__label,
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(1) .mobile-fab-menu__icon {
+    transition-delay: 0ms;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(2) .mobile-fab-menu__label,
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(2) .mobile-fab-menu__icon {
+    transition-delay: 40ms;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(3) .mobile-fab-menu__label,
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(3) .mobile-fab-menu__icon {
+    transition-delay: 80ms;
+}
+
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(4) .mobile-fab-menu__label,
+.mobile-fab-menu.is-open .mobile-fab-menu__item:nth-child(4) .mobile-fab-menu__icon {
+    transition-delay: 120ms;
+}
+
+.mobile-fab-menu__icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--c-surface);
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--c-border);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

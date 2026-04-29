@@ -1,4 +1,9 @@
-﻿<!DOCTYPE html>
+﻿﻿@using System.Security.Claims
+@{
+    var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+}
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -13,18 +18,305 @@
     <link rel="stylesheet" href="~/css/mobile-filter-sheet.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/mobile-items.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/mobile-shop.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-cart.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-chat.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-profile.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-wallet.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-rider.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-orders.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-likes.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
+    
+    <style>
+            /* Mobile Confirmation Modal Styles */
+            .mobile-confirm-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.75);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                visibility: hidden;
+                opacity: 0;
+                transition: visibility 0.2s, opacity 0.2s;
+            }
+
+            .mobile-confirm-overlay--visible {
+                visibility: visible;
+                opacity: 1;
+            }
+
+            .mobile-confirm-modal {
+                background: white;
+                border-radius: 24px;
+                max-width: 300px;
+                width: 85%;
+                padding: 24px 20px 20px;
+                text-align: center;
+                box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.3);
+                transform: scale(0.95);
+                transition: transform 0.2s;
+            }
+
+            .mobile-confirm-overlay--visible .mobile-confirm-modal {
+                transform: scale(1);
+            }
+
+            .mobile-confirm-modal__icon {
+                font-size: 48px;
+                margin-bottom: 12px;
+            }
+
+            .mobile-confirm-modal__title {
+                font-size: 20px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #1f2937;
+            }
+
+            .mobile-confirm-modal__message {
+                font-size: 15px;
+                color: #6b7280;
+                margin-bottom: 24px;
+                line-height: 1.4;
+            }
+
+            .mobile-confirm-modal__actions {
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+            }
+
+            .mobile-confirm-modal__btn {
+                flex: 1;
+                padding: 12px 16px;
+                border-radius: 40px;
+                font-weight: 600;
+                font-size: 15px;
+                cursor: pointer;
+                transition: all 0.2s;
+                border: none;
+            }
+
+            .mobile-confirm-modal__btn--cancel {
+                background: #f3f4f6;
+                color: #4b5563;
+            }
+
+                .mobile-confirm-modal__btn--cancel:active {
+                    background: #e5e7eb;
+                }
+
+            .mobile-confirm-modal__btn--confirm {
+                background: #2d1b69;
+                color: white;
+            }
+
+                .mobile-confirm-modal__btn--confirm:active {
+                    background: #1f124a;
+                }
+
+            .mobile-confirm-modal--danger .mobile-confirm-modal__btn--confirm {
+                background: #dc2626;
+            }
+
+                .mobile-confirm-modal--danger .mobile-confirm-modal__btn--confirm:active {
+                    background: #b91c1c;
+                }
+    </style>
 </head>
 <body>
-    <div class="mobile-app-shell">
-        @await Html.PartialAsync("_MobileNavbar")
+    <div class="mobile-app-shell @(isRider ? "mobile-app-shell--rider" : "")">
+        @* Hide regular navbar for riders *@
+        @if (!isRider)
+        {
+            @await Html.PartialAsync("_MobileNavbar")
+        }
         @RenderBody()
-        @await Html.PartialAsync("_MobileBottomNav")
+        @* Show rider bottom nav for riders, regular bottom nav for others *@
+        @if (isRider)
+        {
+            @await Html.PartialAsync("_MobileRiderBottomNav")
+        }
+        else
+        {
+            @await Html.PartialAsync("_MobileBottomNav")
+        }
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    <!-- Mobile Custom Confirmation Modal -->
+    <script>
+        (function() {
+        'use strict';
+
+        let modalElement = null;
+        let overlayElement = null;
+        let currentResolve = null;
+        let pendingForm = null;
+
+        // Create modal DOM
+        function createModal() {
+        if (document.getElementById('mobileConfirmOverlay')) {
+        overlayElement = document.getElementById('mobileConfirmOverlay');
+        modalElement = {
+        overlay: overlayElement,
+        modal: document.getElementById('mobileConfirmModal'),
+        icon: document.getElementById('mobileConfirmIcon'),
+        title: document.getElementById('mobileConfirmTitle'),
+        message: document.getElementById('mobileConfirmMessage'),
+        okBtn: document.getElementById('mobileConfirmOk'),
+        cancelBtn: document.getElementById('mobileConfirmCancel')
+        };
+        return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'mobileConfirmOverlay';
+        overlay.className = 'mobile-confirm-overlay';
+        overlay.innerHTML = `
+        <div class="mobile-confirm-modal" id="mobileConfirmModal" role="dialog" aria-modal="true">
+        <div class="mobile-confirm-modal__icon" id="mobileConfirmIcon">?</div>
+        <div class="mobile-confirm-modal__title" id="mobileConfirmTitle">Confirm</div>
+        <div class="mobile-confirm-modal__message" id="mobileConfirmMessage">Are you sure?</div>
+        <div class="mobile-confirm-modal__actions">
+        <button type="button" class="mobile-confirm-modal__btn mobile-confirm-modal__btn--cancel" id="mobileConfirmCancel">Cancel</button>
+        <button type="button" class="mobile-confirm-modal__btn mobile-confirm-modal__btn--confirm" id="mobileConfirmOk">OK</button>
+        </div>
+        </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlayElement = overlay;
+        modalElement = {
+        overlay: overlay,
+        modal: overlay.querySelector('.mobile-confirm-modal'),
+        icon: document.getElementById('mobileConfirmIcon'),
+        title: document.getElementById('mobileConfirmTitle'),
+        message: document.getElementById('mobileConfirmMessage'),
+        okBtn: document.getElementById('mobileConfirmOk'),
+        cancelBtn: document.getElementById('mobileConfirmCancel')
+        };
+
+        // Event listeners
+        modalElement.okBtn.addEventListener('click', () => {
+        hideModal();
+        if (currentResolve) {
+        currentResolve(true);
+        currentResolve = null;
+        }
+        if (pendingForm) {
+        pendingForm.submit();
+        pendingForm = null;
+        }
+        });
+                
+        modalElement.cancelBtn.addEventListener('click', () => {
+        hideModal();
+        if (currentResolve) {
+        currentResolve(false);
+        currentResolve = null;
+        }
+        pendingForm = null;
+        });
+                
+        overlayElement.addEventListener('click', (e) => {
+        if (e.target === overlayElement) {
+        hideModal();
+        if (currentResolve) {
+        currentResolve(false);
+        currentResolve = null;
+        }
+        pendingForm = null;
+        }
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+        if (!overlayElement.classList.contains('mobile-confirm-overlay--visible')) return;
+                    
+        if (e.key === 'Escape') {
+        hideModal();
+        if (currentResolve) {
+        currentResolve(false);
+        currentResolve = null;
+        }
+        pendingForm = null;
+        } else if (e.key === 'Enter') {
+        hideModal();
+        if (currentResolve) {
+        currentResolve(true);
+        currentResolve = null;
+        }
+        if (pendingForm) {
+        pendingForm.submit();
+        pendingForm = null;
+        }
+        }
+        });
+        }
+
+        function hideModal() {
+        if (overlayElement) {
+        overlayElement.classList.remove('mobile-confirm-overlay--visible');
+        document.body.style.overflow = '';
+        }
+        }
+
+        function showModal(message, title, isDanger) {
+        if (!modalElement) createModal();
+                
+        modalElement.message.textContent = message || 'Are you sure?';
+        modalElement.title.textContent = title || 'Confirm';
+        modalElement.icon.textContent = isDanger ? '⚠️' : '🚚';
+        modalElement.modal.classList.toggle('mobile-confirm-modal--danger', isDanger);
+                
+        overlayElement.classList.add('mobile-confirm-overlay--visible');
+        document.body.style.overflow = 'hidden';
+                
+        setTimeout(() => modalElement.cancelBtn.focus(), 50);
+        }
+
+        // Global function for confirmation
+        window.showConfirm = function(message, callback, isDanger) {
+        if (!modalElement) createModal();
+                
+        showModal(message, 'Confirm', isDanger);
+                
+        return new Promise((resolve) => {
+        currentResolve = (result) => {
+        resolve(result);
+        if (callback && result) callback();
+        };
+        });
+        };
+
+        // For form submissions - this is the key function used by DeliveryDetails
+        window.confirmFormSubmit = function(message, formElement) {
+        if (event && event.preventDefault) {
+        event.preventDefault();
+        }
+        if (!modalElement) createModal();
+                
+        showModal(message, 'Confirm', true);
+        pendingForm = formElement;
+                
+        return false;
+        };
+
+        // Initialize
+        createModal();
+        console.log('✅ Mobile custom confirm modal activated');
+        })();
+    </script>
 </body>
 </html>

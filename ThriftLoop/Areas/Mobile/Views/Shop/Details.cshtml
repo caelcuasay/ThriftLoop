@@ -1,0 +1,427 @@
+﻿@model ThriftLoop.ViewModels.ShopItemDetailsViewModel
+@using ThriftLoop.Constants
+@{
+    ViewData["Title"] = Model.Title;
+
+    bool hasImages = Model.ImageUrls.Count > 0;
+    bool hasDiscount = Model.HasActiveDiscount;
+
+    string? discountExpiryText = null;
+    if (hasDiscount && Model.DiscountExpiresAt.HasValue)
+    {
+        var timeLeft = Model.DiscountExpiresAt.Value - DateTime.UtcNow;
+        if (timeLeft.TotalDays >= 1)
+        {
+            var days = (int)timeLeft.TotalDays;
+            discountExpiryText = $"{days} day{(days != 1 ? "s" : "")} left";
+        }
+        else if (timeLeft.TotalHours >= 1)
+        {
+            var hours = (int)timeLeft.TotalHours;
+            discountExpiryText = $"{hours} hour{(hours != 1 ? "s" : "")} left";
+        }
+        else if (timeLeft.TotalMinutes > 0)
+        {
+            var mins = (int)timeLeft.TotalMinutes;
+            discountExpiryText = $"{mins} min{(mins != 1 ? "s" : "")} left";
+        }
+        else
+        {
+            discountExpiryText = "Ending soon";
+        }
+    }
+}
+
+<div class="mobile-shop-detail-screen">
+    @* ── Gallery ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-shop-detail-gallery">
+        @if (hasImages)
+        {
+            <div class="mobile-shop-detail-gallery__main" id="galleryMain">
+                <img src="@Model.ImageUrls[0]" alt="@Model.Title" class="mobile-shop-detail-gallery__img" id="mainGalleryImg" />
+                @if (Model.ImageUrls.Count > 1)
+                {
+                    <span class="mobile-shop-gallery-counter" id="galleryCounter">1 / @Model.ImageUrls.Count</span>
+                }
+            </div>
+
+            @if (Model.ImageUrls.Count > 1)
+            {
+                <div class="mobile-shop-gallery-thumbs" id="galleryThumbs">
+                    @for (int t = 0; t < Model.ImageUrls.Count; t++)
+                    {
+                        <button type="button"
+                                class="mobile-shop-gallery-thumb @(t == 0 ? "mobile-shop-gallery-thumb--active" : "")"
+                                data-index="@t"
+                                data-src="@Model.ImageUrls[t]"
+                                aria-label="Photo @(t + 1)">
+                            <img src="@Model.ImageUrls[t]" alt="Thumbnail @(t + 1)" loading="lazy" />
+                        </button>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="mobile-shop-detail-gallery__placeholder">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" width="48" height="48">
+                    <rect x="6" y="10" width="52" height="44" rx="6" />
+                    <circle cx="22" cy="26" r="6" />
+                    <path d="M6 46l16-14 10 10 8-7 18 15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>No photo</span>
+            </div>
+        }
+    </div>
+
+    @* ── Shop Pill ───────────────────────────────────────────────────────── *@
+    <a asp-controller="Shop" asp-action="Index" asp-route-id="@Model.ShopId" asp-area="Mobile" class="mobile-shop-pill">
+        @if (!string.IsNullOrWhiteSpace(Model.ShopLogoUrl))
+        {
+            <img src="@Model.ShopLogoUrl" alt="@Model.ShopName" class="mobile-shop-pill__logo" />
+        }
+        else
+        {
+            <div class="mobile-shop-pill__logo mobile-shop-pill__logo--placeholder">
+                @char.ToUpper(Model.ShopName.FirstOrDefault())
+            </div>
+        }
+        <div>
+            <span class="mobile-shop-pill__label">Sold by</span>
+            <span class="mobile-shop-pill__name">@Model.ShopName</span>
+        </div>
+    </a>
+
+    @* ── Content ─────────────────────────────────────────────────────────── *@
+    <div class="mobile-shop-detail-content">
+        @* Meta *@
+        <div class="mobile-detail-meta">
+            <span class="mobile-detail-category">@Model.Category</span>
+            <span class="mobile-detail-condition">@Model.Condition</span>
+            @if (hasDiscount)
+            {
+                <span class="mobile-shop-discount-badge">-@(Model.DiscountPercentage?.ToString("F0"))%</span>
+            }
+        </div>
+
+        @* Title *@
+        <h1 class="mobile-detail-title">@Model.Title</h1>
+
+        @* Price *@
+        <div class="mobile-shop-price-block" id="priceBlock">
+            @if (hasDiscount)
+            {
+                <span class="mobile-shop-price-original" id="originalPriceDisplay">
+                    ₱@(Model.OriginalPrice?.ToString("N2") ?? Model.StartingPrice.ToString("N2"))
+                </span>
+            }
+            <span class="mobile-shop-price-current" id="selectedPrice">
+                ₱@Model.StartingPrice.ToString("N2")
+            </span>
+            @if (hasDiscount && !string.IsNullOrEmpty(discountExpiryText))
+            {
+                <span class="mobile-shop-discount-expiry">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M8 15A7 7 0 108 1a7 7 0 000 14zm.75-10.25a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4zM8 13a1 1 0 100-2 1 1 0 000 2z" /></svg>
+                    @discountExpiryText
+                </span>
+            }
+            <span class="mobile-shop-price-label" id="priceLabel">Starting price</span>
+        </div>
+
+        @* Description *@
+        <p class="mobile-detail-description">@Model.Description</p>
+
+        @* Variant Picker *@
+        @if (Model.Variants.Count > 0)
+        {
+            <div class="mobile-vp-section">
+                <p class="mobile-vp-section__label">
+                    Variant
+                    <span style="color:var(--c-error);font-weight:400;margin-left:4px;display:none;" id="variantRequired">— select one</span>
+                </p>
+                <div class="mobile-vp-chips" id="variantChips">
+                    @foreach (var v in Model.Variants)
+                    {
+                        <button type="button" class="mobile-vp-chip" data-variant-id="@v.VariantId">@v.Name</button>
+                    }
+                </div>
+            </div>
+
+            <div class="mobile-vp-section" id="skuSection" hidden>
+                <p class="mobile-vp-section__label">
+                    Size
+                    <span style="color:var(--c-error);font-weight:400;margin-left:4px;display:none;" id="skuRequired">— select one</span>
+                </p>
+                <div class="mobile-vp-chips" id="skuChips"></div>
+            </div>
+
+            <div class="mobile-vp-section" id="qtySection" hidden>
+                <p class="mobile-vp-section__label">Quantity</p>
+                <div class="mobile-qty-row">
+                    <button type="button" class="mobile-qty-btn" id="qtyDec" aria-label="Decrease">−</button>
+                    <input type="number" id="qtyInput" class="mobile-qty-input" value="1" min="1" max="1" />
+                    <button type="button" class="mobile-qty-btn" id="qtyInc" aria-label="Increase">+</button>
+                    <span class="mobile-qty-stock" id="qtyStock"></span>
+                </div>
+            </div>
+        }
+
+        @* Action Buttons *@
+        @if (Model.IsOwner)
+        {
+            <div class="mobile-shop-actions">
+                <a asp-action="Edit" asp-route-id="@Model.ItemId" class="mobile-btn mobile-btn--outline">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" /></svg>
+                    Edit Listing
+                </a>
+                <a asp-action="Delete" asp-route-id="@Model.ItemId" class="mobile-btn mobile-btn--danger-outline">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M11 1.75V3h2.25a.75.75 0 010 1.5H2.75a.75.75 0 010-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75z" /></svg>
+                    Delete
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="mobile-shop-actions" id="buyerActions">
+                <button type="button" class="mobile-btn mobile-btn--primary" id="buyNowBtn" disabled>Buy Now</button>
+                <button type="button" class="mobile-btn mobile-btn--outline" id="addToCartBtn" disabled>Add to Cart</button>
+                <div id="cartFeedback" class="mobile-cart-feedback" hidden></div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.Variants.Count > 0)
+{
+    <script id="variantData" type="application/json">
+        @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+        {
+                hasDiscount = hasDiscount,
+                discountPercentage = Model.DiscountPercentage,
+                discountExpiresAt = Model.DiscountExpiresAt?.ToString("O"),
+                expiryText = discountExpiryText,
+                originalStartingPrice = Model.OriginalPrice ?? Model.StartingPrice,
+                variants = Model.Variants.Select(v => new
+                {
+                        variantId = v.VariantId,
+                        name = v.Name,
+                        skus = v.Skus.Select(s => new
+                        {
+                                skuId = s.SkuId,
+                                size = s.Size,
+                                price = s.Price,
+                                originalPrice = s.OriginalPrice,
+                                quantity = s.Quantity,
+                                isAvailable = s.IsAvailable
+                        })
+                })
+        }))
+    </script>
+}
+
+<script>
+    (function() {
+        'use strict';
+
+        var rawData = document.getElementById('variantData');
+        if (!rawData) return;
+
+        var parsed = JSON.parse(rawData.textContent);
+        var variants = parsed.variants;
+        var hasDiscount = parsed.hasDiscount;
+        var discountPercentage = parsed.discountPercentage;
+        var originalStartingPrice = parsed.originalStartingPrice;
+        var expiryText = parsed.expiryText;
+
+        var priceEl = document.getElementById('selectedPrice');
+        var priceLabelEl = document.getElementById('priceLabel');
+        var originalPriceDisplay = document.getElementById('originalPriceDisplay');
+        var variantReqEl = document.getElementById('variantRequired');
+        var skuReqEl = document.getElementById('skuRequired');
+        var qtySection = document.getElementById('qtySection');
+        var qtyInput = document.getElementById('qtyInput');
+        var qtyDecBtn = document.getElementById('qtyDec');
+        var qtyIncBtn = document.getElementById('qtyInc');
+        var qtyStock = document.getElementById('qtyStock');
+        var buyNowBtn = document.getElementById('buyNowBtn');
+        var addToCartBtn = document.getElementById('addToCartBtn');
+
+        var selectedVariantId = null;
+        var selectedSkuId = null;
+        var currentUnitPrice = 0;
+        var currentOriginalPrice = 0;
+
+        function formatPrice(p) {
+            return '₱' + p.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+        }
+
+        function updatePriceDisplay(unitPrice, originalPrice, qty) {
+            priceEl.textContent = formatPrice(unitPrice * qty);
+            if (originalPriceDisplay) {
+                originalPriceDisplay.textContent = formatPrice(originalPrice * qty);
+                originalPriceDisplay.style.display = (hasDiscount && originalPrice > unitPrice) ? 'block' : 'none';
+            }
+            priceLabelEl.textContent = qty > 1 ? qty + ' × ' + formatPrice(unitPrice) : 'Starting price';
+        }
+
+        // ── Variant Chips ──────────────────────────────────────────────────────
+        document.getElementById('variantChips').addEventListener('click', function(e) {
+            var chip = e.target.closest('.mobile-vp-chip');
+            if (!chip) return;
+
+            document.querySelectorAll('#variantChips .mobile-vp-chip').forEach(function(c) { c.classList.remove('mobile-vp-chip--active'); });
+            chip.classList.add('mobile-vp-chip--active');
+
+            selectedVariantId = parseInt(chip.dataset.variantId);
+            selectedSkuId = null;
+            if (variantReqEl) variantReqEl.style.display = 'none';
+            if (qtySection) qtySection.hidden = true;
+            if (buyNowBtn) buyNowBtn.disabled = true;
+            if (addToCartBtn) addToCartBtn.disabled = true;
+
+            var variant = variants.find(function(v) { return v.variantId === selectedVariantId; });
+            if (!variant) return;
+
+            var skuChipsEl = document.getElementById('skuChips');
+            skuChipsEl.innerHTML = '';
+
+            variant.skus.forEach(function(sku) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'mobile-vp-chip' + (sku.isAvailable ? '' : ' mobile-vp-chip--disabled');
+                btn.dataset.skuId = sku.skuId;
+                btn.dataset.price = sku.price;
+                btn.dataset.originalPrice = sku.originalPrice != null ? sku.originalPrice : sku.price;
+                btn.dataset.quantity = sku.quantity;
+                btn.disabled = !sku.isAvailable;
+                btn.textContent = sku.size || 'One size';
+                skuChipsEl.appendChild(btn);
+            });
+
+            document.getElementById('skuSection').hidden = false;
+
+            var available = variant.skus.filter(function(s) { return s.isAvailable; });
+            if (available.length > 0) {
+                var lowest = available.reduce(function(min, s) { return s.price < min.price ? s : min; });
+                updatePriceDisplay(lowest.price, lowest.originalPrice || lowest.price, 1);
+            }
+        });
+
+        // ── SKU Chips ──────────────────────────────────────────────────────────
+        document.getElementById('skuChips').addEventListener('click', function(e) {
+            var chip = e.target.closest('.mobile-vp-chip:not(.mobile-vp-chip--disabled)');
+            if (!chip) return;
+
+            document.querySelectorAll('#skuChips .mobile-vp-chip').forEach(function(c) { c.classList.remove('mobile-vp-chip--active'); });
+            chip.classList.add('mobile-vp-chip--active');
+
+            selectedSkuId = parseInt(chip.dataset.skuId);
+            if (skuReqEl) skuReqEl.style.display = 'none';
+
+            currentUnitPrice = parseFloat(chip.dataset.price);
+            currentOriginalPrice = parseFloat(chip.dataset.originalPrice) || currentUnitPrice;
+            var maxQty = parseInt(chip.dataset.quantity) || 1;
+
+            qtyInput.max = maxQty;
+            qtyInput.value = 1;
+            qtyStock.textContent = maxQty + ' in stock';
+            qtySection.hidden = false;
+            updateQtyButtons();
+            updatePriceDisplay(currentUnitPrice, currentOriginalPrice, 1);
+
+            if (buyNowBtn) buyNowBtn.disabled = false;
+            if (addToCartBtn) addToCartBtn.disabled = false;
+        });
+
+        // ── Quantity ───────────────────────────────────────────────────────────
+        function updateQtyButtons() {
+            var v = parseInt(qtyInput.value) || 1;
+            var max = parseInt(qtyInput.max) || 1;
+            if (qtyDecBtn) qtyDecBtn.disabled = v <= 1;
+            if (qtyIncBtn) qtyIncBtn.disabled = v >= max;
+        }
+
+        qtyDecBtn.addEventListener('click', function() {
+            var v = parseInt(qtyInput.value) || 1;
+            if (v > 1) { qtyInput.value = v - 1; updateQtyButtons(); updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v - 1); }
+        });
+
+        qtyIncBtn.addEventListener('click', function() {
+            var v = parseInt(qtyInput.value) || 1, max = parseInt(qtyInput.max) || 1;
+            if (v < max) { qtyInput.value = v + 1; updateQtyButtons(); updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v + 1); }
+        });
+
+        qtyInput.addEventListener('input', function() {
+            var v = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, parseInt(qtyInput.max) || 1));
+            qtyInput.value = v;
+            updateQtyButtons();
+            updatePriceDisplay(currentUnitPrice, currentOriginalPrice, v);
+        });
+
+        // ── Buy Now ────────────────────────────────────────────────────────────
+        buyNowBtn.addEventListener('click', function() {
+            if (!selectedVariantId) { variantReqEl.style.display = 'inline'; return; }
+            if (!selectedSkuId) { skuReqEl.style.display = 'inline'; return; }
+            var qty = parseInt(qtyInput.value) || 1;
+            window.location.href = '/mobile/Orders/ShopCheckout?skuId=' + selectedSkuId + '&quantity=' + qty;
+        });
+
+        // ── Add to Cart ────────────────────────────────────────────────────────
+        addToCartBtn.addEventListener('click', async function() {
+            if (!selectedVariantId) { variantReqEl.style.display = 'inline'; return; }
+            if (!selectedSkuId) { skuReqEl.style.display = 'inline'; return; }
+
+            var qty = parseInt(qtyInput.value) || 1;
+            var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+            try {
+                var res = await fetch('/mobile/Cart/Add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ itemId: @Model.ItemId, skuId: selectedSkuId, quantity: qty })
+                });
+                var data = await res.json();
+
+                var feedback = document.getElementById('cartFeedback');
+                feedback.textContent = data.success ? 'Added to cart!' : (data.error || 'Failed');
+                feedback.className = 'mobile-cart-feedback mobile-cart-feedback--' + (data.success ? 'success' : 'error');
+                feedback.hidden = false;
+                setTimeout(function() { feedback.hidden = true; }, 3000);
+            } catch (e) {
+                console.error('Cart add failed:', e);
+            }
+        });
+
+        // ── Gallery ────────────────────────────────────────────────────────────
+        var mainImg = document.getElementById('mainGalleryImg');
+        var thumbs = document.querySelectorAll('.mobile-shop-gallery-thumb');
+        var counter = document.getElementById('galleryCounter');
+        var urls = Array.from(thumbs).map(function(t) { return t.dataset.src; });
+        var current = 0;
+
+        thumbs.forEach(function(t, i) {
+            t.addEventListener('click', function() {
+                if (mainImg) { mainImg.src = urls[i]; current = i; }
+                thumbs.forEach(function(tt) { tt.classList.remove('mobile-shop-gallery-thumb--active'); });
+                t.classList.add('mobile-shop-gallery-thumb--active');
+                if (counter) counter.textContent = (i + 1) + ' / ' + urls.length;
+            });
+        });
+
+        // Touch swipe
+        var startX = 0;
+        var galleryEl = document.getElementById('galleryMain');
+        galleryEl?.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
+        galleryEl?.addEventListener('touchend', function(e) {
+            var dx = e.changedTouches[0].clientX - startX;
+            if (Math.abs(dx) > 40 && urls.length > 1) {
+                var next = dx < 0 ? (current + 1) % urls.length : (current - 1 + urls.length) % urls.length;
+                if (mainImg) mainImg.src = urls[next];
+                thumbs.forEach(function(tt) { tt.classList.remove('mobile-shop-gallery-thumb--active'); });
+                if (thumbs[next]) thumbs[next].classList.add('mobile-shop-gallery-thumb--active');
+                current = next;
+                if (counter) counter.textContent = (next + 1) + ' / ' + urls.length;
+            }
+        });
+    })();
+</script>

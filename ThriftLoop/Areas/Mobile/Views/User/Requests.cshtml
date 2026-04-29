@@ -1,0 +1,239 @@
+﻿@model ThriftLoop.DTOs.User.SellerApplicationDTO
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Seller Application";
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+
+    var existingApp = ViewBag.Application as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
+
+    var storeAddrError = ViewData.ModelState.ContainsKey("StoreAddress")
+                         && ViewData.ModelState["StoreAddress"]!.Errors.Count > 0;
+    var storeAddrErrorMsg = storeAddrError
+                            ? ViewData.ModelState["StoreAddress"]!.Errors[0].ErrorMessage
+                            : string.Empty;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-user.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
+}
+
+<div class="requests-page">
+    <!-- Header -->
+    <a asp-action="Index" class="back-link">← Back to Profile</a>
+    <div class="requests-header">
+        <h1>Seller Application</h1>
+        <p>Apply to become a seller and start your own shop</p>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="toast toast--success">
+            <span>✅ @TempData["SuccessMessage"]</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="toast toast--error">
+            <span>❌ @TempData["ErrorMessage"]</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    @* ── Existing Application Status ────────────────────────────── *@
+    @if (existingApp != null)
+    {
+        <div class="app-status-card">
+            <div class="app-status-card__header">
+                <div class="app-status-card__avatar">
+                    @(existingApp.ShopName.FirstOrDefault().ToString().ToUpper() ?? "S")
+                </div>
+                <div class="app-status-card__title">
+                    <h2>@existingApp.ShopName</h2>
+                    @if (existingApp.Status == ApplicationStatus.Pending)
+                    {
+                        <span class="app-status-badge app-status-badge--pending">⏳ Pending Review</span>
+                    }
+                    else if (existingApp.Status == ApplicationStatus.Approved)
+                    {
+                        <span class="app-status-badge app-status-badge--approved">✓ Approved</span>
+                    }
+                    else if (existingApp.Status == ApplicationStatus.Rejected)
+                    {
+                        <span class="app-status-badge app-status-badge--rejected">✗ Rejected</span>
+                    }
+                </div>
+            </div>
+
+            <div class="app-status-card__details">
+                <div class="app-detail-row">
+                    <span class="app-detail-row__label">Submitted</span>
+                    <span class="app-detail-row__value">@existingApp.AppliedAt.ToString("MMM d, yyyy 'at' h:mm tt")</span>
+                </div>
+                @if (existingApp.ReviewedAt.HasValue)
+                {
+                    <div class="app-detail-row">
+                        <span class="app-detail-row__label">Reviewed</span>
+                        <span class="app-detail-row__value">@existingApp.ReviewedAt.Value.ToString("MMM d, yyyy 'at' h:mm tt")</span>
+                    </div>
+                }
+                <div class="app-detail-row">
+                    <span class="app-detail-row__label">Store Address</span>
+                    <span class="app-detail-row__value">@existingApp.StoreAddress</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(existingApp.Bio))
+                {
+                    <div class="app-detail-row">
+                        <span class="app-detail-row__label">Bio</span>
+                        <span class="app-detail-row__value">@existingApp.Bio</span>
+                    </div>
+                }
+            </div>
+
+            @if (existingApp.Status == ApplicationStatus.Pending)
+            {
+                <div class="app-alert app-alert--info">
+                    ℹ️ Your application is being reviewed. You'll be notified when a decision is made.
+                </div>
+            }
+            else if (existingApp.Status == ApplicationStatus.Approved)
+            {
+                <div class="app-alert app-alert--success">
+                    🎉 Congratulations! You can now manage your shop.
+                </div>
+                <a asp-action="Manage" asp-controller="Shop" class="btn btn--primary btn--full" style="margin-top: 12px;">
+                    Manage Shop
+                </a>
+            }
+            else if (existingApp.Status == ApplicationStatus.Rejected)
+            {
+                <div class="app-alert app-alert--warning">
+                    ⚠️ Your application was not approved. You may submit a new application below.
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="benefits-card">
+            <h3>Become a Seller</h3>
+            <ul class="benefits-list">
+                <li>✓ Create your own shop</li>
+                <li>✓ List unlimited items</li>
+                <li>✓ Reach thousands of buyers</li>
+                <li>✓ Secure payment processing</li>
+            </ul>
+        </div>
+    }
+
+    @* ── Application Form ───────────────────────────────────────── *@
+    @if (existingApp == null || existingApp.Status == ApplicationStatus.Rejected)
+    {
+        <div class="form-card">
+            <form method="post" asp-action="SubmitSellerApplication" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div class="form-group">
+                    <label asp-for="ShopName" class="form-label">
+                        Shop Name <span class="form-label__required">Required</span>
+                    </label>
+                    <input asp-for="ShopName"
+                           class="form-input @(ViewData.ModelState.ContainsKey("ShopName") && ViewData.ModelState["ShopName"]!.Errors.Count > 0 ? "form-input--error" : "")"
+                           placeholder="e.g., Vintage Threads PH" />
+                    <span asp-validation-for="ShopName" class="form-error"></span>
+                    <span class="form-hint">This will be your public shop name shown to buyers.</span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Bio" class="form-label">Shop Bio / Tagline</label>
+                    <textarea asp-for="Bio" class="form-input form-textarea" rows="3"
+                              placeholder="Tell buyers what your shop is about..."></textarea>
+                    <span asp-validation-for="Bio" class="form-error"></span>
+                    <span class="form-hint">A short description of your shop (max 500 characters).</span>
+                </div>
+
+                @* ── Store address with map picker ─────────────────── *@
+                @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+                    new ViewDataDictionary(ViewData)
+                    {
+                        { "FieldId",      "StoreAddress" },
+                        { "FieldName",    "StoreAddress" },
+                        { "Label",        "Store / Pickup Address" },
+                        { "CurrentValue", Model?.StoreAddress ?? string.Empty },
+                        { "Placeholder",  "Unit, Building, Street, City, Province" },
+                        { "HintText",     "This address will be verified by our team. It's where customers can pick up items." },
+                        { "HasError",     storeAddrError },
+                        { "ErrorMessage", storeAddrErrorMsg }
+                    })
+
+                <div class="form-group">
+                    <label asp-for="GovId" class="form-label">
+                        Government-Issued ID <span class="form-label__required">Required</span>
+                    </label>
+                    <div class="file-upload">
+                        <input type="file" asp-for="GovId" class="file-upload__input"
+                               accept=".jpg,.jpeg,.png,.pdf" />
+                        <div class="file-upload__body">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                                <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909-1.47-1.47a.75.75 0 00-1.06 0L2.5 11.06zm9.5-6.56a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                            <span><strong>Click to upload ID</strong><small>JPG, PNG or PDF — max 10MB</small></span>
+                        </div>
+                    </div>
+                    <span asp-validation-for="GovId" class="form-error"></span>
+                    <span class="form-hint">
+                        Accepted: Passport, Driver's License, National ID, Postal ID, or any government-issued ID.
+                    </span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary btn--full btn--lg">
+                        Submit Application
+                    </button>
+                    <a asp-action="Index" class="btn btn--ghost btn--full">Cancel</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="security-notice">
+            <div class="security-notice__icon">🔒</div>
+            <div class="security-notice__content">
+                <strong>Secure & Confidential</strong>
+                <p>Your ID document is encrypted and only accessible to our verification team. It will never be shared with third parties.</p>
+            </div>
+        </div>
+    }
+    else if (existingApp.Status == ApplicationStatus.Pending)
+    {
+        <div class="status-placeholder">
+            <div class="status-placeholder__icon">⏳</div>
+            <h2>Application Under Review</h2>
+            <p>Your seller application has been submitted and is awaiting admin approval. You'll receive a notification once a decision has been made.</p>
+            <a asp-action="Index" class="btn btn--primary">Return to Profile</a>
+        </div>
+    }
+    else if (existingApp.Status == ApplicationStatus.Approved)
+    {
+        <div class="status-placeholder">
+            <div class="status-placeholder__icon">🎉</div>
+            <h2>Welcome to the Seller Program!</h2>
+            <p>Your application has been approved! You can now start managing your shop and listing items.</p>
+            <div class="status-placeholder__actions">
+                <a asp-action="Manage" asp-controller="Shop" class="btn btn--primary">Manage Shop</a>
+                <a asp-action="Index" class="btn btn--ghost">Back to Profile</a>
+            </div>
+        </div>
+    }
+</div>
+
+@* ── Address map modal ─────────────────────────────────────────── *@
+@await Html.PartialAsync("_AddressMapModal")
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="~/js/map-picker.js" asp-append-version="true"></script>
+}

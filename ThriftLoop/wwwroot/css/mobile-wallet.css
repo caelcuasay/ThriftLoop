@@ -1,0 +1,1003 @@
+﻿/* --------------------------------------------- */
+/* MOBILE WALLET — ThriftLoop v2.0               */
+/* Modern UI with glassmorphism & gradients      */
+/* --------------------------------------------- */
+
+:root {
+    --w-primary: #2d1b69;
+    --w-primary-light: #4c3a8f;
+    --w-primary-gradient: linear-gradient(135deg, #2d1b69 0%, #4c3a8f 100%);
+    --w-bg: #f5f5f7;
+    --w-surface: #ffffff;
+    --w-surface-elevated: #fafafa;
+    --w-border: rgba(0,0,0,0.06);
+    --w-text: #1a1a2e;
+    --w-text-secondary: #6b6b7b;
+    --w-text-tertiary: #9a9aaa;
+    --w-success: #059669;
+    --w-success-light: #d1fae5;
+    --w-success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    --w-warning: #d97706;
+    --w-warning-light: #fef3c7;
+    --w-error: #dc2626;
+    --w-error-light: #fee2e2;
+    --w-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --w-shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --w-shadow-lg: 0 8px 24px rgba(45,27,105,0.12);
+}
+
+.mobile-wallet-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    background: var(--w-bg);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.mobile-wallet-header {
+    padding: 20px 20px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mobile-wallet-header__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--w-text);
+    letter-spacing: -0.02em;
+}
+
+.mobile-wallet-header__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--w-primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: var(--w-shadow-sm);
+}
+
+/* ── Main Balance Card ────────────────────────────────────────────────────── */
+
+.mobile-wallet-balance-card {
+    margin: 0 20px 16px;
+    background: var(--w-surface);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--w-shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-wallet-balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--w-success-gradient);
+    border-radius: 24px 24px 0 0;
+}
+
+.mobile-wallet-balance-card__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--w-text-tertiary);
+    margin-bottom: 8px;
+}
+
+.mobile-wallet-balance-card__amount {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--w-text);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.mobile-wallet-balance-card__hint {
+    font-size: 0.8125rem;
+    color: var(--w-text-secondary);
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+/* ── Balance Grid ────────────────────────────────────────────────────────── */
+
+.mobile-wallet-balance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 20px 20px;
+}
+
+.mobile-wallet-balance-item {
+    background: var(--w-surface);
+    border-radius: 16px;
+    padding: 16px 14px;
+    box-shadow: var(--w-shadow-sm);
+    border-left: 3px solid var(--w-warning);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-wallet-balance-item:active {
+    transform: scale(0.98);
+}
+
+.mobile-wallet-balance-item--total {
+    border-left-color: var(--w-primary);
+}
+
+.mobile-wallet-balance-item__label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--w-text-tertiary);
+    margin-bottom: 4px;
+}
+
+.mobile-wallet-balance-item__amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--w-text);
+    letter-spacing: -0.01em;
+}
+
+.mobile-wallet-balance-item__hint {
+    font-size: 0.6875rem;
+    color: var(--w-text-tertiary);
+    margin-top: 2px;
+}
+
+/* ── Action Buttons ──────────────────────────────────────────────────────── */
+
+.mobile-wallet-actions {
+    display: flex;
+    gap: 12px;
+    margin: 0 20px 24px;
+}
+
+.mobile-wallet-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.mobile-wallet-btn:active {
+    transform: scale(0.97);
+}
+
+.mobile-wallet-btn--primary {
+    background: var(--w-primary-gradient);
+    color: white;
+    box-shadow: 0 4px 12px rgba(45,27,105,0.25);
+}
+
+.mobile-wallet-btn--primary:hover {
+    box-shadow: 0 6px 16px rgba(45,27,105,0.35);
+}
+
+.mobile-wallet-btn--outline {
+    background: var(--w-surface);
+    color: var(--w-primary);
+    border: 1.5px solid rgba(45,27,105,0.15);
+}
+
+.mobile-wallet-btn--outline:hover {
+    border-color: var(--w-primary);
+    background: rgba(45,27,105,0.02);
+}
+
+.mobile-wallet-btn__icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* ── Section Title ───────────────────────────────────────────────────────── */
+
+.mobile-wallet-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 20px 12px;
+}
+
+.mobile-wallet-section-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--w-text);
+    letter-spacing: -0.01em;
+}
+
+.mobile-wallet-section-link {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--w-primary);
+    text-decoration: none;
+}
+
+/* ── Transaction List ────────────────────────────────────────────────────── */
+
+.mobile-wallet-tx-list {
+    margin: 0 20px;
+    background: var(--w-surface);
+    border-radius: 20px;
+    padding: 8px 0;
+    box-shadow: var(--w-shadow-sm);
+}
+
+.mobile-wallet-tx {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-wallet-tx:active {
+    background: var(--w-surface-elevated);
+}
+
+.mobile-wallet-tx:not(:last-child) {
+    border-bottom: 1px solid var(--w-border);
+}
+
+.mobile-wallet-tx__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mobile-wallet-tx__icon--credit {
+    background: var(--w-success-light);
+    color: var(--w-success);
+}
+
+.mobile-wallet-tx__icon--debit {
+    background: var(--w-error-light);
+    color: var(--w-error);
+}
+
+.mobile-wallet-tx__icon--escrow {
+    background: var(--w-warning-light);
+    color: var(--w-warning);
+}
+
+.mobile-wallet-tx__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-wallet-tx__type {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--w-text);
+    margin-bottom: 2px;
+}
+
+.mobile-wallet-tx__ref {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--w-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 1px;
+}
+
+.mobile-wallet-tx__date {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--w-text-tertiary);
+}
+
+.mobile-wallet-tx__amount-wrap {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.mobile-wallet-tx__amount {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mobile-wallet-tx__amount--credit {
+    color: var(--w-success);
+}
+
+.mobile-wallet-tx__amount--debit {
+    color: var(--w-text);
+}
+
+.mobile-wallet-tx__badge {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+}
+
+.mobile-wallet-tx__badge--pending {
+    background: var(--w-warning-light);
+    color: #92400e;
+}
+
+.mobile-wallet-tx__badge--completed {
+    background: var(--w-success-light);
+    color: var(--w-success);
+}
+
+.mobile-wallet-tx__badge--processed {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+
+.mobile-wallet-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.mobile-wallet-empty__icon {
+    width: 56px;
+    height: 56px;
+    background: var(--w-surface-elevated);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--w-text-tertiary);
+    margin-bottom: 12px;
+}
+
+.mobile-wallet-empty__text {
+    font-size: 0.9375rem;
+    color: var(--w-text-secondary);
+    font-weight: 500;
+}
+
+/* ── Withdrawals Section ───────────────────────────────────────────────── */
+
+.mobile-wallet-withdrawals {
+    margin-top: 24px;
+}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+
+.mobile-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0 20px 16px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mobile-toast--success {
+    background: var(--w-success-light);
+    color: var(--w-success);
+}
+
+.mobile-toast--error {
+    background: var(--w-error-light);
+    color: var(--w-error);
+}
+
+.mobile-toast__icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 360px) {
+    .mobile-wallet-balance-card__amount {
+        font-size: 1.875rem;
+    }
+    
+    .mobile-wallet-balance-item__amount {
+        font-size: 1.125rem;
+    }
+    
+    .mobile-wallet-btn {
+        padding: 12px 16px;
+        font-size: 0.875rem;
+    }
+}
+
+
+/* ── Withdraw Header ─────────────────────────────────────────────────────── */
+
+.mobile-wallet-header__balance {
+    font-size: 0.85rem;
+    color: var(--w-text-secondary);
+    margin-top: 4px;
+}
+
+/* ── Withdraw All Button ─────────────────────────────────────────────────── */
+
+.mobile-wallet-all-btn {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--w-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 0;
+    text-decoration: underline;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Method Options ──────────────────────────────────────────────────────── */
+
+.mobile-wallet-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mobile-wallet-method {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1.5px solid var(--w-border);
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+
+.mobile-wallet-method--active {
+    border-color: var(--w-primary);
+    background: var(--w-primary-soft);
+}
+
+.mobile-wallet-method-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mobile-wallet-method__icon {
+    color: var(--w-text-tertiary);
+    flex-shrink: 0;
+}
+
+.mobile-wallet-method--active .mobile-wallet-method__icon {
+    color: var(--w-primary);
+}
+
+.mobile-wallet-method__name {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--w-text);
+}
+
+.mobile-wallet-method__hint {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--w-text-tertiary);
+    margin-top: 1px;
+}
+
+.mobile-wallet-method__check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--w-border);
+    flex-shrink: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-wallet-method--active .mobile-wallet-method__check {
+    background: var(--w-primary);
+    border-color: var(--w-primary);
+}
+
+    .mobile-wallet-method--active .mobile-wallet-method__check::after {
+        content: '';
+        width: 6px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+        margin-top: -1px;
+    }
+
+/* ── Form Fields ─────────────────────────────────────────────────────────── */
+
+.mobile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.mobile-field__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--w-text);
+}
+
+.mobile-field-error {
+    font-size: 0.72rem;
+    color: var(--w-error);
+    margin-top: 2px;
+}
+
+.mobile-field__hint {
+    font-size: 0.7rem;
+    color: var(--w-text-tertiary);
+    margin-top: 4px;
+}
+
+.mobile-edit-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--w-border);
+    background: var(--w-surface);
+    color: var(--w-text);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s;
+}
+
+    .mobile-edit-input:focus {
+        outline: none;
+        border-color: var(--w-primary);
+    }
+
+
+/* ── Add Funds ───────────────────────────────────────────────────────────── */
+
+.mobile-wallet-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.mobile-wallet-step__badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--w-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.mobile-wallet-step__title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--w-text);
+}
+
+.mobile-wallet-step__desc {
+    font-size: 0.8rem;
+    color: var(--w-text-tertiary);
+    margin: 0 0 14px 36px;
+    line-height: 1.4;
+}
+
+/* ── QR Code ─────────────────────────────────────────────────────────────── */
+
+.mobile-wallet-qr {
+    text-align: center;
+    margin-top: 8px;
+}
+
+    .mobile-wallet-qr img {
+        max-width: 200px;
+        border-radius: 12px;
+        border: 1px solid var(--w-border);
+    }
+
+    .mobile-wallet-qr p {
+        font-size: 0.75rem;
+        color: var(--w-text-tertiary);
+        margin-top: 6px;
+    }
+
+.mobile-wallet-qr--empty {
+    padding: 24px;
+    background: var(--w-surface);
+    border-radius: 12px;
+    color: var(--w-text-tertiary);
+}
+
+.mobile-wallet-qr__hint {
+    font-size: 0.72rem;
+    margin-top: 4px;
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+
+.mobile-wallet-preview {
+    margin-bottom: 14px;
+}
+
+.mobile-wallet-preview__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--w-text);
+    margin-bottom: 4px;
+}
+
+.mobile-wallet-preview img {
+    width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid var(--w-border);
+}
+
+/* ── Header Balance (Withdraw/Add Funds) ────────────────────────────────────── */
+
+.mobile-wallet-header__balance {
+    font-size: 0.875rem;
+    color: var(--w-text-secondary);
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+.mobile-wallet-header__balance strong {
+    color: var(--w-primary);
+    font-weight: 700;
+}
+
+/* ── Withdraw All Button ─────────────────────────────────────────────────── */
+
+.mobile-wallet-all-btn {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--w-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 0;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s;
+}
+
+.mobile-wallet-all-btn:active {
+    opacity: 0.7;
+}
+
+/* ── Method Options ──────────────────────────────────────────────────────── */
+
+.mobile-wallet-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mobile-wallet-method {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1.5px solid var(--w-border);
+    background: var(--w-surface);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+
+.mobile-wallet-method:active {
+    transform: scale(0.98);
+    background: var(--w-surface-elevated);
+}
+
+.mobile-wallet-method--active {
+    border-color: var(--w-primary);
+    background: linear-gradient(135deg, rgba(45,27,105,0.05) 0%, rgba(76,58,143,0.05) 100%);
+}
+
+.mobile-wallet-method-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mobile-wallet-method__icon {
+    color: var(--w-text-tertiary);
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--w-bg);
+    border-radius: 14px;
+}
+
+.mobile-wallet-method--active .mobile-wallet-method__icon {
+    color: var(--w-primary);
+    background: rgba(45,27,105,0.08);
+}
+
+.mobile-wallet-method__name {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--w-text);
+}
+
+.mobile-wallet-method__hint {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--w-text-tertiary);
+    margin-top: 2px;
+    font-weight: 500;
+}
+
+.mobile-wallet-method__check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--w-border);
+    flex-shrink: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.mobile-wallet-method--active .mobile-wallet-method__check {
+    background: var(--w-primary);
+    border-color: var(--w-primary);
+}
+
+    .mobile-wallet-method--active .mobile-wallet-method__check::after {
+        content: '';
+        width: 7px;
+        height: 11px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+        margin-top: -2px;
+    }
+
+/* ── Form Fields ─────────────────────────────────────────────────────────── */
+
+.mobile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.mobile-field__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--w-text);
+}
+
+.mobile-field-error {
+    font-size: 0.8125rem;
+    color: var(--w-error);
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.mobile-field__hint {
+    font-size: 0.8125rem;
+    color: var(--w-text-tertiary);
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+.mobile-edit-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    border-radius: 14px;
+    border: 1.5px solid var(--w-border);
+    background: var(--w-surface);
+    color: var(--w-text);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: all 0.2s ease;
+}
+
+    .mobile-edit-input:focus {
+        outline: none;
+        border-color: var(--w-primary);
+        box-shadow: 0 0 0 3px rgba(45,27,105,0.08);
+    }
+
+    .mobile-edit-input::placeholder {
+        color: var(--w-text-tertiary);
+    }
+
+/* ── Add Funds ───────────────────────────────────────────────────────────── */
+
+.mobile-wallet-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.mobile-wallet-step__badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--w-primary-gradient);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(45,27,105,0.2);
+}
+
+.mobile-wallet-step__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--w-text);
+}
+
+.mobile-wallet-step__desc {
+    font-size: 0.875rem;
+    color: var(--w-text-secondary);
+    margin: 0 0 16px 44px;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+/* ── QR Code ─────────────────────────────────────────────────────────────── */
+
+.mobile-wallet-qr {
+    text-align: center;
+    margin-top: 12px;
+}
+
+    .mobile-wallet-qr img {
+        max-width: 220px;
+        border-radius: 16px;
+        border: 2px solid var(--w-border);
+        box-shadow: var(--w-shadow-md);
+    }
+
+    .mobile-wallet-qr p {
+        font-size: 0.8125rem;
+        color: var(--w-text-secondary);
+        margin-top: 12px;
+        font-weight: 500;
+    }
+
+.mobile-wallet-qr--empty {
+    padding: 32px 24px;
+    background: var(--w-surface);
+    border-radius: 16px;
+    color: var(--w-text-tertiary);
+    border: 2px dashed var(--w-border);
+}
+
+.mobile-wallet-qr__hint {
+    font-size: 0.75rem;
+    margin-top: 8px;
+    color: var(--w-text-tertiary);
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+
+.mobile-wallet-preview {
+    margin-bottom: 20px;
+}
+
+.mobile-wallet-preview__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--w-text);
+    margin-bottom: 8px;
+}
+
+.mobile-wallet-preview img {
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+    border-radius: 14px;
+    border: 1.5px solid var(--w-border);
+    background: var(--w-bg);
+}
+
+/* ── Form Section ─────────────────────────────────────────────────────────── */
+
+.mobile-wallet-form-section {
+    background: var(--w-surface);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 0 20px 16px;
+    box-shadow: var(--w-shadow-sm);
+}
+
+/* ── Info Toast ─────────────────────────────────────────────────────────── */
+
+.mobile-toast--info {
+    background: #dbeafe;
+    color: #1e40af;
+}

@@ -1,0 +1,372 @@
+﻿@using ThriftLoop.ViewModels
+@model CartIndexViewModel
+@{
+    ViewData["Title"] = "Shopping Cart";
+
+    // Group items by shop
+    var groupedByShop = Model.Items
+        .GroupBy(i => new { i.ShopId, i.ShopName, i.SellerId })
+        .Select(g => new
+        {
+            ShopId = g.Key.ShopId,
+            ShopName = g.Key.ShopName ?? "Unknown Shop",
+            SellerId = g.Key.SellerId,
+            Items = g.ToList()
+        })
+        .ToList();
+}
+
+<div class="mobile-cart-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-cart-header">
+        <h1 class="mobile-cart-header__title">Cart</h1>
+        <span class="mobile-cart-header__count">@Model.Items.Count item@(Model.Items.Count != 1 ? "s" : "")</span>
+        @if (!Model.IsEmpty)
+        {
+            <form asp-action="Clear" method="post" class="mobile-cart-header__clear-form">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="mobile-cart-header__clear">Clear All</button>
+            </form>
+        }
+    </div>
+
+    @* ── Warning Banner ──────────────────────────────────────────────────── *@
+    @if (Model.InvalidItemCount > 0)
+    {
+        <div class="mobile-cart-warning">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <span>@Model.InvalidItemCount item@(Model.InvalidItemCount > 1 ? "s" : "") unavailable</span>
+        </div>
+    }
+
+    @* ── Empty State ──────────────────────────────────────────────────────── *@
+    @if (Model.IsEmpty)
+    {
+        <div class="mobile-empty-state">
+            <div class="mobile-empty-state__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" width="64" height="64">
+                    <circle cx="25" cy="25" r="8" />
+                    <circle cx="42" cy="25" r="8" />
+                    <path d="M4 36l8-8 7 7 10-10 7 7 10-10 14 14" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <h2 class="mobile-empty-state__title">Your cart is empty</h2>
+            <p class="mobile-empty-state__body">Start shopping to add items to your cart.</p>
+            <a asp-controller="Sellers" asp-action="Index" asp-area="Mobile" class="mobile-btn mobile-btn--primary mobile-empty-state__cta">
+                Browse Sellers
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ── Cart Items Grouped by Shop ──────────────────────────────────── *@
+        <div class="mobile-cart-list">
+            @foreach (var shopGroup in groupedByShop)
+            {
+                var hasValidItems = shopGroup.Items.Any(i => i.IsValid);
+                <div class="mobile-cart-shop-group" data-shop-id="@shopGroup.ShopId" data-seller-id="@shopGroup.SellerId">
+                    @* Shop Header with Select All *@
+                    <div class="mobile-cart-shop-header">
+                        <label class="mobile-cart-checkbox mobile-cart-checkbox--shop">
+                            <input type="checkbox" class="shop-select-all" data-shop-id="@shopGroup.ShopId" @(hasValidItems ? "checked" : "disabled") />
+                            <span class="mobile-cart-checkbox__mark"></span>
+                        </label>
+                        <div class="mobile-cart-shop-header__info">
+                            <span class="mobile-cart-shop-name">
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                                    <path fill-rule="evenodd" d="M8 1a2.5 2.5 0 00-2.5 2.5H3.5A1.5 1.5 0 002 5v8.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V5a1.5 1.5 0 00-1.5-1.5h-2A2.5 2.5 0 008 1zm0 1.5A1 1 0 019 3.5v0H7v0A1 1 0 018 2.5z" clip-rule="evenodd" />
+                                </svg>
+                                @shopGroup.ShopName
+                            </span>
+                        </div>
+                        <a asp-controller="Shop" asp-action="Index" asp-route-id="@shopGroup.ShopId" asp-area="Mobile" class="mobile-cart-shop-visit">Visit</a>
+                    </div>
+
+                    @* Shop Items *@
+                    @foreach (var item in shopGroup.Items)
+                    {
+                        <div class="mobile-cart-item @(item.IsValid ? "" : "mobile-cart-item--invalid")"
+                             data-cart-item-id="@item.CartItemId"
+                             data-shop-id="@item.ShopId"
+                             data-seller-id="@item.SellerId">
+                            @* Checkbox *@
+                            <label class="mobile-cart-checkbox">
+                                <input type="checkbox"
+                                       class="item-checkbox"
+                                       data-cart-item-id="@item.CartItemId"
+                                       data-shop-id="@item.ShopId"
+                                       data-seller-id="@item.SellerId"
+                                       data-price="@item.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                       data-quantity="@item.Quantity"
+                                       value="@item.CartItemId"
+                                @(item.IsValid ? "checked" : "disabled") />
+                                <span class="mobile-cart-checkbox__mark"></span>
+                            </label>
+
+                            @* Image *@
+                            <div class="mobile-cart-item__img-wrap">
+                                @if (!string.IsNullOrEmpty(item.ItemImageUrl))
+                                {
+                                    <img src="@item.ItemImageUrl" alt="@item.ItemTitle" class="mobile-cart-item__img" />
+                                }
+                                else
+                                {
+                                    <div class="mobile-cart-item__img-placeholder">
+                                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" width="28" height="28">
+                                            <rect x="4" y="8" width="40" height="32" rx="4" />
+                                            <circle cx="17" cy="20" r="4" />
+                                            <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                }
+
+                                @if (!item.IsValid)
+                                {
+                                    <span class="mobile-cart-item__unavailable-badge">@item.InvalidReason</span>
+                                }
+                            </div>
+
+                            @* Info *@
+                            <div class="mobile-cart-item__info">
+                                <h3 class="mobile-cart-item__title">@item.ItemTitle</h3>
+                                <p class="mobile-cart-item__variant">
+                                    @item.VariantName
+                                    @if (!string.IsNullOrEmpty(item.Size))
+                                    {
+                                        <span>· @item.Size</span>
+                                    }
+                                </p>
+
+                                @* Quantity Controls *@
+                                <div class="mobile-cart-item__controls">
+                                    <div class="mobile-cart-qty">
+                                        <button type="button" class="mobile-cart-qty__btn" data-action="decrease"
+                                            @(item.Quantity <= 1 || !item.IsValid ? "disabled" : "")>
+                                            −
+                                        </button>
+                                        <span class="mobile-cart-qty__value">@item.Quantity</span>
+                                        <button type="button" class="mobile-cart-qty__btn" data-action="increase"
+                                            @(item.Quantity >= item.AvailableStock || !item.IsValid ? "disabled" : "")>
+                                            +
+                                        </button>
+                                    </div>
+
+                                    <span class="mobile-cart-item__line-total" data-line-total="@item.LineTotal.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)">
+                                        ₱@item.LineTotal.ToString("N2")
+                                    </span>
+                                </div>
+
+                                <span class="mobile-cart-item__unit-price">₱@item.Price.ToString("N2") each</span>
+                            </div>
+
+                            @* Remove button *@
+                            <button type="button" class="mobile-cart-item__remove" data-action="remove" aria-label="Remove">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Order Summary ────────────────────────────────────────────────── *@
+        <div class="mobile-cart-summary">
+            <div class="mobile-cart-summary__row">
+                <span>Subtotal (<span id="selectedItemCount">0</span> items)</span>
+                <span id="cartSubtotal">₱0.00</span>
+            </div>
+            <div class="mobile-cart-summary__row">
+                <span>Delivery (<span id="selectedShopCount">0</span> shop<span id="shopPlural">s</span>)</span>
+                <span id="cartDelivery">₱0.00</span>
+            </div>
+            <div class="mobile-cart-summary__row mobile-cart-summary__row--total">
+                <span>Total</span>
+                <span id="cartTotal">₱0.00</span>
+            </div>
+
+            <button type="button" id="checkoutBtn" class="mobile-btn mobile-btn--primary mobile-cart-checkout-btn" disabled>
+                Checkout (<span id="selectedCount">0</span>)
+            </button>
+        </div>
+    }
+</div>
+
+<script>
+    (function() {
+        var DELIVERY_FEE_PER_SHOP = @Model.DeliveryFeePerShop;
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+        // Store all cart items data for calculations
+        var cartItemsData = new Map();
+
+        document.querySelectorAll('.mobile-cart-item').forEach(function(item) {
+            var cartItemId = parseInt(item.dataset.cartItemId);
+            var shopId = item.dataset.shopId;
+            var sellerId = item.dataset.sellerId;
+            var checkbox = item.querySelector('.item-checkbox');
+            var lineTotalEl = item.querySelector('.mobile-cart-item__line-total');
+
+            cartItemsData.set(cartItemId, {
+                cartItemId: cartItemId,
+                shopId: shopId,
+                sellerId: sellerId,
+                price: parseFloat(checkbox?.dataset.price || '0'),
+                quantity: parseInt(checkbox?.dataset.quantity || '1'),
+                lineTotal: parseFloat(lineTotalEl?.dataset.lineTotal || '0'),
+                isValid: !checkbox?.disabled,
+                element: item,
+                checkbox: checkbox
+            });
+        });
+
+        function updateOrderSummary() {
+            var selectedSubtotal = 0;
+            var selectedItemCount = 0;
+            var selectedShops = new Set();
+            var checkedCount = 0;
+
+            cartItemsData.forEach(function(data) {
+                var checkbox = data.checkbox;
+                if (checkbox && checkbox.checked && !checkbox.disabled) {
+                    selectedSubtotal += data.lineTotal;
+                    selectedItemCount += data.quantity;
+                    checkedCount++;
+                    if (data.shopId) selectedShops.add(data.shopId);
+                }
+            });
+
+            var uniqueDeliveryGroups = selectedShops.size;
+            var selectedDelivery = uniqueDeliveryGroups * DELIVERY_FEE_PER_SHOP;
+            var selectedTotal = selectedSubtotal + selectedDelivery;
+
+            document.getElementById('cartSubtotal').textContent = '₱' + selectedSubtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+            document.getElementById('cartDelivery').textContent = '₱' + selectedDelivery.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+            document.getElementById('cartTotal').textContent = '₱' + selectedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+            document.getElementById('selectedItemCount').textContent = selectedItemCount;
+            document.getElementById('selectedShopCount').textContent = uniqueDeliveryGroups;
+            document.getElementById('shopPlural').textContent = uniqueDeliveryGroups === 1 ? '' : 's';
+            document.getElementById('selectedCount').textContent = checkedCount;
+
+            document.getElementById('checkoutBtn').disabled = checkedCount === 0;
+        }
+
+        function updateShopSelectAll(shopId) {
+            var shopCb = document.querySelector('.shop-select-all[data-shop-id="' + shopId + '"]');
+            if (!shopCb) return;
+
+            var shopItems = document.querySelectorAll('.item-checkbox[data-shop-id="' + shopId + '"]:not(:disabled)');
+            var allChecked = Array.from(shopItems).every(function(cb) { return cb.checked; });
+            shopCb.checked = allChecked && shopItems.length > 0;
+        }
+
+        async function updateQuantity(cartItemId, newQuantity) {
+            try {
+                var res = await fetch('/mobile/Cart/UpdateQuantity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ cartItemId: cartItemId, quantity: newQuantity })
+                });
+                var data = await res.json();
+                if (data.success) {
+                    var itemData = cartItemsData.get(cartItemId);
+                    if (itemData) {
+                        itemData.quantity = data.quantity;
+                        itemData.lineTotal = parseFloat(data.lineTotal.replace(/,/g, ''));
+                        var lineTotalEl = itemData.element.querySelector('.mobile-cart-item__line-total');
+                        var qtyEl = itemData.element.querySelector('.mobile-cart-qty__value');
+                        var decBtn = itemData.element.querySelector('[data-action="decrease"]');
+                        var incBtn = itemData.element.querySelector('[data-action="increase"]');
+                        if (lineTotalEl) { lineTotalEl.textContent = '₱' + data.lineTotal; lineTotalEl.dataset.lineTotal = data.lineTotal; }
+                        if (qtyEl) qtyEl.textContent = data.quantity;
+                        if (decBtn) decBtn.disabled = data.quantity <= 1;
+                        if (itemData.checkbox) itemData.checkbox.dataset.quantity = data.quantity;
+                    }
+                    updateOrderSummary();
+                    var itemEl = document.querySelector('.mobile-cart-item[data-cart-item-id="' + cartItemId + '"]');
+                    if (itemEl) updateShopSelectAll(itemEl.dataset.shopId);
+                }
+            } catch (e) {
+                console.error('Failed to update quantity:', e);
+            }
+        }
+
+        async function removeItem(cartItemId) {
+            try {
+                var res = await fetch('/mobile/Cart/Remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token },
+                    body: 'cartItemId=' + cartItemId
+                });
+                var data = await res.json();
+                if (data.success) {
+                    cartItemsData.delete(cartItemId);
+                    var el = document.querySelector('.mobile-cart-item[data-cart-item-id="' + cartItemId + '"]');
+                    if (el) el.remove();
+                    updateOrderSummary();
+                    if (data.isEmpty) location.reload();
+                }
+            } catch (e) {
+                console.error('Failed to remove item:', e);
+            }
+        }
+
+        // Event delegation
+        document.querySelector('.mobile-cart-list')?.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-action]');
+            if (btn) {
+                var itemEl = btn.closest('.mobile-cart-item');
+                var cartItemId = parseInt(itemEl.dataset.cartItemId);
+                if (btn.dataset.action === 'decrease') {
+                    var qty = parseInt(itemEl.querySelector('.mobile-cart-qty__value').textContent);
+                    if (qty > 1) updateQuantity(cartItemId, qty - 1);
+                } else if (btn.dataset.action === 'increase') {
+                    var qty = parseInt(itemEl.querySelector('.mobile-cart-qty__value').textContent);
+                    updateQuantity(cartItemId, qty + 1);
+                } else if (btn.dataset.action === 'remove') {
+                    if (confirm('Remove this item from your cart?')) removeItem(cartItemId);
+                }
+            }
+        });
+
+        // Shop "select all" checkbox
+        document.querySelectorAll('.shop-select-all').forEach(function(shopCb) {
+            shopCb.addEventListener('change', function() {
+                var shopId = this.dataset.shopId;
+                document.querySelectorAll('.item-checkbox[data-shop-id="' + shopId + '"]:not(:disabled)').forEach(function(itemCb) {
+                    itemCb.checked = shopCb.checked;
+                });
+                updateOrderSummary();
+                updateShopSelectAll(shopId);
+            });
+        });
+
+        // Individual item checkbox
+        document.querySelectorAll('.item-checkbox').forEach(function(itemCb) {
+            itemCb.addEventListener('change', function() {
+                updateShopSelectAll(this.dataset.shopId);
+                updateOrderSummary();
+            });
+        });
+
+        // Checkout button
+        document.getElementById('checkoutBtn')?.addEventListener('click', function() {
+            var selected = document.querySelectorAll('.item-checkbox:checked:not(:disabled)');
+            if (selected.length === 0) return;
+
+            var params = new URLSearchParams();
+            selected.forEach(function(cb) { params.append('cartItemIds', cb.value); });
+            window.location.href = '/mobile/Orders/CartCheckout?' + params.toString();
+        });
+
+        // Initial calculation
+        updateOrderSummary();
+        document.querySelectorAll('.mobile-cart-shop-group').forEach(function(group) {
+            var shopId = group.dataset.shopId;
+            if (shopId) updateShopSelectAll(shopId);
+        });
+    })();
+</script>

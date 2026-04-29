@@ -1,0 +1,176 @@
+﻿@model ThriftLoop.ViewModels.CartCheckoutViewModel
+@{
+    ViewData["Title"] = "Confirm Cart Checkout";
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-orders.css" asp-append-version="true" />
+}
+
+<div class="cart-checkout-page">
+    <!-- Back Link -->
+    <a asp-action="Index" asp-controller="Cart" class="back-link">
+        ← Back to Cart
+    </a>
+
+    <!-- Header -->
+    <div class="checkout-header">
+        <h1>Confirm Your Purchase</h1>
+        <p>Review your items and complete checkout.</p>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="toast toast--error">
+            <span>❌ @errMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    <!-- Items List -->
+    <div class="section">
+        <h3 class="section__title">Items (@Model.Items.Count)</h3>
+        <div class="cart-items-list">
+            @foreach (var item in Model.Items)
+            {
+                <div class="cart-item-card">
+                    <div class="cart-item-card__image">
+                        @if (!string.IsNullOrEmpty(item.ItemImageUrl))
+                        {
+                            <img src="@item.ItemImageUrl" alt="@item.ItemTitle" />
+                        }
+                        else
+                        {
+                            <div class="cart-item-card__image-placeholder">📷</div>
+                        }
+                    </div>
+                    <div class="cart-item-card__info">
+                        <h4>@item.ItemTitle</h4>
+                        <div class="cart-item-card__meta">
+                            @if (!string.IsNullOrEmpty(item.ShopName))
+                            {
+                                <span class="cart-item-card__shop">🏪 @item.ShopName</span>
+                            }
+                            <span>@item.VariantName</span>
+                            @if (!string.IsNullOrEmpty(item.Size))
+                            {
+                                <span>• @item.Size</span>
+                            }
+                        </div>
+                        <div class="cart-item-card__bottom">
+                            <span class="cart-item-card__qty">×@item.Quantity</span>
+                            <span class="cart-item-card__price">₱@item.LineTotal.ToString("N2")</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="section">
+        <h3 class="section__title">Order Summary</h3>
+        <div class="price-breakdown">
+            <div class="price-row">
+                <span>Items Subtotal (@Model.Items.Count items)</span>
+                <span>₱@Model.Subtotal.ToString("N2")</span>
+            </div>
+            <div class="price-row">
+                <span>Delivery Fee (@Model.ShopCount shop@(Model.ShopCount > 1 ? "s" : ""))</span>
+                <span>₱@Model.TotalDeliveryFee.ToString("N2")</span>
+            </div>
+            <div class="price-divider"></div>
+            <div class="price-row price-row--total">
+                <span>Total</span>
+                <span>₱@Model.GrandTotal.ToString("N2")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wallet Balance -->
+    <div class="wallet-status @(Model.HasSufficientBalance ? "wallet-status--ok" : "wallet-status--low")">
+        <div class="wallet-status__icon">💳</div>
+        <div class="wallet-status__info">
+            <span class="wallet-status__label">Your Balance</span>
+            <span class="wallet-status__amount">₱@Model.BuyerBalance.ToString("N2")</span>
+        </div>
+    </div>
+
+    @if (!Model.HasSufficientBalance)
+    {
+        <div class="notice notice--warning">
+            <div class="notice__icon">⚠️</div>
+            <div class="notice__content">
+                <p>Insufficient balance. Please <a asp-action="AddFunds" asp-controller="Wallet">add funds</a> or use Cash on Delivery.</p>
+            </div>
+        </div>
+    }
+
+    <!-- Payment Method -->
+    <div class="section">
+        <h3 class="section__title">Payment method</h3>
+        <div class="payment-options">
+            <label class="payment-option @(!Model.HasSufficientBalance ? "payment-option--disabled" : "")">
+                <input type="radio" name="paymentMethod" value="wallet" class="payment-radio"
+                @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                <div class="payment-option__icon">💳</div>
+                <div class="payment-option__content">
+                    <span class="payment-option__title">Pay with Wallet</span>
+                    <span class="payment-option__detail">Funds held in escrow until delivery</span>
+                </div>
+            </label>
+            <label class="payment-option">
+                <input type="radio" name="paymentMethod" value="cod" class="payment-radio" checked />
+                <div class="payment-option__icon">💵</div>
+                <div class="payment-option__content">
+                    <span class="payment-option__title">Cash on Delivery</span>
+                    <span class="payment-option__detail">Pay cash when your items arrive</span>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <!-- Confirm Form -->
+    <div class="checkout-actions">
+        <form asp-action="CartCheckoutConfirm" asp-controller="Orders" method="post" id="confirmForm">
+            @Html.AntiForgeryToken()
+            @foreach (var item in Model.Items)
+            {
+                <input type="hidden" name="cartItemIds" value="@item.CartItemId" />
+            }
+            <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                   value="@(Model.HasSufficientBalance ? "wallet" : "cod")" />
+            <button type="submit" class="btn btn--primary btn--full btn--lg" id="confirmBtn">
+                ✓ Confirm Order (@Model.Items.Count item@(Model.Items.Count > 1 ? "s" : ""))
+            </button>
+        </form>
+        <p class="terms-note">
+            By confirming, you agree to our Terms of Service. Orders cannot be cancelled once confirmed.
+        </p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function() {
+            var paymentRadios = document.querySelectorAll('.payment-radio');
+            var paymentHidden = document.getElementById('paymentMethodInput');
+            var form = document.getElementById('confirmForm');
+            var btn = document.getElementById('confirmBtn');
+
+            paymentRadios.forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    if (paymentHidden) paymentHidden.value = radio.value;
+                });
+            });
+
+            if (form && btn) {
+                form.addEventListener('submit', function() {
+                    btn.disabled = true;
+                    btn.textContent = 'Confirming\u2026';
+                });
+            }
+        })();
+    </script>
+}

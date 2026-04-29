@@ -1,0 +1,340 @@
+﻿/* --------------------------------------------- */
+/* MOBILE PROFILE — ThriftLoop                     */
+/* --------------------------------------------- */
+
+:root {
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-bg: #f9f9fb;
+    --c-surface: #ffffff;
+    --c-border: #e4e4ea;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+    --c-success: #0e6245;
+    --c-success-bg: #e8f3ef;
+    --c-error: #b91c1c;
+    --c-error-bg: #fee9e9;
+    --c-warning: #d97706;
+    --c-warning-bg: #fef3c7;
+    --c-info: #1e40af;
+    --c-info-bg: #e0edff;
+}
+
+.mobile-profile-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+    background: var(--c-bg);
+}
+
+/* ── Profile Card ────────────────────────────────────────────────────────── */
+
+.mobile-profile-card {
+    background: var(--c-surface);
+    padding: 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.mobile-profile-card__avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0 auto 12px;
+}
+
+.mobile-profile-card__name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 8px;
+}
+
+.mobile-profile-card__badges {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.mobile-profile-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+}
+
+.mobile-profile-badge--google {
+    background: #e8f0fe;
+    color: #1a73e8;
+}
+
+.mobile-profile-badge--warning {
+    background: var(--c-warning-bg);
+    color: #92400e;
+}
+
+.mobile-profile-badge--success {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+}
+
+.mobile-profile-badge--error {
+    background: var(--c-error-bg);
+    color: var(--c-error);
+}
+
+.mobile-profile-card__info {
+    text-align: left;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.mobile-profile-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--c-border);
+    font-size: 0.82rem;
+}
+
+    .mobile-profile-info-row:last-child {
+        border-bottom: none;
+    }
+
+.mobile-profile-info-row__label {
+    color: var(--c-muted);
+}
+
+.mobile-profile-info-row__value {
+    color: var(--c-text);
+    font-weight: 500;
+}
+
+/* ── Profile Sections ────────────────────────────────────────────────────── */
+
+.mobile-profile-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-surface);
+}
+
+.mobile-profile-section__title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 12px;
+}
+
+.mobile-profile-hint {
+    font-size: 0.78rem;
+    color: var(--c-muted-light);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+/* ── Form Fields (match mobile-items) ────────────────────────────────────── */
+
+.mobile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.mobile-field__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--c-text);
+}
+
+.mobile-field-error {
+    font-size: 0.72rem;
+    color: var(--c-error);
+    margin-top: 2px;
+}
+
+.mobile-edit-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--c-border);
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: inherit;
+    -webkit-appearance: none;
+    transition: border-color 0.2s;
+}
+
+    .mobile-edit-input:focus {
+        outline: none;
+        border-color: var(--c-primary);
+    }
+
+    .mobile-edit-input::placeholder {
+        color: var(--c-muted-light);
+    }
+
+.mobile-edit-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--c-border);
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    line-height: 1.5;
+    -webkit-appearance: none;
+    transition: border-color 0.2s;
+}
+
+    .mobile-edit-textarea:focus {
+        outline: none;
+        border-color: var(--c-primary);
+    }
+
+    .mobile-edit-textarea::placeholder {
+        color: var(--c-muted-light);
+    }
+
+.mobile-edit-textarea--error {
+    border-color: var(--c-error) !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.mobile-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.15s;
+}
+
+.mobile-btn--primary {
+    background: var(--c-primary);
+    color: white;
+}
+
+    .mobile-btn--primary:active {
+        background: var(--c-primary-light);
+    }
+
+.mobile-btn--outline {
+    background: var(--c-surface);
+    color: var(--c-primary);
+    border: 1.5px solid var(--c-primary);
+}
+
+.mobile-btn--ghost {
+    background: var(--c-bg);
+    color: var(--c-text);
+    border: 1.5px solid var(--c-border);
+}
+
+/* ── Toasts ──────────────────────────────────────────────────────────────── */
+
+.mobile-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.mobile-toast--success {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+    border: 1px solid #a7f3d0;
+}
+
+.mobile-toast--error {
+    background: var(--c-error-bg);
+    color: var(--c-error);
+    border: 1px solid #fecaca;
+}
+
+.mobile-toast--warning {
+    background: var(--c-warning-bg);
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+.mobile-toast--info {
+    background: var(--c-info-bg);
+    color: var(--c-info);
+    border: 1px solid #bfdbfe;
+}
+
+/* ── Map Pick Button ─────────────────────────────────────────────────────── */
+
+.mobile-address-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+    .mobile-address-row .mobile-edit-textarea {
+        flex: 1;
+    }
+
+.mobile-map-pick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1.5px dashed var(--c-primary);
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.65rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+}
+
+    .mobile-map-pick-btn:hover {
+        background: var(--c-primary);
+        color: white;
+    }
+
+.mobile-field__hint {
+    font-size: 0.7rem;
+    color: var(--c-muted-light);
+    margin-top: 4px;
+    display: block;
+}

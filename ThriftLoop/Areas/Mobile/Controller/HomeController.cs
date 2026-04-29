@@ -31,16 +31,19 @@ public class HomeController : BaseController
 
     public async Task<IActionResult> Index()
     {
-        // Only redirect admins — riders can browse the feed too
+        // Admins → admin dashboard (main area)
         if (User.Identity?.IsAuthenticated == true && User.IsInRole("Admin"))
         {
             _logger.LogInformation("Mobile: Admin redirected to Admin dashboard.");
-            return RedirectToAction("Index", "Admin", new { area = "Mobile" });
+            return RedirectToAction("Index", "Admin");
         }
 
-        // DO NOT redirect riders — they should be able to browse the public feed
-        // The main site redirects riders because they have a dedicated dashboard,
-        // but on mobile we let everyone see the feed.
+        // Riders → rider dashboard (main area, completely separate experience)
+        if (User.Identity?.IsAuthenticated == true && User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+        {
+            _logger.LogInformation("Mobile: Rider redirected to Rider dashboard.");
+            return RedirectToAction("Index", "Rider");
+        }
 
         var items = await _itemRepository.GetAllAsync();
 

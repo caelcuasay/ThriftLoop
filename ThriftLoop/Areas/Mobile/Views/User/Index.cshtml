@@ -1,0 +1,179 @@
+﻿@model ThriftLoop.DTOs.User.UpdateProfileDTO
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "My Profile";
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+
+    var profile = ViewBag.Profile as ThriftLoop.DTOs.User.UserProfileDTO;
+    var sellerApp = ViewBag.SellerApplication as ThriftLoop.DTOs.User.SellerApplicationStatusDTO;
+
+    var addrError = ViewData.ModelState.ContainsKey("Address")
+                    && ViewData.ModelState["Address"]!.Errors.Count > 0;
+    var addrErrorMsg = addrError
+                       ? ViewData.ModelState["Address"]!.Errors[0].ErrorMessage
+                       : string.Empty;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-user.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/map-picker.css" asp-append-version="true" />
+}
+
+<div class="profile-page">
+    <!-- Profile Header Card -->
+    <div class="profile-header">
+        <div class="profile-avatar">
+            @(profile?.FullName?.FirstOrDefault().ToString().ToUpper() ?? "U")
+        </div>
+        <div class="profile-info">
+            <h2>@(profile?.FullName ?? "User")</h2>
+            <p>@profile?.Email</p>
+            <div class="profile-badges">
+                <span class="profile-badge profile-badge--role">@profile?.Role</span>
+                @if (profile?.Role == "Seller")
+                {
+                    <span class="profile-badge profile-badge--seller">Verified Seller</span>
+                }
+                @if (profile?.IsGoogleAccount == true)
+                {
+                    <span class="profile-badge profile-badge--google">Google</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Info -->
+    <div class="info-card">
+        <div class="info-card__title">Account Information</div>
+        <div class="info-row">
+            <span class="info-row__label">Member Since</span>
+            <span class="info-row__value">@profile?.CreatedAt.ToString("MMMM d, yyyy")</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(profile?.PhoneNumber))
+        {
+            <div class="info-row">
+                <span class="info-row__label">Phone</span>
+                <span class="info-row__value">@profile?.PhoneNumber</span>
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(profile?.Address))
+        {
+            <div class="info-row">
+                <span class="info-row__label">Address</span>
+                <span class="info-row__value">@profile?.Address</span>
+            </div>
+        }
+    </div>
+
+    <!-- Seller CTA -->
+    @if (profile?.Role != "Seller" && profile?.Role != "Admin")
+    {
+        <div class="seller-cta-card">
+            <a asp-action="Requests" class="btn btn--primary btn--full">
+                Become a Seller
+            </a>
+            <p class="seller-cta-card__hint">Start selling your items to thousands of buyers</p>
+            @if (sellerApp != null && sellerApp.Status == ApplicationStatus.Pending)
+            {
+                <div class="toast toast--info" style="margin-top: 10px; margin-bottom: 0;">
+                    <span>⏳ Seller application pending review</span>
+                </div>
+            }
+            else if (sellerApp != null && sellerApp.Status == ApplicationStatus.Rejected)
+            {
+                <div class="toast toast--warning" style="margin-top: 10px; margin-bottom: 0;">
+                    <span>⚠️ Previous application rejected — you can reapply</span>
+                </div>
+            }
+        </div>
+    }
+    else if (profile?.Role == "Seller")
+    {
+        <div class="seller-cta-card">
+            <a asp-action="Index" asp-controller="Shop" class="btn btn--primary btn--full">
+                Manage Your Shop
+            </a>
+        </div>
+    }
+
+    @if (TempData["ProfileSuccess"] != null)
+    {
+        <div class="toast toast--success">
+            <span>✅ @TempData["ProfileSuccess"]</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    @if (TempData["InfoMessage"] != null)
+    {
+        <div class="toast toast--info">
+            <span>ℹ️ @TempData["InfoMessage"]</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    <!-- Edit Profile Form -->
+    <div class="form-card">
+        <form method="post" asp-action="UpdateProfile">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label asp-for="FullName" class="form-label">Full Name</label>
+                <input asp-for="FullName"
+                       class="form-input @(ViewData.ModelState.ContainsKey("FullName") && ViewData.ModelState["FullName"]!.Errors.Count > 0 ? "form-input--error" : "")"
+                       placeholder="Enter your full name" />
+                <span asp-validation-for="FullName" class="form-error"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PhoneNumber" class="form-label">Phone Number</label>
+                <input asp-for="PhoneNumber"
+                       class="form-input @(ViewData.ModelState.ContainsKey("PhoneNumber") && ViewData.ModelState["PhoneNumber"]!.Errors.Count > 0 ? "form-input--error" : "")"
+                       placeholder="e.g., +63 912 345 6789" />
+                <span asp-validation-for="PhoneNumber" class="form-error"></span>
+                <span class="form-hint">Include country code for better delivery coordination</span>
+            </div>
+
+            @await Html.PartialAsync("_AddressInputWithMap", (object?)null,
+                new ViewDataDictionary(ViewData)
+                {
+                    { "FieldId",      "Address" },
+                    { "FieldName",    "Address" },
+                    { "Label",        "Address" },
+                    { "CurrentValue", Model?.Address ?? string.Empty },
+                    { "Placeholder",  "Street, Barangay, City/Municipality, Province" },
+                    { "HintText",     "Your delivery address for purchases — or click Map to pin it" },
+                    { "HasError",     addrError },
+                    { "ErrorMessage", addrErrorMsg }
+                })
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn--primary btn--full">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @if (!profile?.IsGoogleAccount == true)
+    {
+        <div class="security-card">
+            <div class="security-card__header">
+                <span class="security-card__title">Password & Security</span>
+            </div>
+            <p class="security-card__desc">Want to change your password? You can reset it from the login page.</p>
+            <a asp-controller="Auth" asp-action="ForgotPassword" class="btn btn--outline btn--sm">
+                Reset Password
+            </a>
+        </div>
+    }
+</div>
+
+@await Html.PartialAsync("_AddressMapModal")
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="~/js/map-picker.js" asp-append-version="true"></script>
+}

@@ -36,7 +36,13 @@ public class AuthController : Controller
     public IActionResult Register()
     {
         if (User.Identity?.IsAuthenticated == true)
+        {
+            // Riders should not be in the mobile user area
+            if (User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+                return RedirectToAction("Index", "Rider");
+
             return RedirectToAction("Index", "Home", new { area = "Mobile" });
+        }
 
         return View();
     }
@@ -70,7 +76,14 @@ public class AuthController : Controller
     public IActionResult RiderRegister()
     {
         if (User.Identity?.IsAuthenticated == true)
+        {
+            // Already logged in riders go to their dashboard
+            if (User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+                return RedirectToAction("Index", "Rider");
+
+            // Regular users go to mobile home
             return RedirectToAction("Index", "Home", new { area = "Mobile" });
+        }
 
         return View();
     }
@@ -136,11 +149,12 @@ public class AuthController : Controller
     {
         if (User.Identity?.IsAuthenticated == true)
         {
-            // Admin → mobile home (no dedicated admin area yet)
+            // Admin → admin dashboard (main area, not mobile)
             if (User.IsInRole("Admin"))
-                return RedirectToAction("Index", "Home", new { area = "Mobile" });
+                return RedirectToAction("Index", "Admin");
 
-            var isRider = User.HasClaim(c => c.Type == "IsRider");
+            // Rider → rider dashboard (main area, completely separate experience)
+            var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
             if (isRider)
             {
                 var riderIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -149,10 +163,13 @@ public class AuthController : Controller
                     var rider = await _riderAuthService.GetByIdAsync(riderId);
                     if (rider != null && !rider.IsApproved)
                         return RedirectToAction("RiderApproval", "Auth", new { area = "Mobile" });
+
+                    // Approved rider → rider dashboard (main area)
+                    return RedirectToAction("Index", "Rider");
                 }
-                // Approved riders go to the mobile Home feed (no dedicated Rider area yet)
-                return RedirectToAction("Index", "Home", new { area = "Mobile" });
             }
+
+            // Regular user → mobile home
             return RedirectToLocal(returnUrl);
         }
 
@@ -170,33 +187,36 @@ public class AuthController : Controller
         if (!ModelState.IsValid)
             return View(dto);
 
+        // First try regular user
         var user = await _authService.ValidateCredentialsAsync(dto);
         if (user is not null)
         {
             await SignInUserAsync(user, dto.RememberMe);
             _logger.LogInformation("Mobile: User {UserId} logged in.", user.Id);
 
-            // Admin → mobile home (no dedicated admin area yet)
+            // Admin → admin dashboard (main area)
             if (user.Role == Enums.UserRole.Admin)
-                return RedirectToAction("Index", "Home", new { area = "Mobile" });
+                return RedirectToAction("Index", "Admin");
 
+            // Regular user → mobile home
             return RedirectToLocal(returnUrl);
         }
 
+        // Then try rider
         var rider = await _riderAuthService.ValidateCredentialsAsync(dto);
         if (rider is not null)
         {
             if (!rider.IsApproved)
             {
                 await SignInRiderAsync(rider, dto.RememberMe);
-                _logger.LogInformation("Mobile: Rider {RiderId} logged in, redirecting to approval.", rider.Id);
+                _logger.LogInformation("Mobile: Unapproved rider {RiderId} logged in, redirecting to approval.", rider.Id);
                 return RedirectToAction("RiderApproval", new { area = "Mobile" });
             }
 
             await SignInRiderAsync(rider, dto.RememberMe);
-            _logger.LogInformation("Mobile: Rider {RiderId} logged in.", rider.Id);
-            // Approved riders go to the mobile Home feed
-            return RedirectToAction("Index", "Home", new { area = "Mobile" });
+            _logger.LogInformation("Mobile: Rider {RiderId} logged in, redirecting to rider dashboard.", rider.Id);
+            // Approved riders go to their dedicated dashboard (main area, not mobile)
+            return RedirectToAction("Index", "Rider");
         }
 
         ModelState.AddModelError(string.Empty, "Invalid email or password.");
@@ -210,7 +230,13 @@ public class AuthController : Controller
     public IActionResult ForgotPassword()
     {
         if (User.Identity?.IsAuthenticated == true)
+        {
+            // Riders go to their dashboard
+            if (User.HasClaim(c => c.Type == "IsRider" && c.Value == "true"))
+                return RedirectToAction("Index", "Rider");
+
             return RedirectToAction("Index", "Home", new { area = "Mobile" });
+        }
 
         return View();
     }
@@ -327,9 +353,9 @@ public class AuthController : Controller
 
         _logger.LogInformation("Mobile: User {UserId} signed in via Google.", user.Id);
 
-        // Admin → mobile home (no dedicated admin area yet)
+        // Admin → admin dashboard (main area)
         if (user.Role == Enums.UserRole.Admin)
-            return RedirectToAction("Index", "Home", new { area = "Mobile" });
+            return RedirectToAction("Index", "Admin");
 
         return RedirectToLocal(returnUrl);
     }

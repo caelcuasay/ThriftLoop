@@ -3,10 +3,14 @@
     var currentPath = Context.Request.Path.Value ?? string.Empty;
     var isAuthPage = currentPath.StartsWith("/mobile/auth", StringComparison.OrdinalIgnoreCase);
     var isRider = User.HasClaim(c => c.Type == "IsRider" && c.Value == "true");
+    var isSeller = User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "Seller");
 }
 
 @* Only show bottom nav on non-auth, non-rider pages when authenticated *@
-@if (!isAuthPage && !isRider && User.Identity?.IsAuthenticated == true)
+@{
+    var isConversationPage = currentPath.StartsWith("/mobile/chat/conversation", StringComparison.OrdinalIgnoreCase);
+}
+@if (!isAuthPage && !isRider && !isConversationPage && User.Identity?.IsAuthenticated == true)
 {
     <nav class="mobile-bottom-nav">
         <a asp-controller="Home" asp-action="Index" asp-area="Mobile"
@@ -26,12 +30,60 @@
             <span>Chat</span>
         </a>
 
-        <a asp-controller="Items" asp-action="Create" asp-area="Mobile"
-               class="mobile-bottom-nav__create">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26">
-                <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
-            </svg>
-        </a>
+        <div class="mobile-fab-menu">
+            <div class="mobile-fab-menu__backdrop" onclick="toggleFabMenu()"></div>
+            <div class="mobile-fab-menu__items">
+                <a asp-controller="Items" asp-action="Create" asp-area="Mobile" class="mobile-fab-menu__item">
+                    <div class="mobile-fab-menu__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                            <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <span class="mobile-fab-menu__label">Add Listing</span>
+                </a>
+                <a asp-controller="Items" asp-action="Index" asp-area="Mobile" class="mobile-fab-menu__item">
+                    <div class="mobile-fab-menu__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                    </div>
+                    <span class="mobile-fab-menu__label">View Listings</span>
+                </a>
+                @if (isSeller)
+                {
+                    <a asp-controller="Shop" asp-action="Create" asp-area="Mobile" class="mobile-fab-menu__item">
+                        <div class="mobile-fab-menu__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                <line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
+                        </div>
+                        <span class="mobile-fab-menu__label">Add Shop Item</span>
+                    </a>
+                }
+            </div>
+            <button type="button" class="mobile-bottom-nav__create" onclick="toggleFabMenu()" aria-label="Add new">
+                <svg class="mobile-bottom-nav__create-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26">
+                    <path d="M12 5v14m-7-7h14" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+
+        <script>
+                function toggleFabMenu() {
+                    var menu = document.querySelector('.mobile-fab-menu');
+                    if (menu) menu.classList.toggle('is-open');
+                }
+
+                // Close FAB menu when clicking backdrop
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest('.mobile-fab-menu__backdrop')) {
+                        var menu = document.querySelector('.mobile-fab-menu');
+                        if (menu) menu.classList.remove('is-open');
+                    }
+                });
+        </script>
 
         <a asp-controller="Cart" asp-action="Index" asp-area="Mobile"
                class="mobile-bottom-nav__item @(currentPath.StartsWith("/mobile/cart", StringComparison.OrdinalIgnoreCase) ? "mobile-bottom-nav__item--active" : "")">

@@ -1,0 +1,330 @@
+﻿@model ThriftLoop.ViewModels.ShopItemCreateViewModel
+@using ThriftLoop.Constants
+@{
+    ViewData["Title"] = "Add Item";
+    var maxImages = ItemConstants.MaxImagesPerListing;
+}
+
+<div class="mobile-shop-create-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-shop-create-header">
+        <h1 class="mobile-shop-create-header__title">Add New Item</h1>
+        <p class="mobile-shop-create-header__sub">@Model.ShopName</p>
+    </div>
+
+    <input type="hidden" id="afToken" value="@(Context.Request.Headers["RequestVerificationToken"].FirstOrDefault() ?? "")" />
+    <input type="hidden" id="shopId" value="@Model.ShopId" />
+
+    <div class="mobile-toast mobile-toast--error" id="globalError" hidden>
+        <span id="globalErrorText"></span>
+    </div>
+
+    @* ── Section 1: Item Details ─────────────────────────────────────────── *@
+    <div class="mobile-shop-create-section">
+        <h2 class="mobile-shop-create-section__title">Item Details</h2>
+
+        <div class="mobile-edit-field">
+            <label class="mobile-edit-field__label" for="itemTitle">Title</label>
+            <input id="itemTitle" type="text" class="mobile-edit-input" placeholder="e.g. Vintage Oversized Tee" maxlength="100" />
+            <p class="mobile-edit-field__error" id="errTitle" hidden></p>
+        </div>
+
+        <div class="mobile-edit-field">
+            <label class="mobile-edit-field__label" for="itemDesc">Description</label>
+            <textarea id="itemDesc" class="mobile-edit-textarea" rows="4" placeholder="Describe the item — material, fit, notable features…" maxlength="1000"></textarea>
+            <p class="mobile-edit-field__error" id="errDesc" hidden></p>
+        </div>
+
+        <div class="mobile-edit-field">
+            <label class="mobile-edit-field__label" for="itemCategory">Category</label>
+            <select id="itemCategory" class="mobile-edit-select">
+                <option value="">Select category…</option>
+                @foreach (var cat in ItemConstants.Categories)
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+            <p class="mobile-edit-field__error" id="errCategory" hidden></p>
+        </div>
+
+        <div class="mobile-edit-field">
+            <label class="mobile-edit-field__label" for="itemCondition">Condition</label>
+            <select id="itemCondition" class="mobile-edit-select">
+                <option value="">Select condition…</option>
+                @foreach (var cond in ItemConstants.Conditions)
+                {
+                    <option value="@cond">@cond</option>
+                }
+            </select>
+            <p class="mobile-edit-field__error" id="errCondition" hidden></p>
+        </div>
+    </div>
+
+    @* ── Section 2: Images ───────────────────────────────────────────────── *@
+    <div class="mobile-shop-create-section">
+        <h2 class="mobile-shop-create-section__title">Images <span style="font-weight:400;color:var(--c-muted-light);font-size:0.7rem;">Up to @maxImages · First is cover</span></h2>
+        <div class="mobile-shop-image-grid" id="imageGrid"></div>
+        <p class="mobile-edit-field__error" id="errImages" hidden></p>
+    </div>
+
+    @* ── Section 3: Variants ─────────────────────────────────────────────── *@
+    <div class="mobile-shop-create-section">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div>
+                <h2 class="mobile-shop-create-section__title" style="margin-bottom:2px;">Variants &amp; Inventory</h2>
+                <p style="font-size:0.7rem;color:var(--c-muted-light);">Each variant is a colour, style, or option.</p>
+            </div>
+            <button type="button" class="mobile-shop-add-variant-btn" id="addVariantBtn">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z" /></svg>
+                Add Variant
+            </button>
+        </div>
+
+        <div id="variantList"></div>
+        <p class="mobile-edit-field__error" id="errVariants" hidden></p>
+    </div>
+
+    @* ── Publish Button ──────────────────────────────────────────────────── *@
+    <div class="mobile-shop-create-submit">
+        <a asp-action="Index" asp-controller="Shop" asp-area="Mobile" asp-route-id="@Model.ShopId" class="mobile-btn mobile-btn--ghost">Cancel</a>
+        <button type="button" class="mobile-btn mobile-btn--primary" id="publishBtn">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8.75 1.75a.75.75 0 00-1.5 0V8H3.75a.75.75 0 000 1.5h3.5V13a.75.75 0 001.5 0V9.5h3.5a.75.75 0 000-1.5H8.75V1.75z" /></svg>
+            Publish Item
+        </button>
+    </div>
+</div>
+
+@* SKU row template ─────────────────────────────────────────────────────── *@
+<template id="skuTemplate">
+    <div class="mobile-shop-sku-row">
+        <select class="mobile-shop-sku-size">
+            <option value="">No size</option>
+            @foreach (var sz in ItemConstants.Sizes)
+            {
+                <option value="@sz">@sz</option>
+            }
+        </select>
+        <div style="position:relative;flex:1;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.8rem;color:var(--c-muted);">₱</span>
+            <input type="number" class="mobile-shop-sku-price" placeholder="0.00" min="0.01" step="0.01" style="padding-left:24px;" />
+        </div>
+        <input type="number" class="mobile-shop-sku-qty" placeholder="Qty" min="1" max="9999" step="1" />
+        <button type="button" class="mobile-shop-sku-remove" aria-label="Remove SKU">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" /></svg>
+        </button>
+    </div>
+</template>
+
+<script>
+    (function() {
+        'use strict';
+
+        var AF_TOKEN = document.getElementById('afToken').value;
+        var SHOP_ID = parseInt(document.getElementById('shopId').value);
+        var MAX_IMAGES = @maxImages;
+        var CREATE_URL = '/mobile/Shop/Create';
+        var IMG_UPLOAD_URL = '/mobile/Shop/SaveListingImage';
+
+        var imageFiles = new Array(MAX_IMAGES).fill(null);
+
+        function showError(id, msg) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = msg;
+            el.hidden = !msg;
+        }
+
+        function showGlobal(msg) {
+            var el = document.getElementById('globalError');
+            document.getElementById('globalErrorText').textContent = msg;
+            el.hidden = !msg;
+            if (msg) el.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function postJson(url, body) {
+            var res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': AF_TOKEN },
+                body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        async function uploadFile(url, formData) {
+            var res = await fetch(url, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': AF_TOKEN },
+                body: formData
+            });
+            return res.json();
+        }
+
+        function showToast(msg, type) {
+            var toast = document.createElement('div');
+            toast.className = 'app-toast app-toast--' + (type || 'info');
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3200);
+        }
+
+        // ── Image Grid ──────────────────────────────────────────────────────────
+        var imageGrid = document.getElementById('imageGrid');
+
+        function renderImageSlots() {
+            imageGrid.innerHTML = '';
+            for (var i = 0; i < MAX_IMAGES; i++) {
+                (function(idx) {
+                    var slot = document.createElement('label');
+                    slot.className = 'mobile-shop-image-slot' + (idx === 0 ? ' mobile-shop-image-slot--cover' : '');
+
+                    var input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+                    input.className = 'mobile-shop-image-slot__input';
+
+                    if (imageFiles[idx]) {
+                        var img = document.createElement('img');
+                        img.src = URL.createObjectURL(imageFiles[idx]);
+                        img.className = 'mobile-shop-image-slot__preview';
+                        slot.appendChild(img);
+                        if (idx === 0) {
+                            var badge = document.createElement('span');
+                            badge.className = 'mobile-shop-image-slot__badge';
+                            badge.textContent = 'Cover';
+                            slot.appendChild(badge);
+                        }
+                    } else {
+                        var empty = document.createElement('div');
+                        empty.className = 'mobile-shop-image-slot__empty';
+                        empty.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg><span>' + (idx === 0 ? 'Cover' : '+') + '</span>';
+                        slot.appendChild(empty);
+                    }
+
+                    input.addEventListener('change', function() {
+                        var file = input.files[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) { showToast('Image exceeds 5 MB.', 'error'); return; }
+                        imageFiles[idx] = file;
+                        renderImageSlots();
+                    });
+
+                    slot.appendChild(input);
+                    imageGrid.appendChild(slot);
+                })(i);
+            }
+        }
+        renderImageSlots();
+
+        // ── Variant Builder ─────────────────────────────────────────────────────
+        var variantList = document.getElementById('variantList');
+        var addVariantBtn = document.getElementById('addVariantBtn');
+        var skuTemplate = document.getElementById('skuTemplate');
+
+        function addSku(skuBody) {
+            var row = skuTemplate.content.cloneNode(true).querySelector('.mobile-shop-sku-row');
+            row.querySelector('.mobile-shop-sku-remove').addEventListener('click', function() { row.remove(); });
+            skuBody.appendChild(row);
+        }
+
+        function addVariant() {
+            var card = document.createElement('div');
+            card.className = 'mobile-shop-variant-card';
+
+            card.innerHTML = '<div class="mobile-shop-variant-header">' +
+                '<input type="text" class="mobile-edit-input mobile-shop-variant-name" placeholder="e.g. Red, Navy, Classic Fit" maxlength="50" />' +
+                '<button type="button" class="mobile-shop-variant-remove" aria-label="Remove"><svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M11 1.75V3h2.25a.75.75 0 010 1.5H2.75a.75.75 0 010-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75z"/></svg></button>' +
+                '</div>' +
+                '<div class="mobile-shop-sku-list"></div>' +
+                '<button type="button" class="mobile-shop-add-sku-btn" style="margin-top:8px;"><svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z"/></svg> Add SKU</button>' +
+                '<p class="mobile-edit-field__error mobile-shop-variant-error" hidden></p>';
+
+            card.querySelector('.mobile-shop-variant-remove').addEventListener('click', function() { card.remove(); });
+            card.querySelector('.mobile-shop-add-sku-btn').addEventListener('click', function() { addSku(card.querySelector('.mobile-shop-sku-list')); });
+
+            variantList.appendChild(card);
+            addSku(card.querySelector('.mobile-shop-sku-list'));
+            card.querySelector('.mobile-shop-variant-name').focus();
+        }
+
+        addVariantBtn.addEventListener('click', addVariant);
+        addVariant();
+
+        // ── Publish ─────────────────────────────────────────────────────────────
+        document.getElementById('publishBtn').addEventListener('click', async function() {
+            var title = document.getElementById('itemTitle').value.trim();
+            var desc = document.getElementById('itemDesc').value.trim();
+            var category = document.getElementById('itemCategory').value;
+            var condition = document.getElementById('itemCondition').value;
+
+            ['errTitle','errDesc','errCategory','errCondition','errVariants','errImages'].forEach(function(id) { showError(id, ''); });
+            showGlobal('');
+
+            var valid = true;
+            if (!title) { showError('errTitle', 'Title is required.'); valid = false; }
+            if (!desc) { showError('errDesc', 'Description is required.'); valid = false; }
+            if (!category) { showError('errCategory', 'Please select a category.'); valid = false; }
+            if (!condition) { showError('errCondition', 'Please select a condition.'); valid = false; }
+            if (imageFiles.filter(Boolean).length === 0) { showToast('Add at least one image.', 'error'); valid = false; }
+
+            var variantCards = variantList.querySelectorAll('.mobile-shop-variant-card');
+            if (variantCards.length === 0) { showToast('Add at least one variant.', 'error'); valid = false; }
+
+            var variants = [];
+            variantCards.forEach(function(card) {
+                var name = card.querySelector('.mobile-shop-variant-name').value.trim();
+                var skuErr = card.querySelector('.mobile-shop-variant-error');
+                skuErr.hidden = true;
+
+                if (!name) { showToast('Each variant needs a name.', 'error'); valid = false; }
+
+                var skus = [];
+                card.querySelectorAll('.mobile-shop-sku-row').forEach(function(row) {
+                    var size = row.querySelector('.mobile-shop-sku-size').value;
+                    var price = parseFloat(row.querySelector('.mobile-shop-sku-price').value);
+                    var qty = parseInt(row.querySelector('.mobile-shop-sku-qty').value, 10);
+                    if (isNaN(price) || price <= 0) { skuErr.textContent = 'All SKUs need a valid price.'; skuErr.hidden = false; valid = false; return; }
+                    if (isNaN(qty) || qty < 1) { skuErr.textContent = 'All SKUs need a valid quantity.'; skuErr.hidden = false; valid = false; return; }
+                    skus.push({ size: size || null, price: price, quantity: qty });
+                });
+                if (skus.length === 0) { skuErr.textContent = 'Add at least one SKU.'; skuErr.hidden = false; valid = false; }
+                variants.push({ name: name, skus: skus });
+            });
+
+            if (!valid) return;
+
+            var btn = document.getElementById('publishBtn');
+            btn.disabled = true;
+            btn.textContent = 'Publishing…';
+
+            var payload = { shopId: SHOP_ID, title: title, description: desc, category: category, condition: condition, variants: variants };
+            var createRes = await postJson(CREATE_URL, payload);
+
+            if (!createRes.ok) {
+                showGlobal(createRes.error || 'Failed to create item.');
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8.75 1.75a.75.75 0 00-1.5 0V8H3.75a.75.75 0 000 1.5h3.5V13a.75.75 0 001.5 0V9.5h3.5a.75.75 0 000-1.5H8.75V1.75z"/></svg> Publish Item';
+                return;
+            }
+
+            var itemId = createRes.itemId;
+            var uploads = imageFiles.map(function(f, i) { return { file: f, slot: i }; }).filter(function(x) { return x.file !== null; });
+
+            for (var u = 0; u < uploads.length; u++) {
+                btn.textContent = 'Uploading image ' + (uploads[u].slot + 1) + '…';
+                var fd = new FormData();
+                fd.append('itemId', itemId);
+                fd.append('slot', uploads[u].slot);
+                fd.append('file', uploads[u].file);
+                var imgRes = await uploadFile(IMG_UPLOAD_URL, fd);
+                if (!imgRes.ok) {
+                    showGlobal('Item created but image ' + (uploads[u].slot + 1) + ' failed: ' + imgRes.error);
+                    btn.disabled = false;
+                    btn.textContent = 'Publish Item';
+                    return;
+                }
+            }
+
+            window.location.href = '/mobile/Shop/Index/' + SHOP_ID;
+        });
+    })();
+</script>

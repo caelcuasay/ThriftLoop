@@ -1,0 +1,199 @@
+﻿@model IReadOnlyList<ThriftLoop.Models.Delivery>
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Rider Dashboard";
+    var riderName = ViewBag.RiderName as string ?? "Rider";
+    var riderLat = ViewBag.RiderLatitude as decimal?;
+    var riderLng = ViewBag.RiderLongitude as decimal?;
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-rider.css" asp-append-version="true" />
+}
+
+@{
+    var availableDeliveries = Model?.Where(d => d.Status == DeliveryStatus.Available).ToList() ?? new List<Delivery>();
+}
+
+@{
+    var riderInitial = riderName.Length > 0 ? riderName[0].ToString().ToUpper() : "R";
+}
+
+<div class="mobile-rider-screen">
+    <!-- Header -->
+    <div class="mobile-rider-header">
+        <div>
+            <h1 class="mobile-rider-header__title">Welcome back, @riderName!</h1>
+            <p class="mobile-rider-header__subtitle">@availableDeliveries.Count available deliveries near you</p>
+        </div>
+        <div class="mobile-rider-header__avatar">@riderInitial</div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMsg)
+    {
+        <div class="mobile-rider-toast mobile-rider-toast--success" id="successToast">
+            <svg class="mobile-rider-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+            <span>@successMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="mobile-rider-toast mobile-rider-toast--error" id="errorToast">
+            <svg class="mobile-rider-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+            <span>@errMsg</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    @if (!availableDeliveries.Any())
+    {
+        <div class="mobile-rider-empty">
+            <div class="mobile-rider-empty__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </div>
+            <h3 class="mobile-rider-empty__title">No deliveries available</h3>
+            <p class="mobile-rider-empty__text">Check back later for new delivery requests.</p>
+            <a asp-action="History" class="mobile-rider-btn mobile-rider-btn--outline">View History</a>
+        </div>
+    }
+    else
+    {
+        <div class="mobile-rider-job-list">
+            @foreach (var delivery in availableDeliveries)
+            {
+                var order = delivery.Order;
+                var item = order?.Item;
+                var buyer = order?.Buyer;
+                
+                string sellerName;
+                decimal? sellerLat = null;
+                decimal? sellerLng = null;
+                
+                if (item?.ShopId != null && item?.Shop != null)
+                {
+                    sellerName = item.Shop.ShopName;
+                    sellerLat = item.Shop.Latitude;
+                    sellerLng = item.Shop.Longitude;
+                }
+                else if (order?.Seller != null)
+                {
+                    sellerName = order.Seller.Email?.Split('@')[0] ?? "Seller";
+                    sellerLat = order.Seller.Latitude;
+                    sellerLng = order.Seller.Longitude;
+                }
+                else
+                {
+                    sellerName = "Unknown Seller";
+                }
+                
+                var buyerLat = buyer?.Latitude;
+                var buyerLng = buyer?.Longitude;
+                var deliveryFee = order?.DeliveryFee ?? 50m;
+                
+                // Calculate distances
+                string deliveryDistanceText = "--";
+                string deliveryDistanceClass = "medium";
+                string riderDistanceText = "--";
+                string riderDistanceClass = "medium";
+                
+                if (sellerLat.HasValue && sellerLng.HasValue && buyerLat.HasValue && buyerLng.HasValue)
+                {
+                    var deliveryDist = CalculateDistance((double)sellerLat.Value, (double)sellerLng.Value, (double)buyerLat.Value, (double)buyerLng.Value);
+                    deliveryDistanceText = FormatDistance(deliveryDist);
+                    deliveryDistanceClass = GetDistanceClass(deliveryDist);
+                }
+                
+                if (riderLat.HasValue && riderLng.HasValue && sellerLat.HasValue && sellerLng.HasValue)
+                {
+                    var riderDist = CalculateDistance((double)riderLat.Value, (double)riderLng.Value, (double)sellerLat.Value, (double)sellerLng.Value);
+                    riderDistanceText = FormatDistance(riderDist);
+                    riderDistanceClass = GetDistanceClass(riderDist);
+                }
+
+                <a asp-action="DeliveryDetails" asp-route-id="@delivery.Id" class="mobile-rider-job-card">
+                    <div class="mobile-rider-job-card__main">
+                        <div class="mobile-rider-job-card__image">
+                            @if (!string.IsNullOrEmpty(item?.ImageUrl))
+                            {
+                                <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="mobile-rider-job-card__image-placeholder">📦</div>
+                            }
+                        </div>
+                        <div class="mobile-rider-job-card__info">
+                            <h3 class="mobile-rider-job-card__title">@(item?.Title ?? $"Item #{order?.ItemId}")</h3>
+                            <div class="mobile-rider-job-card__meta">
+                                <span class="mobile-rider-job-card__category">@(item?.Category ?? "General")</span>
+                                <span>@(item?.Condition ?? "N/A")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-rider-job-card__distances">
+                        <div class="mobile-rider-distance">
+                            <span class="mobile-rider-distance__label">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3.5 2A1.5 1.5 0 002 3.5v1A1.5 1.5 0 003.5 6h1A1.5 1.5 0 006 4.5v-1A1.5 1.5 0 004.5 2h-1zm11 1a1.5 1.5 0 00-1.5 1.5v1a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-1A1.5 1.5 0 0015.5 3h-1zm-11 8A1.5 1.5 0 002 12.5v1A1.5 1.5 0 003.5 15h1A1.5 1.5 0 006 13.5v-1A1.5 1.5 0 004.5 11h-1zm11 1a1.5 1.5 0 00-1.5 1.5v1a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-1a1.5 1.5 0 00-1.5-1.5h-1zM2 8a1 1 0 011-1h14a1 1 0 110 2H3a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                                Delivery Route
+                            </span>
+                            <span class="mobile-rider-distance__value mobile-rider-distance__value--@deliveryDistanceClass">@deliveryDistanceText</span>
+                        </div>
+                        <div class="mobile-rider-distance">
+                            <span class="mobile-rider-distance__label">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 003 9c0 3.492 1.698 5.988 3.355 7.546.829.799 1.654 1.381 2.274 1.765.311.193.57.337.757.433.09.047.169.087.233.116l.018.008.006.003zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
+                                From You
+                            </span>
+                            <span class="mobile-rider-distance__value mobile-rider-distance__value--@riderDistanceClass">@riderDistanceText</span>
+                        </div>
+                    </div>
+
+                    <div class="mobile-rider-job-card__footer">
+                        <span class="mobile-rider-payment-badge mobile-rider-payment-badge--@(order?.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
+                            @if (order?.PaymentMethod == PaymentMethod.Wallet)
+                            {
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.798 7.833c.15-.163.365-.233.576-.186.21.047.379.198.456.4l.258.688c.043.114.128.21.24.268l.729.367a.525.525 0 01.27.476v1.002a.525.525 0 01-.27.476l-.73.367a.525.525 0 00-.24.268l-.257.688a.525.525 0 01-.456.4.525.525 0 01-.576-.186l-.57-.62a.525.525 0 00-.387-.17H7.21a.525.525 0 01-.525-.525v-.998a.525.525 0 01.525-.525h.553a.525.525 0 00.387-.17l.57-.62zM10.5 11a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clip-rule="evenodd" /></svg>
+                            }
+                            else
+                            {
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" /></svg>
+                            }
+                            @(order?.PaymentMethod == PaymentMethod.Wallet ? "Wallet" : "COD")
+                        </span>
+                        <span class="mobile-rider-job-card__earnings">Earn ₱@deliveryFee.ToString("N2")</span>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@functions {
+    private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180.0;
+        var dLon = (lon2 - lon1) * Math.PI / 180.0;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+    
+    private string FormatDistance(double km)
+    {
+        if (km < 1) return $"{(km * 1000):F0} m";
+        return $"{km:F1} km";
+    }
+    
+    private string GetDistanceClass(double km)
+    {
+        if (km < 3) return "near";
+        if (km < 10) return "medium";
+        return "far";
+    }
+}

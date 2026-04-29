@@ -1,0 +1,377 @@
+﻿@model ThriftLoop.ViewModels.CheckoutViewModel
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = Model.WasStolen ? "Complete Your Steal" : "Confirm Purchase";
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+
+    string condClass = Model.ItemCondition switch
+    {
+        "New" => "cond--new",
+        "Like New" => "cond--like-new",
+        "Good" => "cond--good",
+        "Fair" => "cond--fair",
+        _ => "cond--poor"
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-orders.css" asp-append-version="true" />
+}
+
+<div class="checkout-page">
+    <!-- Back Link -->
+    <a asp-action="Details" asp-controller="@(Model.IsShopOrder ? "Shop" : "Items")" asp-route-id="@Model.ItemId" class="back-link">
+        ← Back to listing
+    </a>
+
+    <!-- Header -->
+    <div class="checkout-header">
+        <h1>@(Model.WasStolen ? "Complete Your Steal ⚡" : "Confirm Your Purchase")</h1>
+        <p>
+            @(Model.WasStolen
+                ? "You stole this item — complete checkout to secure it, or cancel to return it."
+                : "Review the details below before finalising.")
+        </p>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string errMsg)
+    {
+        <div class="toast toast--error">
+            <span>❌ @errMsg</span>
+            @if (errMsg.Contains("wallet") || errMsg.Contains("balance"))
+            {
+                <a asp-action="AddFunds" asp-controller="Wallet" class="toast__link">Add funds →</a>
+            }
+            <button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    }
+
+    <!-- Item Card -->
+    <div class="item-card">
+        <div class="item-card__image">
+            @if (!string.IsNullOrEmpty(Model.ItemImageUrl))
+            {
+                <img src="@Model.ItemImageUrl" alt="@Model.ItemTitle" />
+            }
+            else
+            {
+                <div class="item-card__image-placeholder">📷</div>
+            }
+            @if (Model.IsStealable)
+            {
+                <span class="item-card__steal-badge">
+                    ⚡ @(Model.WasStolen ? "Stolen" : "Stealable")
+                </span>
+            }
+        </div>
+        <div class="item-card__info">
+            <div class="item-card__meta">
+                <span class="item-card__category">@Model.ItemCategory</span>
+                <span class="item-card__condition @condClass">@Model.ItemCondition</span>
+                @if (!Model.IsShopOrder && !string.IsNullOrEmpty(Model.ItemSize))
+                {
+                    <span class="item-card__size">@Model.ItemSize</span>
+                }
+                @if (Model.IsShopOrder)
+                {
+                    @if (!string.IsNullOrEmpty(Model.SelectedVariantName) && Model.SelectedVariantName != "Default")
+                    {
+                        <span class="item-card__chip">@Model.SelectedVariantName</span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.SelectedSize))
+                    {
+                        <span class="item-card__chip">@Model.SelectedSize</span>
+                    }
+                    <span class="item-card__chip item-card__chip--qty">×@Model.Quantity</span>
+                }
+            </div>
+            <h2>@Model.ItemTitle</h2>
+            <div class="item-card__seller">
+                <div class="item-card__seller-avatar">@char.ToUpper(Model.SellerName.FirstOrDefault())</div>
+                <div>
+                    <span class="item-card__seller-label">Sold by</span>
+                    <span class="item-card__seller-name">@Model.SellerName</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fulfillment Method -->
+    <div class="section">
+        <h3 class="section__title">How would you like to receive this item?</h3>
+        <div class="fulfillment-options">
+            @if (Model.AllowDelivery)
+            {
+                <label class="fulfillment-option @(Model.SelectedFulfillmentMethod == "Delivery" ? "fulfillment-option--selected" : "")" data-method="Delivery">
+                    <input type="radio" name="fulfillmentMethod" value="Delivery" class="fulfillment-radio"
+                    @(Model.SelectedFulfillmentMethod == "Delivery" ? "checked" : "") />
+                    <div class="fulfillment-option__icon">🚚</div>
+                    <div class="fulfillment-option__content">
+                        <span class="fulfillment-option__title">Rider Delivery</span>
+                        <span class="fulfillment-option__price">+₱@Model.DeliveryFee.ToString("N2") delivery fee</span>
+                        <span class="fulfillment-option__desc">A rider will deliver. Pay delivery fee in cash.</span>
+                    </div>
+                </label>
+            }
+            @if (Model.AllowHalfway)
+            {
+                <label class="fulfillment-option @(Model.SelectedFulfillmentMethod == "Halfway" ? "fulfillment-option--selected" : "")" data-method="Halfway">
+                    <input type="radio" name="fulfillmentMethod" value="Halfway" class="fulfillment-radio"
+                    @(Model.SelectedFulfillmentMethod == "Halfway" ? "checked" : "") />
+                    <div class="fulfillment-option__icon">📍</div>
+                    <div class="fulfillment-option__content">
+                        <span class="fulfillment-option__title">Halfway Meetup</span>
+                        <span class="fulfillment-option__price">No delivery fee</span>
+                        <span class="fulfillment-option__desc">Meet the seller at a halfway point.</span>
+                    </div>
+                </label>
+            }
+            @if (Model.AllowPickup)
+            {
+                <label class="fulfillment-option @(Model.SelectedFulfillmentMethod == "Pickup" ? "fulfillment-option--selected" : "")" data-method="Pickup">
+                    <input type="radio" name="fulfillmentMethod" value="Pickup" class="fulfillment-radio"
+                    @(Model.SelectedFulfillmentMethod == "Pickup" ? "checked" : "") />
+                    <div class="fulfillment-option__icon">🏪</div>
+                    <div class="fulfillment-option__content">
+                        <span class="fulfillment-option__title">Pickup</span>
+                        <span class="fulfillment-option__price">No delivery fee</span>
+                        <span class="fulfillment-option__desc">Pick up directly from the seller's location.</span>
+                    </div>
+                </label>
+            }
+        </div>
+    </div>
+
+    <!-- Price Breakdown -->
+    <div class="section">
+        <h3 class="section__title">Order Summary</h3>
+        <div class="price-breakdown">
+            <div class="price-row">
+                <span>@(Model.IsShopOrder ? Model.ItemTitle : (Model.WasStolen ? "Base price" : "Item price"))</span>
+                <span>₱@Model.BasePrice.ToString("N2")</span>
+            </div>
+            @if (Model.IsShopOrder && Model.Quantity > 1)
+            {
+                <div class="price-row price-row--sub">
+                    <span>Quantity</span>
+                    <span>×@Model.Quantity</span>
+                </div>
+            }
+            @if (Model.WasStolen)
+            {
+                <div class="price-row price-row--steal">
+                    <span>⚡ Steal premium</span>
+                    <span>+₱@Model.StealPremium.ToString("N2")</span>
+                </div>
+            }
+            <div class="price-row price-row--delivery" id="deliveryFeeRow">
+                <span>🚚 Delivery Fee</span>
+                <span id="deliveryFeeValue">₱@Model.DeliveryFee.ToString("N2")</span>
+            </div>
+            <div class="price-divider"></div>
+            <div class="price-row price-row--total">
+                <span>Total</span>
+                <span id="finalPriceDisplay">₱@Model.FinalPrice.ToString("N2")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Method -->
+    <div class="section">
+        <h3 class="section__title">Payment method</h3>
+        <div class="payment-options">
+            <label class="payment-option @(!Model.HasSufficientBalance ? "payment-option--disabled" : "")">
+                <input type="radio" name="paymentMethod" value="Wallet" class="payment-radio"
+                @(Model.HasSufficientBalance ? "checked" : "disabled") />
+                <div class="payment-option__icon">💳</div>
+                <div class="payment-option__content">
+                    <span class="payment-option__title">ThriftLoop Wallet</span>
+                    <span class="payment-option__detail">
+                        Balance: <strong>₱@Model.BuyerBalance.ToString("N2")</strong>
+                        @if (!Model.HasSufficientBalance)
+                        {
+                            <span class="payment-option__insufficient">
+                                — insufficient
+                                <a asp-action="AddFunds" asp-controller="Wallet">add funds</a>
+                            </span>
+                        }
+                        else
+                        {
+                            <span> · held in escrow</span>
+                        }
+                    </span>
+                </div>
+            </label>
+            <label class="payment-option">
+                <input type="radio" name="paymentMethod" value="Cash" class="payment-radio"
+                @(!Model.HasSufficientBalance ? "checked" : "") />
+                <div class="payment-option__icon">💵</div>
+                <div class="payment-option__content">
+                    <span class="payment-option__title">Cash on Delivery / Meetup</span>
+                    <span class="payment-option__detail" id="cashPaymentDetail">
+                        @(Model.IsDeliverySelected ? "Pay cash to the rider upon delivery" : "Pay cash when you meet")
+                    </span>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <!-- Notices -->
+    @if (Model.WasStolen)
+    {
+        <div class="notice notice--warning">
+            <div class="notice__icon">⚠️</div>
+            <div class="notice__content">
+                <strong>Changed your mind?</strong>
+                <p>Cancel the steal — the ₱50 premium is removed and the item returns to available.</p>
+                <form asp-action="CancelSteal" asp-controller="Items" asp-route-id="@Model.ItemId" method="post" class="notice__action">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn--outline-danger btn--small">Cancel Steal</button>
+                </form>
+            </div>
+        </div>
+    }
+    else if (Model.IsShopOrder)
+    {
+        <div class="notice notice--info">
+            <div class="notice__icon">ℹ️</div>
+            <div class="notice__content">
+                <strong>Shop order</strong>
+                <p>You're purchasing from <strong>@Model.SellerName</strong>'s shop. Coordinate for delivery or pick-up after confirming.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="notice notice--info">
+            <div class="notice__icon">ℹ️</div>
+            <div class="notice__content">
+                <strong>P2P Transaction</strong>
+                <p>ThriftLoop connects buyers and sellers directly. Coordinate with <strong>@Model.SellerName</strong> after confirming.</p>
+            </div>
+        </div>
+    }
+
+    <!-- Confirm Form -->
+    <div class="checkout-actions">
+        @if (Model.IsShopOrder)
+        {
+            <form asp-action="ConfirmShopOrder" asp-controller="Orders" method="post" id="confirmForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="skuId" value="@Model.SkuId" />
+                <input type="hidden" name="quantity" value="@Model.Quantity" />
+                <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                       value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+                <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput"
+                       value="@Model.SelectedFulfillmentMethod" />
+                <button type="submit" class="btn btn--primary btn--full btn--lg" id="confirmBtn">
+                    ✓ Confirm Purchase
+                </button>
+            </form>
+        }
+        else
+        {
+            <form asp-action="ConfirmOrder" asp-controller="Orders" method="post" id="confirmForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="itemId" value="@Model.ItemId" />
+                <input type="hidden" name="paymentMethod" id="paymentMethodInput"
+                       value="@(Model.HasSufficientBalance ? "Wallet" : "Cash")" />
+                <input type="hidden" name="fulfillmentMethod" id="fulfillmentMethodInput"
+                       value="@Model.SelectedFulfillmentMethod" />
+                <button type="submit" class="btn btn--primary btn--full btn--lg" id="confirmBtn">
+                    ✓ @(Model.WasStolen ? "Confirm Steal Purchase" : "Confirm Purchase")
+                </button>
+            </form>
+        }
+        <a asp-action="Details" asp-controller="@(Model.IsShopOrder ? "Shop" : "Items")" asp-route-id="@Model.ItemId"
+               class="btn btn--ghost btn--full">
+            Cancel
+        </a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function() {
+            var paymentRadios = document.querySelectorAll('.payment-radio');
+            var paymentHidden = document.getElementById('paymentMethodInput');
+            var fulfillmentRadios = document.querySelectorAll('.fulfillment-radio');
+            var fulfillmentHidden = document.getElementById('fulfillmentMethodInput');
+            var fulfillmentOptions = document.querySelectorAll('.fulfillment-option');
+            var deliveryFeeRow = document.getElementById('deliveryFeeRow');
+            var deliveryFeeValue = document.getElementById('deliveryFeeValue');
+            var finalPriceDisplay = document.getElementById('finalPriceDisplay');
+            var cashDetail = document.getElementById('cashPaymentDetail');
+            var form = document.getElementById('confirmForm');
+            var btn = document.getElementById('confirmBtn');
+
+            var basePrice = @Model.BasePrice;
+            var stealPremium = @(Model.WasStolen ? Model.StealPremium : 0m);
+            var deliveryFee = @Model.DeliveryFee;
+
+            function updateFulfillmentUI(method) {
+                var isDelivery = method === 'Delivery';
+
+                fulfillmentOptions.forEach(function(opt) {
+                    opt.classList.remove('fulfillment-option--selected');
+                });
+                var selected = document.querySelector('.fulfillment-option[data-method="' + method + '"]');
+                if (selected) selected.classList.add('fulfillment-option--selected');
+
+                if (deliveryFeeRow) {
+                    deliveryFeeRow.style.display = isDelivery ? 'flex' : 'none';
+                }
+
+                var itemTotal = basePrice + stealPremium;
+                var finalPrice = isDelivery ? itemTotal + deliveryFee : itemTotal;
+
+                if (finalPriceDisplay) {
+                    finalPriceDisplay.textContent = '₱' + finalPrice.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+
+                if (cashDetail) {
+                    if (isDelivery) cashDetail.textContent = 'Pay cash to the rider upon delivery';
+                    else if (method === 'Halfway') cashDetail.textContent = 'Pay cash to the seller when you meet';
+                    else if (method === 'Pickup') cashDetail.textContent = 'Pay cash to the seller when you pick up';
+                }
+
+                if (fulfillmentHidden) fulfillmentHidden.value = method;
+            }
+
+            paymentRadios.forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    if (paymentHidden) paymentHidden.value = radio.value;
+                });
+            });
+
+            fulfillmentRadios.forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    updateFulfillmentUI(radio.value);
+                });
+            });
+
+            fulfillmentOptions.forEach(function(opt) {
+                opt.addEventListener('click', function() {
+                    var radio = this.querySelector('.fulfillment-radio');
+                    if (radio && !radio.disabled) {
+                        radio.checked = true;
+                        updateFulfillmentUI(radio.value);
+                    }
+                });
+            });
+
+            var checkedFulfillment = document.querySelector('.fulfillment-radio:checked');
+            if (checkedFulfillment) {
+                updateFulfillmentUI(checkedFulfillment.value);
+            }
+
+            if (form && btn) {
+                form.addEventListener('submit', function() {
+                    btn.disabled = true;
+                    btn.textContent = 'Confirming…';
+                });
+            }
+        })();
+    </script>
+}

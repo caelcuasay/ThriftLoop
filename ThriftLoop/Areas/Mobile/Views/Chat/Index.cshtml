@@ -1,0 +1,122 @@
+﻿@model List<ThriftLoop.DTOs.Chat.ConversationDTO>
+@{
+    ViewData["Title"] = ViewBag.UnreadCount > 0 ? $"Messages ({ViewBag.UnreadCount})" : "Messages";
+    var unreadCount = (int)(ViewBag.UnreadCount ?? 0);
+
+    string GetRelativeTime(DateTime timestamp)
+    {
+        var diff = DateTime.UtcNow - timestamp;
+        if (diff.TotalMinutes < 1) return "now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d";
+        return timestamp.ToLocalTime().ToString("MMM d");
+    }
+
+    string Truncate(string text, int max)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= max) return text ?? "";
+        return text.Substring(0, max) + "…";
+    }
+}
+
+<div class="mobile-chat-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-chat-header">
+        <h1 class="mobile-chat-header__title">Messages</h1>
+        @if (unreadCount > 0)
+        {
+            <span class="mobile-chat-header__badge">@(unreadCount > 99 ? "99+" : unreadCount.ToString())</span>
+        }
+        <a asp-action="Index" asp-controller="Home" asp-area="Mobile" class="mobile-chat-header__new-btn" aria-label="New message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5 5 5-5M12 14V2" />
+            </svg>
+        </a>
+    </div>
+
+    @* ── Search ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-chat-search">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" class="mobile-chat-search__icon">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+        </svg>
+        <input type="text" id="conversationSearch" class="mobile-chat-search__input" placeholder="Search conversations…" autocomplete="off" />
+    </div>
+
+    @* ── Conversation List ───────────────────────────────────────────────── *@
+    @if (Model.Count == 0)
+    {
+        <div class="mobile-empty-state">
+            <div class="mobile-empty-state__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" width="64" height="64">
+                    <path d="M14 16h36a4 4 0 014 4v24a4 4 0 01-4 4H22l-8 8V20a4 4 0 014-4z" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <h2 class="mobile-empty-state__title">No messages yet</h2>
+            <p class="mobile-empty-state__body">Start a conversation with a seller or buyer.</p>
+        </div>
+    }
+    else
+    {
+        <div class="mobile-chat-list" id="conversationList">
+            @foreach (var conv in Model)
+            {
+                <a asp-action="Conversation" asp-route-id="@conv.Id"
+                       class="mobile-chat-item @(conv.UnreadCount > 0 ? "mobile-chat-item--unread" : "")">
+                    @* Avatar *@
+                    <div class="mobile-chat-item__avatar">
+                        @if (!string.IsNullOrEmpty(conv.OtherUserAvatarUrl))
+                        {
+                            <img src="@conv.OtherUserAvatarUrl" alt="@conv.OtherUserName" />
+                        }
+                        else
+                        {
+                            <div class="mobile-chat-item__avatar-placeholder">
+                                @conv.OtherUserName.Substring(0, 1).ToUpper()
+                            </div>
+                        }
+                    </div>
+
+                    @* Content *@
+                    <div class="mobile-chat-item__content">
+                        <div class="mobile-chat-item__top">
+                            <span class="mobile-chat-item__name">@conv.OtherUserName</span>
+                            <span class="mobile-chat-item__time">@GetRelativeTime(conv.LastMessageAt)</span>
+                        </div>
+                        <div class="mobile-chat-item__preview">
+                            @if (conv.LastMessageIsFromCurrentUser)
+                            {
+                                <span class="mobile-chat-item__you">You: </span>
+                            }
+                            <span class="mobile-chat-item__text">@Truncate(conv.LastMessage, 40)</span>
+                            @if (conv.UnreadCount > 0)
+                            {
+                                <span class="mobile-chat-item__unread">@(conv.UnreadCount > 99 ? "99+" : conv.UnreadCount.ToString())</span>
+                            }
+                        </div>
+                    </div>
+                </a>
+            }
+        </div>
+
+        @if (ViewBag.HasMoreConversations == true)
+        {
+            <div class="mobile-chat-loadmore">
+                <button type="button" class="mobile-btn mobile-btn--ghost" id="loadMoreBtn" data-page="@(ViewBag.CurrentPage + 1)">
+                    Load more
+                </button>
+            </div>
+        }
+    }
+</div>
+
+<script>
+    document.getElementById('conversationSearch')?.addEventListener('input', function() {
+        var query = this.value.toLowerCase();
+        document.querySelectorAll('.mobile-chat-item').forEach(function(item) {
+            var name = (item.querySelector('.mobile-chat-item__name')?.textContent || '').toLowerCase();
+            var text = (item.querySelector('.mobile-chat-item__text')?.textContent || '').toLowerCase();
+            item.style.display = (name.includes(query) || text.includes(query)) ? '' : 'none';
+        });
+    });
+</script>

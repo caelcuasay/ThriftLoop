@@ -1,0 +1,316 @@
+﻿@model ThriftLoop.Models.Delivery
+@using ThriftLoop.Models
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Delivery Details";
+    var riderName = ViewBag.RiderName as string ?? "Rider";
+    var riderLat = ViewBag.RiderLatitude as decimal?;
+    var riderLng = ViewBag.RiderLongitude as decimal?;
+    Layout = "~/Areas/Mobile/Views/Shared/_MobileLayout.cshtml";
+
+    var order = Model.Order;
+    var item = order?.Item;
+    var buyer = order?.Buyer;
+    
+    string sellerName;
+    string sellerAddress;
+    string sellerContact;
+    decimal? sellerLat = null;
+    decimal? sellerLng = null;
+    
+    if (item?.ShopId != null && item?.Shop != null)
+    {
+        sellerName = item.Shop.ShopName;
+        sellerAddress = item.Shop.StoreAddress ?? "Store address not provided";
+        sellerContact = item.Shop.User?.Email?.Split('@')[0] ?? "Seller";
+        sellerLat = item.Shop.Latitude;
+        sellerLng = item.Shop.Longitude;
+    }
+    else if (order?.Seller != null)
+    {
+        sellerName = order.Seller.Email?.Split('@')[0] ?? "Seller";
+        sellerAddress = order.Seller.Address ?? "Address not provided";
+        sellerContact = order.Seller.PhoneNumber ?? order.Seller.Email ?? "No contact";
+        sellerLat = order.Seller.Latitude;
+        sellerLng = order.Seller.Longitude;
+    }
+    else
+    {
+        sellerName = "Unknown Seller";
+        sellerAddress = "Address not available";
+        sellerContact = "No contact info";
+    }
+    
+    var buyerName = buyer?.Email?.Split('@')[0] ?? "Buyer";
+    var buyerAddress = buyer?.Address ?? "Address not provided";
+    var buyerContact = buyer?.PhoneNumber ?? buyer?.Email ?? "No contact";
+    var buyerLat = buyer?.Latitude;
+    var buyerLng = buyer?.Longitude;
+    
+    var itemPrice = (order?.FinalPrice ?? 0m) - (order?.DeliveryFee ?? 0m);
+    var deliveryFee = order?.DeliveryFee ?? 50m;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mobile-rider.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+}
+
+<div class="mobile-rider-map-bg">
+    <!-- Full-screen Map Background -->
+    <div id="deliveryMap" class="mobile-rider-map-bg__container"></div>
+
+    <!-- Floating Back Button -->
+    <a asp-action="Index" class="mobile-rider-map-bg__back">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+            <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
+        </svg>
+    </a>
+
+    <!-- Floating Item Card (Foreground) -->
+    <div class="mobile-rider-float-card">
+        <div class="mobile-rider-float-card__image">
+            @if (!string.IsNullOrEmpty(item?.ImageUrl))
+            {
+                <img src="@item.ImageUrl" alt="@item.Title" />
+            }
+            else
+            {
+                <div class="mobile-rider-float-card__placeholder">📦</div>
+            }
+        </div>
+        <div class="mobile-rider-float-card__content">
+            <h1 class="mobile-rider-float-card__title">@(item?.Title ?? $"Item #{order?.ItemId}")</h1>
+            <div class="mobile-rider-float-card__meta">
+                <span>@(item?.Category ?? "General")</span>
+                <span>•</span>
+                <span>@(item?.Condition ?? "N/A")</span>
+            </div>
+            <span class="mobile-rider-float-card__badge mobile-rider-float-card__badge--@(order?.PaymentMethod == PaymentMethod.Wallet ? "wallet" : "cod")">
+                @(order?.PaymentMethod == PaymentMethod.Wallet ? "Wallet" : "COD")
+            </span>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet with Details -->
+    <div class="mobile-rider-bottom-sheet">
+        <!-- Distance Summary -->
+        <div class="mobile-rider-bottom-sheet__distances">
+            <div class="mobile-rider-distance-pill">
+                <span class="mobile-rider-distance-pill__label">To Pickup</span>
+                <span class="mobile-rider-distance-pill__value" id="riderToSellerDistance">--</span>
+                <span class="mobile-rider-distance-pill__note" id="riderToSellerNote"></span>
+            </div>
+            <div class="mobile-rider-distance-pill">
+                <span class="mobile-rider-distance-pill__label">Delivery</span>
+                <span class="mobile-rider-distance-pill__value" id="deliveryRouteDistance">--</span>
+                <span class="mobile-rider-distance-pill__note" id="deliveryRouteNote"></span>
+            </div>
+        </div>
+
+        <!-- Locations -->
+        <div class="mobile-rider-bottom-sheet__locations">
+            <div class="mobile-rider-route-stop">
+                <div class="mobile-rider-route-stop__dot mobile-rider-route-stop__dot--pickup"></div>
+                <div class="mobile-rider-route-stop__content">
+                    <div class="mobile-rider-route-stop__label">Pickup from Seller</div>
+                    <div class="mobile-rider-route-stop__address">@sellerAddress</div>
+                    <div class="mobile-rider-route-stop__contact">@sellerName • @sellerContact</div>
+                </div>
+            </div>
+            <div class="mobile-rider-route-line"></div>
+            <div class="mobile-rider-route-stop">
+                <div class="mobile-rider-route-stop__dot mobile-rider-route-stop__dot--dropoff"></div>
+                <div class="mobile-rider-route-stop__content">
+                    <div class="mobile-rider-route-stop__label">Deliver to Buyer</div>
+                    <div class="mobile-rider-route-stop__address">@buyerAddress</div>
+                    <div class="mobile-rider-route-stop__contact">@buyerName • @buyerContact</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings & Actions -->
+        <div class="mobile-rider-bottom-sheet__actions">
+            <div class="mobile-rider-earnings-compact">
+                <div class="mobile-rider-earnings-compact__row">
+                    <span>Your Delivery Fee</span>
+                    <span class="mobile-rider-earnings-compact__highlight">₱@deliveryFee.ToString("N2")</span>
+                </div>
+            </div>
+            
+            <form asp-action="AcceptJob" method="post" id="acceptJobForm" onsubmit="return confirmFormSubmit('Accept this delivery job? You will be committed to completing this delivery.', this)">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="deliveryId" value="@Model.Id" />
+                <button type="submit" class="mobile-rider-btn mobile-rider-btn--primary mobile-rider-btn--full">
+                    <svg class="mobile-rider-btn__icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                    </svg>
+                    Accept Delivery Job
+                </button>
+            </form>
+            <a asp-action="Index" class="mobile-rider-btn mobile-rider-btn--ghost mobile-rider-btn--full">Cancel</a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (function() {
+            var sellerLat = @(sellerLat?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            var sellerLng = @(sellerLng?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            var buyerLat = @(buyerLat?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            var buyerLng = @(buyerLng?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            var riderLat = @(riderLat?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            var riderLng = @(riderLng?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+            
+            var map = L.map('deliveryMap', { zoomControl: false }).setView([14.5995, 120.9842], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OSM'
+            }).addTo(map);
+            
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            
+            var markers = [];
+            var bounds = L.latLngBounds();
+            
+            if (sellerLat && sellerLng) {
+                var m = L.marker([sellerLat, sellerLng]).bindPopup('📦 Pickup: Seller').addTo(map);
+                markers.push(m);
+                bounds.extend([sellerLat, sellerLng]);
+            }
+            if (buyerLat && buyerLng) {
+                var m = L.marker([buyerLat, buyerLng]).bindPopup('🏠 Dropoff: Buyer').addTo(map);
+                markers.push(m);
+                bounds.extend([buyerLat, buyerLng]);
+            }
+            if (riderLat && riderLng) {
+                var m = L.marker([riderLat, riderLng], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: '<div style="background:#2d1b69;color:white;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;">🚴 You</div>',
+                        iconSize: [60, 28]
+                    })
+                }).bindPopup('📍 Your Location').addTo(map);
+                markers.push(m);
+                bounds.extend([riderLat, riderLng]);
+            }
+            
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+            
+            function calcDist(lat1, lon1, lat2, lon2) {
+                if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+                var R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+                var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+            
+            function fmtDist(km) {
+                if (km === null) return '--';
+                return km < 1 ? (km*1000).toFixed(0)+' m' : km.toFixed(1)+' km';
+            }
+            
+            function distClass(km) {
+                if (km === null) return '';
+                if (km < 3) return 'near';
+                if (km < 10) return 'medium';
+                return 'far';
+            }
+            
+            var straightSellerToBuyer = calcDist(sellerLat, sellerLng, buyerLat, buyerLng);
+            var straightRiderToSeller = calcDist(riderLat, riderLng, sellerLat, sellerLng);
+            
+            var riderEl = document.getElementById('riderToSellerDistance');
+            var riderNote = document.getElementById('riderToSellerNote');
+            var deliveryEl = document.getElementById('deliveryRouteDistance');
+            var deliveryNote = document.getElementById('deliveryRouteNote');
+            
+            function updateDisplay(riderDist, riderIsRoad, deliveryDist, deliveryIsRoad) {
+                if (riderDist !== null) {
+                    riderEl.textContent = fmtDist(riderDist);
+                    riderEl.className = 'distance-block__value distance-block__value--' + distClass(riderDist);
+                    riderNote.textContent = riderIsRoad ? '🚗 Driving distance' : '📏 Straight-line';
+                } else {
+                    riderEl.textContent = '--';
+                    riderNote.textContent = '';
+                }
+                if (deliveryDist !== null) {
+                    deliveryEl.textContent = fmtDist(deliveryDist);
+                    deliveryEl.className = 'distance-block__value distance-block__value--' + distClass(deliveryDist);
+                    deliveryNote.textContent = deliveryIsRoad ? '🚗 Driving distance' : '📏 Straight-line';
+                } else {
+                    deliveryEl.textContent = '--';
+                    deliveryNote.textContent = '';
+                }
+            }
+            
+            updateDisplay(straightRiderToSeller, false, straightSellerToBuyer, false);
+            
+            var straightLayer = null;
+            if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                straightLayer = L.polyline([[sellerLat, sellerLng], [buyerLat, buyerLng]], {
+                    color: '#a39e98', weight: 2, dashArray: '5, 5', opacity: 0.6
+                }).addTo(map).bindPopup('Straight-line');
+            }
+            
+            var routeLayer = null, riderLayer = null;
+            
+            async function fetchRoute(sl, sn, el, en) {
+                if (!sl || !sn || !el || !en) return null;
+                try {
+                    var r = await fetch('https://router.project-osrm.org/route/v1/driving/'+sn+','+sl+';'+en+','+el+'?overview=full&geometries=geojson');
+                    if (!r.ok) return null;
+                    var d = await r.json();
+                    return d.routes && d.routes[0] ? d.routes[0] : null;
+                } catch(e) { return null; }
+            }
+            
+            function drawRoute(data, color, weight, dash, text) {
+                if (!data || !data.geometry) return null;
+                var coords = data.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                return L.polyline(coords, { color: color, weight: weight, opacity: 0.8, dashArray: dash })
+                    .bindPopup(text + ': ' + fmtDist(data.distance/1000));
+            }
+            
+            async function loadRoadRoutes() {
+                var roadSellerBuyer = null, roadRiderSeller = null;
+                
+                if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                    var r = await fetchRoute(sellerLat, sellerLng, buyerLat, buyerLng);
+                    if (r) roadSellerBuyer = { distance: r.distance/1000, geometry: r.geometry };
+                }
+                if (riderLat && riderLng && sellerLat && sellerLng) {
+                    var r = await fetchRoute(riderLat, riderLng, sellerLat, sellerLng);
+                    if (r) roadRiderSeller = { distance: r.distance/1000, geometry: r.geometry };
+                }
+                
+                if (routeLayer) map.removeLayer(routeLayer);
+                if (riderLayer) map.removeLayer(riderLayer);
+                
+                if (roadSellerBuyer) {
+                    routeLayer = drawRoute(roadSellerBuyer, '#2d1b69', 4, null, '🚗 Delivery route');
+                    if (routeLayer) routeLayer.addTo(map);
+                }
+                if (roadRiderSeller) {
+                    riderLayer = drawRoute(roadRiderSeller, '#b45309', 3, '8, 6', '📍 Route to pickup');
+                    if (riderLayer) riderLayer.addTo(map);
+                }
+                
+                updateDisplay(
+                    roadRiderSeller ? roadRiderSeller.distance : straightRiderToSeller,
+                    !!roadRiderSeller,
+                    roadSellerBuyer ? roadSellerBuyer.distance : straightSellerToBuyer,
+                    !!roadSellerBuyer
+                );
+            }
+            
+            // Auto-load road routes on init
+            if (sellerLat && sellerLng && buyerLat && buyerLng) {
+                loadRoadRoutes();
+                if (straightLayer) map.removeLayer(straightLayer);
+            }
+        })();
+    </script>
+}

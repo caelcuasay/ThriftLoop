@@ -1,0 +1,158 @@
+﻿@using ThriftLoop.ViewModels
+@using ThriftLoop.Enums
+@model LikedItemsViewModel
+@{
+    ViewData["Title"] = "Liked Items";
+    var userName = User.Identity?.Name ?? "User";
+    var userInitial = userName.FirstOrDefault().ToString().ToUpper();
+}
+
+<div class="mobile-likes-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-likes-header">
+        <div class="mobile-likes-header__title-group">
+            <h1 class="mobile-likes-header__title">Liked Items</h1>
+            <span class="mobile-likes-header__count">@Model.Items.Count item@(Model.Items.Count != 1 ? "s" : "")</span>
+        </div>
+        <div class="mobile-likes-header__avatar">@userInitial</div>
+    </div>
+
+    @* ── Filter Chips ────────────────────────────────────────────────────── *@
+    <div class="mobile-filter-bar">
+        <a asp-action="Index" class="mobile-filter-chip @(Model.CurrentFilter == null ? "mobile-filter-chip--active" : "")">All</a>
+        <a asp-action="Index" asp-route-filter="p2p" class="mobile-filter-chip @(Model.CurrentFilter == "p2p" ? "mobile-filter-chip--active" : "")">P2P</a>
+        <a asp-action="Index" asp-route-filter="shop" class="mobile-filter-chip @(Model.CurrentFilter == "shop" ? "mobile-filter-chip--active" : "")">Shop</a>
+        <a asp-action="Index" asp-route-filter="available" class="mobile-filter-chip @(Model.CurrentFilter == "available" ? "mobile-filter-chip--active" : "")">Available</a>
+    </div>
+
+    @* ── Empty State ──────────────────────────────────────────────────────── *@
+    @if (Model.IsEmpty)
+    {
+        <div class="mobile-likes-empty">
+            <div class="mobile-likes-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h2 class="mobile-likes-empty__title">No liked items</h2>
+            <p class="mobile-likes-empty__text">You haven't liked any items yet. Browse and like items to see them here.</p>
+            <a asp-controller="Home" asp-action="Index" asp-area="Mobile" class="mobile-likes-empty__btn">
+                Browse Items
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ── Liked Items Grid ─────────────────────────────────────────────── *@
+        <div class="mobile-likes-grid" id="likesGrid">
+            @foreach (var item in Model.Items)
+            {
+                var isShopItem = item.ShopId.HasValue;
+                var isSold = item.Status == ItemStatus.Sold;
+
+                <article class="mobile-like-card @(isSold ? "mobile-like-card--sold" : "")" data-item-id="@item.ItemId">
+                    <div class="mobile-like-card__img-wrap">
+                        @if (!string.IsNullOrEmpty(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" alt="@item.Title" class="mobile-like-card__img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="mobile-like-card__img mobile-like-card__img--placeholder" aria-hidden="true">
+                                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                                    <rect x="4" y="8" width="40" height="32" rx="4" />
+                                    <circle cx="17" cy="20" r="4" />
+                                    <path d="M4 36l12-10 8 8 6-5 14 11" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                        }
+
+                        <span class="mobile-like-card__condition">@item.Condition</span>
+
+                        @if (isShopItem)
+                        {
+                            <span class="mobile-like-card__shop-badge">Shop</span>
+                        }
+
+                        @if (!item.IsAvailable)
+                        {
+                            <div class="mobile-like-card__status-badge">
+                                <span>@item.Status</span>
+                            </div>
+                        }
+
+                        <button type="button" class="mobile-like-card__unlike" data-item-id="@item.ItemId" aria-label="Unlike item">
+                            <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+                                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="mobile-like-card__body">
+                        <div class="mobile-like-card__meta">
+                            <span class="mobile-like-card__category">@item.Category</span>
+                            <span class="mobile-like-card__dot"></span>
+                            <span class="mobile-like-card__date">Liked @item.LikedAt.ToString("MMM d")</span>
+                        </div>
+
+                        <h2 class="mobile-like-card__title">@item.Title</h2>
+
+                        <span class="mobile-like-card__price @(isSold ? "mobile-like-card__price--sold" : "")">₱@item.Price.ToString("N2")</span>
+                    </div>
+
+                    @if (item.IsP2P)
+                    {
+                        <a asp-controller="Items" asp-action="Details" asp-route-id="@item.ItemId" asp-area="Mobile" class="mobile-like-card__link" aria-label="View @item.Title"></a>
+                    }
+                    else
+                    {
+                        <a asp-controller="Shop" asp-action="Details" asp-route-id="@item.ItemId" asp-area="Mobile" class="mobile-like-card__link" aria-label="View @item.Title"></a>
+                    }
+                </article>
+            }
+        </div>
+    }
+</div>
+
+<script>
+    (function() {
+        document.querySelectorAll('.mobile-like-card__unlike').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var btn = this;
+                var itemId = btn.dataset.itemId;
+                var card = btn.closest('.mobile-like-card');
+                var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+                fetch('/Likes/Toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ itemId: parseInt(itemId) })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success && !data.isLiked) {
+                        card.style.transition = 'opacity 0.3s, transform 0.3s';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.9)';
+                        setTimeout(function() {
+                            card.remove();
+                            var grid = document.getElementById('likesGrid');
+                            if (grid && grid.children.length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Unlike failed:', err);
+                });
+            });
+        });
+    })();
+</script>

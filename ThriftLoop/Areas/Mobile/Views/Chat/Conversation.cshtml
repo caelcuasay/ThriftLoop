@@ -1,0 +1,270 @@
+﻿@model ThriftLoop.DTOs.Chat.ConversationDetailDTO
+@using ThriftLoop.DTOs.Chat
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = Model.OtherUserName;
+}
+
+<div class="mobile-conversation-screen">
+    @* ── Conversation Header ─────────────────────────────────────────────── *@
+    <div class="mobile-convo-header">
+        <a asp-action="Index" class="mobile-convo-header__back" aria-label="Back to messages">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M19 12H5m7-7l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </a>
+
+        <div class="mobile-convo-header__avatar">
+            @if (!string.IsNullOrEmpty(Model.OtherUserAvatarUrl))
+            {
+                <img src="@Model.OtherUserAvatarUrl" alt="@Model.OtherUserName" />
+            }
+            else
+            {
+                <div class="mobile-convo-header__avatar-placeholder">
+                    @Model.OtherUserName.Substring(0, 1).ToUpper()
+                </div>
+            }
+            <span class="mobile-convo-header__online @(Model.IsOtherUserOnline ? "mobile-convo-header__online--active" : "")"></span>
+        </div>
+
+        <div class="mobile-convo-header__info">
+            <h2 class="mobile-convo-header__name">@Model.OtherUserName</h2>
+            <span class="mobile-convo-header__status" id="userStatus">@Model.OtherUserActiveStatus</span>
+        </div>
+    </div>
+
+    @* ── Messages Area ───────────────────────────────────────────────────── *@
+    <div class="mobile-convo-messages" id="messageContainer">
+        @if (Model.HasMoreMessages)
+        {
+            <div class="mobile-convo-loadmore">
+                <button type="button" class="mobile-btn mobile-btn--ghost mobile-btn--sm" id="loadOlderMessages" data-page="@(Model.Page + 1)" data-has-more="true">
+                    Load older messages
+                </button>
+            </div>
+        }
+
+        <div class="mobile-convo-messages__list" id="messagesList">
+            @foreach (var message in Model.Messages)
+            {
+                if (message.MessageType == MessageType.ContextCard && message.ContextCard != null)
+                {
+                    @* Context Card — simplified for mobile *@
+                    <div class="mobile-context-card" data-context-card-id="@message.ContextCard.Id" data-status="@message.ContextCard.Status">
+                        <div class="mobile-context-card__header">
+                            @if (!string.IsNullOrEmpty(message.ContextCard.ItemImageUrl))
+                            {
+                                <img src="@message.ContextCard.ItemImageUrl" alt="@message.ContextCard.ItemTitle" class="mobile-context-card__img" />
+                            }
+                            <div class="mobile-context-card__info">
+                                <h4>@message.ContextCard.ItemTitle</h4>
+                                <span class="mobile-context-card__price">₱@message.ContextCard.ItemPrice.ToString("N2")</span>
+                            </div>
+                            <span class="mobile-context-card__status @GetStatusClass(message.ContextCard.Status)">@message.ContextCard.Status</span>
+                        </div>
+                        <div class="mobile-context-card__participants">
+                            <span>Seller: <strong>@message.ContextCard.SellerName</strong></span>
+                            <span>Buyer: <strong>@message.ContextCard.BuyerName</strong></span>
+                        </div>
+                        <div class="mobile-context-card__actions">
+                            @await Html.PartialAsync("_MobileContextCardActions", message.ContextCard)
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    var isOwn = message.IsFromCurrentUser;
+                    <div class="mobile-message @(isOwn ? "mobile-message--sent" : "mobile-message--received")"
+                         data-message-id="@message.Id"
+                         data-sender-id="@message.SenderId"
+                         data-status="@message.Status.ToString().ToLower()"
+                         id="message-@message.Id">
+                        @if (!isOwn)
+                        {
+                            <div class="mobile-message__avatar">
+                                @if (!string.IsNullOrEmpty(message.SenderAvatarUrl))
+                                {
+                                    <img src="@message.SenderAvatarUrl" alt="@message.SenderName" />
+                                }
+                                else
+                                {
+                                    <div class="mobile-message__avatar-placeholder">
+                                        @message.SenderName.Substring(0, 1).ToUpper()
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <div class="mobile-message__bubble">
+                            <p class="mobile-message__text">@Html.Raw(System.Net.WebUtility.HtmlEncode(message.Content).Replace("\n", "<br/>"))</p>
+                            <span class="mobile-message__time">@message.FormattedTime</span>
+                            @if (isOwn)
+                            {
+                                <span class="mobile-message__status">
+                                    @switch (message.Status)
+                                    {
+                                        case MessageStatus.Read:
+                                            <svg viewBox="0 0 16 16" fill="#34B7F1" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z" /><path d="M10.3 4.3l-5 5L3 7l-.7.7 3 3 5.7-5.7-.7-.7z" /></svg>
+                                            break;
+                                        case MessageStatus.Delivered:
+                                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z" /><path d="M10.3 4.3l-5 5L3 7l-.7.7 3 3 5.7-5.7-.7-.7z" /></svg>
+                                            break;
+                                        case MessageStatus.Sent:
+                                            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z" /></svg>
+                                            break;
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div id="typingIndicator" class="mobile-typing-indicator" style="display:none;">
+            <span></span><span></span><span></span>
+            <span class="mobile-typing-indicator__text">@Model.OtherUserName is typing...</span>
+        </div>
+    </div>
+
+    @* ── Message Input ───────────────────────────────────────────────────── *@
+    <div class="mobile-convo-input">
+        <form id="messageForm" class="mobile-convo-input__form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="conversationId" value="@Model.Id" />
+            <input type="hidden" id="recipientId" value="@Model.OtherUserId" />
+
+            <textarea id="messageInput"
+                      class="mobile-convo-input__textarea"
+                      placeholder="Type a message..."
+                      rows="1"
+                      maxlength="2000"
+                      autocomplete="off"></textarea>
+
+            <button type="submit" class="mobile-convo-input__send" id="sendMessageBtn" disabled aria-label="Send">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+<script src="~/js/chat.js" asp-append-version="true"></script>
+<script src="~/js/context-card.js" asp-append-version="true"></script>
+<script>
+    window.chatConfig = {
+    conversationId: @Model.Id,
+    currentUserId: @(Context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0"),
+    otherUserId: @Model.OtherUserId,
+    otherUserName: '@Html.Raw(Model.OtherUserName)',
+    prefillMessage: ''
+    };
+
+    // Force enable send button after SignalR connects
+    var checkConnection = setInterval(function() {
+    if (window.connection && window.connection.state === 'Connected') {
+    var sendBtn = document.getElementById('sendMessageBtn');
+    if (sendBtn) sendBtn.disabled = false;
+    clearInterval(checkConnection);
+    }
+    }, 500);
+
+    // Override createMessageBubble for mobile
+    var _originalCreateMessageBubble = createMessageBubble;
+    createMessageBubble = function(message) {
+    var isOwn = message.isFromCurrentUser;
+    var time = message.formattedTime || '';
+    var content = escapeHtml(message.content || '').replace(/\n/g, '<br>');
+    var msgId = message.id;
+    var status = typeof message.status === 'string' ? message.status.toLowerCase() : 'sent';
+        
+    var avatarHtml = '';
+    if (!isOwn) {
+    var initial = message.senderName ? message.senderName.charAt(0).toUpperCase() : '?';
+    avatarHtml = '<div class="mobile-message__avatar">' +
+    (message.senderAvatarUrl
+    ? '<img src="' + escapeHtml(message.senderAvatarUrl) + '" alt="' + escapeHtml(message.senderName) + '" />'
+    : '<div class="mobile-message__avatar-placeholder">' + initial + '</div>'
+    ) + '</div>';
+    }
+        
+    var statusHtml = '';
+    if (isOwn) {
+    if (status === 'read' || status === '1') {
+    statusHtml = '<svg viewBox="0 0 16 16" fill="#34B7F1" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z"/><path d="M10.3 4.3l-5 5L3 7l-.7.7 3 3 5.7-5.7-.7-.7z"/></svg>';
+    } else if (status === 'delivered') {
+    statusHtml = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z"/><path d="M10.3 4.3l-5 5L3 7l-.7.7 3 3 5.7-5.7-.7-.7z"/></svg>';
+    } else if (status === 'sent') {
+    statusHtml = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M13.3 4.3L6 11.6 2.7 8.3l-.7.7 4 4 8-8-.7-.7z"/></svg>';
+    }
+    }
+        
+    var bubbleClass = isOwn ? 'mobile-message mobile-message--sent' : 'mobile-message mobile-message--received';
+        
+    return '<div class="' + bubbleClass + '" data-message-id="' + msgId + '" data-sender-id="' + (message.senderId || '') + '" data-status="' + status + '" id="message-' + msgId + '" style="display:flex;">' +
+    avatarHtml +
+    '<div class="mobile-message__bubble">' +
+    '<p class="mobile-message__text">' + content + '</p>' +
+    '<span class="mobile-message__time">' + time + '</span>' +
+    (isOwn ? '<span class="mobile-message__status">' + statusHtml + '</span>' : '') +
+    '</div>' +
+    '</div>';
+    };
+
+    function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+    }
+
+    // Mobile: Enable send button + Enter key handling
+    document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('messageInput');
+    var sendBtn = document.getElementById('sendMessageBtn');
+    var form = document.getElementById('messageForm');
+        
+    if (input) {
+    // Enable send button when there's text
+    input.addEventListener('input', function() {
+    if (sendBtn) sendBtn.disabled = this.value.trim().length === 0;
+    });
+            
+    // Send on Enter (without Shift)
+    input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (this.value.trim() && sendBtn && !sendBtn.disabled) {
+    form.dispatchEvent(new Event('submit'));
+    }
+    }
+    });
+    }
+    });
+
+    // Auto-scroll to bottom on load
+    (function() {
+    var container = document.getElementById('messageContainer');
+    if (container) {
+    container.scrollTop = container.scrollHeight;
+    setTimeout(function() { container.scrollTop = container.scrollHeight; }, 300);
+    }
+    })();
+</script>
+
+@functions {
+    private string GetStatusClass(ThriftLoop.DTOs.Chat.ContextCardStatus status)
+    {
+        return status switch
+        {
+            ThriftLoop.DTOs.Chat.ContextCardStatus.Pending => "mobile-context-card__status--pending",
+            ThriftLoop.DTOs.Chat.ContextCardStatus.Accepted => "mobile-context-card__status--accepted",
+            ThriftLoop.DTOs.Chat.ContextCardStatus.Completed => "mobile-context-card__status--completed",
+            ThriftLoop.DTOs.Chat.ContextCardStatus.Cancelled or ThriftLoop.DTOs.Chat.ContextCardStatus.Declined or ThriftLoop.DTOs.Chat.ContextCardStatus.Expired
+                => "mobile-context-card__status--cancelled",
+            _ => ""
+        };
+    }
+}

@@ -1,0 +1,730 @@
+﻿/* ═══════════════════════════════════════════════════════════════
+   ThriftLoop Mobile — User Profile & Seller Application
+   Matches mobile-home.css palette
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    --c-primary: #2d1b69;
+    --c-primary-light: #3d2880;
+    --c-primary-soft: #e9e5f5;
+    --c-bg: #f9f9fb;
+    --c-surface: #ffffff;
+    --c-border: #e4e4ea;
+    --c-text: #111118;
+    --c-muted: #4b4b63;
+    --c-muted-light: #8f8fa3;
+    --c-success: #0e6245;
+    --c-error: #b91c1c;
+    --c-error-bg: #fee9e9;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--c-bg);
+    color: var(--c-text);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Back Link ─────────────────────────────────────────────────── */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--c-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .back-link:active {
+        color: var(--c-primary);
+    }
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+.toast {
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    animation: slideDown 0.3s ease;
+}
+
+    .toast button {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+        padding: 0 4px;
+        line-height: 1;
+        margin-left: auto;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+.toast--success {
+    background: #ecfdf5;
+    color: var(--c-success);
+    border: 1px solid #a7f3d0;
+}
+
+.toast--error {
+    background: var(--c-error-bg);
+    color: var(--c-error);
+    border: 1px solid #fecaca;
+}
+
+.toast--info {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+}
+
+.toast--warning {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+    .btn:active {
+        transform: scale(0.98);
+    }
+
+.btn--primary {
+    background: var(--c-primary);
+    color: white;
+}
+
+    .btn--primary:active {
+        background: var(--c-primary-light);
+    }
+
+.btn--ghost {
+    background: transparent;
+    color: var(--c-muted);
+    border: 1.5px solid var(--c-border);
+}
+
+    .btn--ghost:active {
+        background: var(--c-bg);
+    }
+
+.btn--outline {
+    background: transparent;
+    color: var(--c-primary);
+    border: 1.5px solid var(--c-primary);
+}
+
+    .btn--outline:active {
+        background: var(--c-primary-soft);
+    }
+
+.btn--full {
+    width: 100%;
+}
+
+.btn--lg {
+    padding: 16px 20px;
+    font-size: 1rem;
+}
+
+.btn--sm {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   1. PROFILE PAGE (Index)
+   ═══════════════════════════════════════════════════════════════ */
+
+.profile-page {
+    padding: 16px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + 16px);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* ── Profile Header ────────────────────────────────────────────── */
+.profile-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 16px;
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.profile-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+    .profile-info h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--c-text);
+        margin-bottom: 2px;
+    }
+
+    .profile-info p {
+        font-size: 0.8rem;
+        color: var(--c-muted);
+    }
+
+/* ── Profile Badge Row ─────────────────────────────────────────── */
+.profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 600;
+}
+
+.profile-badge--role {
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+}
+
+.profile-badge--google {
+    background: #e8f0fe;
+    color: #1a73e8;
+}
+
+.profile-badge--seller {
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* ── Info List ─────────────────────────────────────────────────── */
+.info-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.info-card__title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--c-muted);
+    margin-bottom: 12px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+    .info-row + .info-row {
+        border-top: 1px solid var(--c-border);
+    }
+
+.info-row__label {
+    font-size: 0.8rem;
+    color: var(--c-muted-light);
+}
+
+.info-row__value {
+    font-size: 0.85rem;
+    color: var(--c-text);
+    text-align: right;
+    word-break: break-word;
+}
+
+/* ── Seller CTA Card ───────────────────────────────────────────── */
+.seller-cta-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.seller-cta-card__hint {
+    font-size: 0.72rem;
+    color: var(--c-muted-light);
+    text-align: center;
+    margin-top: 8px;
+}
+
+/* ── Edit Profile Form ─────────────────────────────────────────── */
+.form-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+.form-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 6px;
+}
+
+.form-label__required {
+    font-size: 0.7rem;
+    color: var(--c-error);
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--c-border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--c-text);
+    background: var(--c-surface);
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--c-primary);
+    }
+
+    .form-input::placeholder {
+        color: var(--c-muted-light);
+    }
+
+.form-input--error {
+    border-color: var(--c-error);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-error {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--c-error);
+    margin-top: 4px;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--c-muted-light);
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* ── Security Card ─────────────────────────────────────────────── */
+.security-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.security-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.security-card__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--c-text);
+}
+
+.security-card__desc {
+    font-size: 0.82rem;
+    color: var(--c-muted);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2. REQUESTS PAGE (Seller Application)
+   ═══════════════════════════════════════════════════════════════ */
+
+.requests-page {
+    padding: 16px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + 16px);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.requests-header {
+    margin-bottom: 16px;
+}
+
+    .requests-header h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--c-text);
+        margin-bottom: 4px;
+    }
+
+    .requests-header p {
+        color: var(--c-muted);
+        font-size: 0.85rem;
+    }
+
+/* ── Application Status Card ───────────────────────────────────── */
+.app-status-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.app-status-card__header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.app-status-card__avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.app-status-card__title {
+    flex: 1;
+}
+
+    .app-status-card__title h2 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--c-text);
+        margin-bottom: 4px;
+    }
+
+.app-status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.app-status-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.app-status-badge--approved {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.app-status-badge--rejected {
+    background: var(--c-error-bg);
+    color: var(--c-error);
+}
+
+.app-status-card__details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.app-detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.app-detail-row__label {
+    font-size: 0.75rem;
+    color: var(--c-muted-light);
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.app-detail-row__value {
+    font-size: 0.82rem;
+    color: var(--c-text);
+    text-align: right;
+    word-break: break-word;
+}
+
+.app-alert {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.app-alert--info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.app-alert--success {
+    background: #ecfdf5;
+    color: var(--c-success);
+    border: 1px solid #a7f3d0;
+}
+
+.app-alert--warning {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+/* ── Benefits Card ─────────────────────────────────────────────── */
+.benefits-card {
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+    .benefits-card h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--c-text);
+        margin-bottom: 10px;
+    }
+
+.benefits-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+    .benefits-list li {
+        font-size: 0.85rem;
+        color: var(--c-muted);
+    }
+
+/* ── File Upload ───────────────────────────────────────────────── */
+.file-upload {
+    position: relative;
+    border: 2px dashed var(--c-border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+    .file-upload:hover {
+        border-color: var(--c-primary);
+    }
+
+.file-upload__input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.file-upload__body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 16px;
+    color: var(--c-muted);
+}
+
+    .file-upload__body strong {
+        display: block;
+        font-size: 0.85rem;
+        margin-bottom: 2px;
+    }
+
+    .file-upload__body small {
+        font-size: 0.72rem;
+        color: var(--c-muted-light);
+    }
+
+/* ── Security Notice ───────────────────────────────────────────── */
+.security-notice {
+    display: flex;
+    gap: 10px;
+    padding: 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.security-notice__icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.security-notice__content {
+    flex: 1;
+}
+
+    .security-notice__content strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.85rem;
+        color: #1e40af;
+    }
+
+    .security-notice__content p {
+        color: var(--c-muted);
+        line-height: 1.4;
+    }
+
+/* ── Status Placeholder (Pending / Approved) ───────────────────── */
+.status-placeholder {
+    text-align: center;
+    padding: 40px 24px;
+    background: var(--c-surface);
+    border-radius: 14px;
+    border: 1px solid var(--c-border);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.status-placeholder__icon {
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+}
+
+.status-placeholder h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 8px;
+}
+
+.status-placeholder p {
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+}
+
+.status-placeholder__actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}

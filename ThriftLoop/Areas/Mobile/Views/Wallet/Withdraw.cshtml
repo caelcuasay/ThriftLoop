@@ -1,0 +1,139 @@
+﻿@model ThriftLoop.ViewModels.WithdrawViewModel
+@using ThriftLoop.Enums
+@{
+    ViewData["Title"] = "Withdraw Funds";
+    decimal available = (decimal)(ViewBag.AvailableBalance ?? 0m);
+}
+
+<div class="mobile-wallet-screen">
+    @* ── Header ──────────────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-header">
+        <h1 class="mobile-wallet-header__title">Withdraw Funds</h1>
+        <p class="mobile-wallet-header__balance">
+            Available: <strong>₱@available.ToString("N2")</strong>
+        </p>
+    </div>
+
+    @* ── Demo Notice ─────────────────────────────────────────────────────── *@
+    <div class="mobile-toast mobile-toast--info">
+        <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
+        <span>Withdrawals are processed within 1–3 business days after admin review.</span>
+    </div>
+
+    @* ── Validation Errors ───────────────────────────────────────────────── *@
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="mobile-toast mobile-toast--error">
+            <svg class="mobile-toast__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+            <div asp-validation-summary="ModelOnly"></div>
+        </div>
+    }
+
+    @* ── Withdraw Form ───────────────────────────────────────────────────── *@
+    <div class="mobile-wallet-form-section">
+        <form asp-action="Withdraw" method="post" id="wdForm">
+            @Html.AntiForgeryToken()
+
+            @* Amount *@
+            <div class="mobile-field">
+                <label asp-for="Amount" class="mobile-field__label">Amount (₱)</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:1rem;color:var(--w-text-tertiary);font-weight:600;">₱</span>
+                    <input asp-for="Amount"
+                           id="amountInput"
+                           class="mobile-edit-input"
+                           type="number"
+                           step="0.01"
+                           min="1"
+                           max="@available"
+                           placeholder="0.00"
+                           autocomplete="off"
+                           style="padding-left:32px;" />
+                </div>
+                <span asp-validation-for="Amount" class="mobile-field-error"></span>
+
+                @if (available > 0)
+                {
+                    <button type="button" class="mobile-wallet-all-btn" id="withdrawAllBtn">
+                        Withdraw all (₱@available.ToString("N2"))
+                    </button>
+                }
+            </div>
+
+            @* Method *@
+            <div class="mobile-field">
+                <label class="mobile-field__label">Payout Method</label>
+                <div class="mobile-wallet-methods">
+                    <label class="mobile-wallet-method @(Model.Method == WithdrawalMethod.BankTransfer ? "mobile-wallet-method--active" : "")">
+                        <input asp-for="Method" type="radio" value="@((int)WithdrawalMethod.BankTransfer)" class="mobile-wallet-method-radio" checked="@(Model.Method == WithdrawalMethod.BankTransfer)" />
+                        <span class="mobile-wallet-method__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
+                        </span>
+                        <div>
+                            <span class="mobile-wallet-method__name">Bank Transfer</span>
+                            <span class="mobile-wallet-method__hint">1–3 business days</span>
+                        </div>
+                        <span class="mobile-wallet-method__check"></span>
+                    </label>
+
+                    <label class="mobile-wallet-method @(Model.Method == WithdrawalMethod.PickupLocation ? "mobile-wallet-method--active" : "")">
+                        <input asp-for="Method" type="radio" value="@((int)WithdrawalMethod.PickupLocation)" class="mobile-wallet-method-radio" checked="@(Model.Method == WithdrawalMethod.PickupLocation)" />
+                        <span class="mobile-wallet-method__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                        </span>
+                        <div>
+                            <span class="mobile-wallet-method__name">Pickup Location</span>
+                            <span class="mobile-wallet-method__hint">Same or next business day</span>
+                        </div>
+                        <span class="mobile-wallet-method__check"></span>
+                    </label>
+                </div>
+                <span asp-validation-for="Method" class="mobile-field-error"></span>
+            </div>
+
+            @* Reference *@
+            <div class="mobile-field">
+                <label asp-for="Reference" class="mobile-field__label">Reference <span style="font-weight:400;color:var(--w-text-tertiary);font-size:0.8125rem;">(optional)</span></label>
+                <input asp-for="Reference" class="mobile-edit-input" placeholder="Bank account number or pickup ID…" maxlength="200" />
+                <span asp-validation-for="Reference" class="mobile-field-error"></span>
+                <span class="mobile-field__hint">Your bank account number or preferred pickup reference.</span>
+            </div>
+
+            <button type="submit" class="mobile-wallet-btn mobile-wallet-btn--primary" id="wdSubmitBtn" @(available <= 0 ? "disabled" : "")>
+                <svg class="mobile-wallet-btn__icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" /></svg>
+                Request Withdrawal
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function() {
+        var amountInput = document.getElementById('amountInput');
+        var allBtn = document.getElementById('withdrawAllBtn');
+        var form = document.getElementById('wdForm');
+        var submitBtn = document.getElementById('wdSubmitBtn');
+        var methodRadios = document.querySelectorAll('.mobile-wallet-method-radio');
+        var methodLabels = document.querySelectorAll('.mobile-wallet-method');
+
+        if (allBtn && amountInput) {
+            allBtn.addEventListener('click', function() {
+                amountInput.value = amountInput.max;
+            });
+        }
+
+        methodRadios.forEach(function(radio, i) {
+            radio.addEventListener('change', function() {
+                methodLabels.forEach(function(l) { l.classList.remove('mobile-wallet-method--active'); });
+                if (radio.checked) methodLabels[i].classList.add('mobile-wallet-method--active');
+            });
+        });
+
+        if (form && submitBtn) {
+            form.addEventListener('submit', function() {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting…';
+            });
+        }
+    })();
+</script>
